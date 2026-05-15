@@ -27,11 +27,9 @@ export default function Settings() {
   const { data: outreachRaw } = useGetOutreachSettings();
   const outreachSettings = outreachRaw as OutreachSettings | undefined;
 
-  // Profile state
   const [fullName, setFullName] = useState("");
   const updateProfile = useUpdateProfile();
 
-  // ICP state
   const [jobTitles, setJobTitles] = useState<string[]>([]);
   const [buyingSignals, setBuyingSignals] = useState<string[]>([]);
   const [targetIndustries, setTargetIndustries] = useState<string[]>([]);
@@ -40,17 +38,13 @@ export default function Settings() {
   const [excludedIndustries, setExcludedIndustries] = useState<string[]>([]);
   const createIcp = useCreateIcp();
 
-  // Outreach state
   const [monthlyLeadTarget, setMonthlyLeadTarget] = useState<string>("");
   const [messagingFramework, setMessagingFramework] = useState<string>("");
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [linkedinEnabled, setLinkedinEnabled] = useState(true);
   const updateOutreach = useUpdateOutreachSettings();
 
-  // Sync from API
-  useEffect(() => {
-    if (profile?.full_name) setFullName(profile.full_name);
-  }, [profile]);
+  useEffect(() => { if (profile?.full_name) setFullName(profile.full_name); }, [profile]);
 
   useEffect(() => {
     if ((icps as Icp[]).length > 0) {
@@ -76,7 +70,7 @@ export default function Settings() {
   async function handleSaveProfile() {
     try {
       await updateProfile.mutateAsync({ data: { full_name: fullName } });
-      toast({ title: "Profile saved", description: "Your profile has been updated." });
+      toast({ title: "Profile saved" });
     } catch {
       toast({ title: "Error", description: "Could not save profile.", variant: "destructive" });
     }
@@ -84,18 +78,9 @@ export default function Settings() {
 
   async function handleSaveIcp() {
     try {
-      await createIcp.mutateAsync({
-        data: {
-          job_titles: jobTitles,
-          buying_signals: buyingSignals,
-          industries: targetIndustries,
-          company_sizes: targetSize,
-          geographies: targetGeo,
-          excluded_industries: excludedIndustries,
-        },
-      });
+      await createIcp.mutateAsync({ data: { job_titles: jobTitles, buying_signals: buyingSignals, industries: targetIndustries, company_sizes: targetSize, geographies: targetGeo, excluded_industries: excludedIndustries } });
       refetchIcps();
-      toast({ title: "ICP saved", description: "Your ideal customer profile has been updated." });
+      toast({ title: "ICP saved" });
     } catch {
       toast({ title: "Error", description: "Could not save ICP.", variant: "destructive" });
     }
@@ -103,15 +88,8 @@ export default function Settings() {
 
   async function handleSaveOutreach() {
     try {
-      await updateOutreach.mutateAsync({
-        data: {
-          email_enabled: emailEnabled,
-          linkedin_enabled: linkedinEnabled,
-          monthly_lead_target: monthlyLeadTarget ? Number(monthlyLeadTarget) : undefined,
-          messaging_framework: messagingFramework || undefined,
-        },
-      });
-      toast({ title: "Outreach settings saved", description: "Your settings have been updated." });
+      await updateOutreach.mutateAsync({ data: { email_enabled: emailEnabled, linkedin_enabled: linkedinEnabled, monthly_lead_target: monthlyLeadTarget ? Number(monthlyLeadTarget) : undefined, messaging_framework: messagingFramework || undefined } });
+      toast({ title: "Outreach settings saved" });
     } catch {
       toast({ title: "Error", description: "Could not save outreach settings.", variant: "destructive" });
     }
@@ -123,27 +101,33 @@ export default function Settings() {
     { id: "outreach", label: "Outreach" },
   ];
 
+  const chipBase = "px-3 py-2 rounded-lg text-sm transition-colors border cursor-pointer";
+  const chipActive = "bg-[#EFF6FF] border-[#BFDBFE] text-[#2563EB]";
+  const chipInactive = "border-[#E2E8F0] text-[#64748B] hover:text-[#0A0A0A] hover:border-[#CBD5E1] hover:bg-[#F5F7FA]";
+
+  const inputClass = "w-full px-3 py-2.5 bg-white border border-[#E2E8F0] rounded-lg text-sm text-[#0A0A0A] placeholder:text-[#64748B] focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 transition-colors";
+  const saveBtn = "flex items-center gap-2 px-4 py-2.5 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] transition-colors disabled:opacity-50";
+
   return (
     <DashboardLayout>
       <div className="p-8 max-w-3xl mx-auto">
-        <div className="mb-8">
-          <h1
-            style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "2.2rem", letterSpacing: "0.04em" }}
-            className="text-white mb-1"
-          >
+        <div className="mb-8 pt-2">
+          <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "2.2rem", letterSpacing: "0.04em" }} className="text-[#0A0A0A] mb-1">
             Settings
           </h1>
-          <p className="text-[#888888] text-sm">Manage your profile, ICP, and outreach preferences</p>
+          <p className="text-[#64748B] text-sm">Manage your profile, ICP, and outreach preferences</p>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-8 bg-[#1C1C1C] border border-[#2A2A2A] rounded-lg p-1 w-fit">
+        <div className="flex gap-1 mb-8 bg-[#F5F7FA] border border-[#E2E8F0] rounded-lg p-1 w-fit">
           {tabs.map(({ id, label }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
               className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeTab === id ? "bg-[#F5A623] text-[#0E0E0E]" : "text-[#888888] hover:text-white"
+                activeTab === id
+                  ? "bg-white text-[#0A0A0A] shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-[#E2E8F0]"
+                  : "text-[#64748B] hover:text-[#0A0A0A]"
               }`}
             >
               {label}
@@ -152,31 +136,18 @@ export default function Settings() {
         </div>
 
         {activeTab === "profile" && (
-          <div className="bg-[#1C1C1C] border border-[#2A2A2A] rounded-xl p-6 space-y-5">
-            <h2 className="text-white font-semibold">Profile details</h2>
+          <div className="bg-white border border-[#E2E8F0] rounded-xl p-6 space-y-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+            <h2 className="text-[#0A0A0A] font-semibold">Profile details</h2>
             <div>
-              <label className="block text-sm text-[#888888] mb-1.5">Full name</label>
-              <input
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Your name"
-                className="w-full px-3 py-2.5 bg-[#0E0E0E] border border-[#2A2A2A] rounded-lg text-sm text-white placeholder:text-[#888888] focus:outline-none focus:border-[#F5A623] focus:ring-1 focus:ring-[#F5A623]/30 transition-colors"
-              />
+              <label className="block text-sm font-medium text-[#0A0A0A] mb-1.5">Full name</label>
+              <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your name" className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm text-[#888888] mb-1.5">Email</label>
-              <input
-                value={profile?.email ?? ""}
-                disabled
-                className="w-full px-3 py-2.5 bg-[#0E0E0E] border border-[#2A2A2A] rounded-lg text-sm text-[#888888] cursor-not-allowed opacity-50"
-              />
-              <p className="text-xs text-[#888888] mt-1.5">Email cannot be changed here.</p>
+              <label className="block text-sm font-medium text-[#0A0A0A] mb-1.5">Email</label>
+              <input value={profile?.email ?? ""} disabled className={`${inputClass} opacity-50 cursor-not-allowed`} />
+              <p className="text-xs text-[#64748B] mt-1.5">Email cannot be changed here.</p>
             </div>
-            <button
-              onClick={handleSaveProfile}
-              disabled={updateProfile.isPending}
-              className="flex items-center gap-2 px-4 py-2.5 bg-[#F5A623] text-[#0E0E0E] text-sm font-semibold rounded-lg hover:bg-[#E09612] transition-colors disabled:opacity-50"
-            >
+            <button onClick={handleSaveProfile} disabled={updateProfile.isPending} className={saveBtn}>
               {updateProfile.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save changes
             </button>
@@ -184,60 +155,48 @@ export default function Settings() {
         )}
 
         {activeTab === "icp" && (
-          <div className="bg-[#1C1C1C] border border-[#2A2A2A] rounded-xl p-6 space-y-6">
+          <div className="bg-white border border-[#E2E8F0] rounded-xl p-6 space-y-6 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
             <div className="flex items-center justify-between">
-              <h2 className="text-white font-semibold">Ideal Customer Profile</h2>
+              <h2 className="text-[#0A0A0A] font-semibold">Ideal Customer Profile</h2>
               {(icps as Icp[]).length > 0 && (
-                <div className="flex items-center gap-1.5 text-xs text-green-400">
+                <div className="flex items-center gap-1.5 text-xs text-green-700">
                   <CheckCircle className="w-3.5 h-3.5" /> Configured
                 </div>
               )}
             </div>
-
             <div>
-              <label className="block text-sm text-[#888888] mb-1.5">Target job titles</label>
+              <label className="block text-sm font-medium text-[#0A0A0A] mb-1.5">Target job titles</label>
               <TagInput value={jobTitles} onChange={setJobTitles} placeholder="e.g. VP of Sales, Head of Growth" />
             </div>
             <div>
-              <label className="block text-sm text-[#888888] mb-1.5">Buying signals</label>
+              <label className="block text-sm font-medium text-[#0A0A0A] mb-1.5">Buying signals</label>
               <TagInput value={buyingSignals} onChange={setBuyingSignals} placeholder="e.g. hiring SDRs, new funding, CRO hire" />
             </div>
             <div>
-              <label className="block text-sm text-[#888888] mb-1.5">Target industries</label>
+              <label className="block text-sm font-medium text-[#0A0A0A] mb-1.5">Target industries</label>
               <TagInput value={targetIndustries} onChange={setTargetIndustries} placeholder="e.g. SaaS, FinTech" suggestions={INDUSTRIES} />
             </div>
             <div>
-              <label className="block text-sm text-[#888888] mb-2">Company sizes</label>
+              <label className="block text-sm font-medium text-[#0A0A0A] mb-2">Company sizes</label>
               <div className="flex flex-wrap gap-2">
                 {COMPANY_SIZES.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
+                  <button key={s} type="button"
                     onClick={() => setTargetSize((prev) => prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s])}
-                    className={`px-3 py-2 rounded-lg text-sm transition-colors border ${
-                      targetSize.includes(s)
-                        ? "bg-[#F5A623]/10 border-[#F5A623]/40 text-[#F5A623]"
-                        : "border-[#2A2A2A] text-[#888888] hover:text-white hover:border-[#444]"
-                    }`}
-                  >
+                    className={`${chipBase} ${targetSize.includes(s) ? chipActive : chipInactive}`}>
                     {s}
                   </button>
                 ))}
               </div>
             </div>
             <div>
-              <label className="block text-sm text-[#888888] mb-1.5">Geographies</label>
+              <label className="block text-sm font-medium text-[#0A0A0A] mb-1.5">Geographies</label>
               <TagInput value={targetGeo} onChange={setTargetGeo} placeholder="e.g. US, UK, DACH" />
             </div>
             <div>
-              <label className="block text-sm text-[#888888] mb-1.5">Excluded industries</label>
+              <label className="block text-sm font-medium text-[#0A0A0A] mb-1.5">Excluded industries</label>
               <TagInput value={excludedIndustries} onChange={setExcludedIndustries} placeholder="e.g. Government, Non-profit" />
             </div>
-            <button
-              onClick={handleSaveIcp}
-              disabled={createIcp.isPending}
-              className="flex items-center gap-2 px-4 py-2.5 bg-[#F5A623] text-[#0E0E0E] text-sm font-semibold rounded-lg hover:bg-[#E09612] transition-colors disabled:opacity-50"
-            >
+            <button onClick={handleSaveIcp} disabled={createIcp.isPending} className={saveBtn}>
               {createIcp.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save ICP
             </button>
@@ -245,63 +204,43 @@ export default function Settings() {
         )}
 
         {activeTab === "outreach" && (
-          <div className="bg-[#1C1C1C] border border-[#2A2A2A] rounded-xl p-6 space-y-6">
-            <h2 className="text-white font-semibold">Outreach settings</h2>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-[#0E0E0E] border border-[#2A2A2A] rounded-lg">
-                <div>
-                  <p className="text-sm font-medium text-white">Email outreach</p>
-                  <p className="text-xs text-[#888888]">Enable email as an outreach channel</p>
+          <div className="bg-white border border-[#E2E8F0] rounded-xl p-6 space-y-6 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+            <h2 className="text-[#0A0A0A] font-semibold">Outreach settings</h2>
+            <div className="space-y-3">
+              {[
+                { label: "Email outreach", sub: "Enable email as an outreach channel", val: emailEnabled, set: setEmailEnabled },
+                { label: "LinkedIn outreach", sub: "Enable LinkedIn as an outreach channel", val: linkedinEnabled, set: setLinkedinEnabled },
+              ].map(({ label, sub, val, set }) => (
+                <div key={label} className="flex items-center justify-between p-4 bg-[#F5F7FA] border border-[#E2E8F0] rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium text-[#0A0A0A]">{label}</p>
+                    <p className="text-xs text-[#64748B]">{sub}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => set((v) => !v)}
+                    className={`w-11 h-6 rounded-full transition-colors relative ${val ? "bg-[#2563EB]" : "bg-[#CBD5E1]"}`}
+                  >
+                    <span className={`block w-4 h-4 bg-white rounded-full absolute top-1 shadow-sm transition-transform ${val ? "translate-x-6" : "translate-x-1"}`} />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setEmailEnabled((v) => !v)}
-                  className={`w-11 h-6 rounded-full transition-colors relative ${emailEnabled ? "bg-[#F5A623]" : "bg-[#2A2A2A]"}`}
-                >
-                  <span className={`block w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${emailEnabled ? "translate-x-6" : "translate-x-1"}`} />
-                </button>
-              </div>
-              <div className="flex items-center justify-between p-4 bg-[#0E0E0E] border border-[#2A2A2A] rounded-lg">
-                <div>
-                  <p className="text-sm font-medium text-white">LinkedIn outreach</p>
-                  <p className="text-xs text-[#888888]">Enable LinkedIn as an outreach channel</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setLinkedinEnabled((v) => !v)}
-                  className={`w-11 h-6 rounded-full transition-colors relative ${linkedinEnabled ? "bg-[#F5A623]" : "bg-[#2A2A2A]"}`}
-                >
-                  <span className={`block w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${linkedinEnabled ? "translate-x-6" : "translate-x-1"}`} />
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm text-[#888888] mb-1.5">Monthly lead target</label>
-              <input
-                type="number"
-                value={monthlyLeadTarget}
-                onChange={(e) => setMonthlyLeadTarget(e.target.value)}
-                placeholder="e.g. 50"
-                className="w-full px-3 py-2.5 bg-[#0E0E0E] border border-[#2A2A2A] rounded-lg text-sm text-white placeholder:text-[#888888] focus:outline-none focus:border-[#F5A623] focus:ring-1 focus:ring-[#F5A623]/30 transition-colors"
-              />
+              ))}
             </div>
             <div>
-              <label className="block text-sm text-[#888888] mb-1.5">Messaging framework</label>
+              <label className="block text-sm font-medium text-[#0A0A0A] mb-1.5">Monthly lead target</label>
+              <input type="number" value={monthlyLeadTarget} onChange={(e) => setMonthlyLeadTarget(e.target.value)} placeholder="e.g. 50" className={inputClass} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#0A0A0A] mb-1.5">Messaging framework</label>
               <textarea
                 value={messagingFramework}
                 onChange={(e) => setMessagingFramework(e.target.value)}
                 placeholder="Describe your outreach approach, key messages, or value props to lead with..."
                 rows={4}
-                className="w-full px-3 py-2.5 bg-[#0E0E0E] border border-[#2A2A2A] rounded-lg text-sm text-white placeholder:text-[#888888] focus:outline-none focus:border-[#F5A623] focus:ring-1 focus:ring-[#F5A623]/30 transition-colors resize-none"
+                className={`${inputClass} resize-none`}
               />
             </div>
-            <button
-              onClick={handleSaveOutreach}
-              disabled={updateOutreach.isPending}
-              className="flex items-center gap-2 px-4 py-2.5 bg-[#F5A623] text-[#0E0E0E] text-sm font-semibold rounded-lg hover:bg-[#E09612] transition-colors disabled:opacity-50"
-            >
+            <button onClick={handleSaveOutreach} disabled={updateOutreach.isPending} className={saveBtn}>
               {updateOutreach.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save settings
             </button>

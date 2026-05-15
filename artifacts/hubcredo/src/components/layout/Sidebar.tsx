@@ -20,13 +20,13 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="flex flex-col w-56 min-h-screen bg-[#0E0E0E] border-r border-[#2A2A2A] shrink-0">
-      <div className="p-6 border-b border-[#2A2A2A]">
+    <aside className="flex flex-col w-56 min-h-screen bg-[#F5F7FA] border-r border-[#E2E8F0] shrink-0">
+      <div className="p-6 border-b border-[#E2E8F0]">
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-[#F5A623] rounded flex items-center justify-center">
-            <Zap className="w-4 h-4 text-[#0E0E0E]" />
+          <div className="w-7 h-7 bg-[#2563EB] rounded flex items-center justify-center">
+            <Zap className="w-4 h-4 text-white" />
           </div>
-          <span className="font-bold text-white tracking-tight" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.25rem", letterSpacing: "0.05em" }}>
+          <span className="font-bold text-[#0A0A0A] tracking-tight" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.25rem", letterSpacing: "0.05em" }}>
             HubCredo
           </span>
         </Link>
@@ -41,8 +41,8 @@ export function Sidebar() {
               href={href}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 isActive
-                  ? "bg-[#F5A623]/10 text-[#F5A623]"
-                  : "text-[#888888] hover:text-white hover:bg-[#1C1C1C]"
+                  ? "bg-[#EFF6FF] text-[#2563EB]"
+                  : "text-[#64748B] hover:text-[#0A0A0A] hover:bg-white"
               }`}
               data-testid={`nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
             >
@@ -53,19 +53,19 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-[#2A2A2A]">
+      <div className="p-4 border-t border-[#E2E8F0]">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 rounded-full bg-[#F5A623]/20 border border-[#F5A623]/30 flex items-center justify-center text-[#F5A623] text-xs font-bold">
+          <div className="w-8 h-8 rounded-full bg-[#EFF6FF] border border-[#BFDBFE] flex items-center justify-center text-[#2563EB] text-xs font-bold">
             {profile?.full_name?.[0]?.toUpperCase() || profile?.email?.[0]?.toUpperCase() || "U"}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">{profile?.full_name || "Founder"}</p>
-            <p className="text-xs text-[#888888] truncate">{profile?.email || ""}</p>
+            <p className="text-sm font-medium text-[#0A0A0A] truncate">{profile?.full_name || "Founder"}</p>
+            <p className="text-xs text-[#64748B] truncate">{profile?.email || ""}</p>
           </div>
         </div>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[#888888] hover:text-white hover:bg-[#1C1C1C] rounded-lg transition-colors"
+          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[#64748B] hover:text-[#0A0A0A] hover:bg-white rounded-lg transition-colors"
           data-testid="button-logout"
         >
           <LogOut className="w-4 h-4" />

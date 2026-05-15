@@ -49,7 +49,7 @@ A guided sales infrastructure platform for founders — analyses your website, e
 
 ## User preferences
 
-- Design: dark editorial — charcoal `#0E0E0E` bg, amber `#F5A623` accent, Bebas Neue display font, DM Sans body
+- Design: clean light — white `#FFFFFF` bg, blue `#2563EB` accent, `#F5F7FA` secondary bg, `#E2E8F0` borders, `#0A0A0A` text, `#64748B` secondary text, Bebas Neue display font, DM Sans body. Similar to Linear/Stripe.
 
 ## Gotchas
 

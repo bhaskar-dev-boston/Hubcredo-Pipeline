@@ -1,0 +1,479 @@
+Build a full-stack Next.js web application called HubCredo — a guided sales infrastructure platform for founders. The app takes a website URL, scrapes it via n8n/Apify, extracts ICP signals using Groq LLM, lets the founder confirm their ICP through a wizard, then generates a LinkedIn lead list and recommends a tool stack.
+
+Tech Stack
+
+Framework: Next.js 14 (App Router)
+Styling: Tailwind CSS
+Auth + Database: Supabase (provided credentials below)
+Automation: n8n webhooks (URLs provided below)
+Language: TypeScript
+
+
+Environment Variables
+Create a .env.local file with these variables:
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+n8n Webhook URLs
+
+Website scraping + ICP extraction: https://shreyahubcredo.app.n8n.cloud/webhook-test/lead-scrapping
+
+Triggered when user submits their website URL
+Payload: { user_id, website_url, analysis_id }
+n8n will crawl the website via Apify, extract keywords and ICP signals via Groq, and write results back to Supabase company_analyses table
+
+
+Lead list generation: https://shreyahubcredo.app.n8n.cloud/webhook-test/lead-scrapping-list
+
+Triggered when user clicks "Confirm ICP" in the wizard
+Payload: { user_id, icp_id, lead_list_id }
+n8n will scrape LinkedIn via Apify using ICP filters and write leads back to Supabase leads table
+
+
+
+
+Supabase Schema
+The following tables already exist in Supabase. Do not create them — just connect to them.
+profiles
+sqlid UUID PRIMARY KEY REFERENCES auth.users(id)
+email TEXT NOT NULL
+full_name TEXT
+avatar_url TEXT
+onboarding_step TEXT DEFAULT 'not_started'
+onboarding_complete BOOLEAN DEFAULT FALSE
+subscription_tier TEXT DEFAULT 'free'
+subscription_status TEXT DEFAULT 'active'
+credit_balance INTEGER DEFAULT 200
+created_at TIMESTAMPTZ
+updated_at TIMESTAMPTZ
+company_analyses
+sqlid UUID PRIMARY KEY
+user_id UUID REFERENCES profiles(id)
+website_url TEXT
+apify_run_id TEXT
+crawled_pages_count INTEGER
+raw_crawled_data JSONB
+groq_model TEXT
+company_name TEXT
+tagline TEXT
+product_summary TEXT
+target_market TEXT
+value_props JSONB        -- array of strings
+keywords JSONB           -- array of strings
+icp_signals JSONB        -- array of strings
+positioning TEXT
+n8n_execution_id TEXT
+n8n_workflow_id TEXT
+processing_status TEXT   -- 'pending' | 'crawling' | 'extracting' | 'complete' | 'failed'
+error_message TEXT
+is_current BOOLEAN DEFAULT TRUE
+created_at TIMESTAMPTZ
+updated_at TIMESTAMPTZ
+icps
+sqlid UUID PRIMARY KEY
+user_id UUID REFERENCES profiles(id)
+job_titles JSONB          -- ["VP Sales", "Head of Growth"]
+company_sizes JSONB       -- ["11-50", "51-200"]
+industries JSONB          -- ["SaaS", "Fintech"]
+geographies JSONB         -- ["United States", "United Kingdom"]
+buying_signals JSONB      -- ["recently funded", "hiring SDRs"]
+excluded_industries JSONB
+excluded_company_sizes JSONB
+ai_suggested BOOLEAN DEFAULT FALSE
+is_current BOOLEAN DEFAULT TRUE
+created_at TIMESTAMPTZ
+updated_at TIMESTAMPTZ
+outreach_settings
+sqlid UUID PRIMARY KEY
+user_id UUID REFERENCES profiles(id)
+email_enabled BOOLEAN DEFAULT FALSE
+linkedin_enabled BOOLEAN DEFAULT FALSE
+monthly_lead_target INTEGER
+monthly_email_target INTEGER
+monthly_linkedin_target INTEGER
+messaging_framework TEXT
+is_current BOOLEAN DEFAULT TRUE
+created_at TIMESTAMPTZ
+updated_at TIMESTAMPTZ
+tools_catalogue
+sqlid UUID PRIMARY KEY
+slug TEXT UNIQUE
+name TEXT
+category TEXT            -- 'leads' | 'email' | 'linkedin' | 'crm' | 'warmup' | 'domain' | 'alerts'
+description TEXT
+logo_url TEXT
+pricing_summary TEXT
+referral_url TEXT
+setup_guide_url TEXT
+phase TEXT               -- 'mvp' | 'phase2'
+is_active BOOLEAN DEFAULT TRUE
+created_at TIMESTAMPTZ
+stack_recommendations
+sqlid UUID PRIMARY KEY
+user_id UUID REFERENCES profiles(id)
+icp_id UUID REFERENCES icps(id)
+settings_id UUID REFERENCES outreach_settings(id)
+tools JSONB              -- array of tool objects
+is_current BOOLEAN DEFAULT TRUE
+created_at TIMESTAMPTZ
+lead_lists
+sqlid UUID PRIMARY KEY
+user_id UUID REFERENCES profiles(id)
+icp_id UUID REFERENCES icps(id)
+label TEXT DEFAULT 'Lead List 1'
+source TEXT DEFAULT 'linkedin'
+total_count INTEGER DEFAULT 0
+status TEXT DEFAULT 'pending'  -- 'pending' | 'scraping' | 'ready' | 'approved' | 'archived'
+apify_run_id TEXT
+apify_actor_id TEXT
+linkedin_search_url TEXT
+scraper_filters JSONB
+n8n_execution_id TEXT
+n8n_workflow_id TEXT
+processing_status TEXT   -- 'pending' | 'scraping' | 'processing' | 'complete' | 'failed'
+error_message TEXT
+created_at TIMESTAMPTZ
+updated_at TIMESTAMPTZ
+leads
+sqlid UUID PRIMARY KEY
+lead_list_id UUID REFERENCES lead_lists(id)
+user_id UUID REFERENCES profiles(id)
+first_name TEXT
+last_name TEXT
+email TEXT
+linkedin_url TEXT
+job_title TEXT
+seniority TEXT
+department TEXT
+company_name TEXT
+company_domain TEXT
+company_size TEXT
+industry TEXT
+hq_country TEXT
+hq_city TEXT
+linkedin_id TEXT UNIQUE
+profile_picture_url TEXT
+connections_count INTEGER
+linkedin_summary TEXT
+apify_run_id TEXT
+raw_scraped_data JSONB
+research_blurb TEXT
+blurb_generated_at TIMESTAMPTZ
+review_status TEXT DEFAULT 'pending'  -- 'pending' | 'approved' | 'rejected' | 'contacted'
+reviewed_at TIMESTAMPTZ
+rejection_reason TEXT
+created_at TIMESTAMPTZ
+updated_at TIMESTAMPTZ
+
+Pages & Routes
+1. / — Landing Page
+Design direction: Dark theme. Sharp, editorial. Think a cross between Linear and Stripe — but with more personality. NOT purple gradients. Use deep charcoal (#0E0E0E) background, off-white text, and a single sharp accent color (electric amber #F5A623 or acid green #AAFF00 — pick one and commit). Typography: use a bold condensed display font (e.g. Bebas Neue or Barlow Condensed) for headlines paired with DM Sans for body. Must feel like it was designed by a human who cares.
+Sections:
+
+Hero: Bold headline ("Stop stitching tools. Start selling."), subheadline explaining the value prop, single CTA button "Get Early Access" → scrolls to waitlist or routes to /signup
+Problem: Short punchy section — "The average founder juggles 8–12 tools just to run outbound. Most never start. Most who do, start wrong." Use a visual showing the fragmented tool stack.
+How it works: 4 steps with icons — Enter URL → AI analyses your business → Confirm your ICP → Get leads + stack. Clean numbered flow, not bullet points.
+Stack preview: Show tool cards (Apollo, Instantly, Expandi, HubSpot etc.) as "what we recommend and set up for you"
+CTA section: "You're one URL away from your first campaign." + signup button
+Footer: Minimal. Logo, copyright, links.
+
+No fake testimonials. No stock photos. No lorem ipsum.
+
+2. /signup — Sign Up Page
+
+Email + password signup
+Google OAuth button (via Supabase)
+Link to /login
+On success → redirect to /onboarding
+
+3. /login — Login Page
+
+Email + password login
+Google OAuth button
+Link to /signup
+On success → redirect to /dashboard if onboarding complete, else /onboarding
+
+
+4. /onboarding — Multi-Step Wizard
+This is the core of the product. A clean step-by-step flow. Show a progress bar at the top. Each step saves to Supabase and updates profiles.onboarding_step.
+Step 1 — Website URL Input
+
+Large centered input: "Enter your website URL"
+Subtext: "We'll analyse your entire site and extract your ICP automatically"
+Submit button: "Analyse My Website"
+On submit:
+
+Create a row in company_analyses with processing_status = 'pending'
+POST to https://shreyahubcredo.app.n8n.cloud/webhook-test/lead-scrapping with payload: { user_id, website_url, analysis_id }
+Show a loading state: animated progress indicator with status messages cycling through:
+
+"Crawling your website..."
+"Reading your pages..."
+"Extracting ICP signals with AI..."
+"Almost done..."
+
+
+Poll company_analyses table every 3 seconds checking processing_status
+When processing_status = 'complete' → auto-advance to Step 2
+If processing_status = 'failed' → show error with retry button
+
+
+
+Step 2 — Company Analysis Review
+
+Show the AI-extracted results from company_analyses:
+
+Company name
+Product summary
+Target market
+Value props (as tags/chips)
+Keywords (as tags/chips)
+ICP signals (as tags/chips)
+
+
+Editable fields — founder can adjust anything
+Button: "Looks good, continue" → saves any edits and advances to Step 3
+
+Step 3 — ICP Wizard
+Pre-filled from icp_signals extracted in Step 1. Founder confirms or adjusts.
+Fields (each as a multi-select tag input):
+
+Job Titles — e.g. "VP Sales", "Head of Growth", "Founder"
+Company Sizes — options: 1-10, 11-50, 51-200, 201-500, 500+
+Industries — free text + suggestions from analysis
+Geographies — country/region multi-select
+Buying Signals — e.g. "recently funded", "hiring SDRs", "using Salesforce"
+Excluded Industries — optional
+
+Save to icps table with ai_suggested = true.
+Button: "This is my ICP" → advance to Step 4
+Step 4 — Channel & Volume
+
+Toggle switches: Email outreach and/or LinkedIn outreach
+Slider or number input: Monthly lead target (10 / 25 / 50 / 100+)
+Save to outreach_settings
+Button: "Set up my stack" → advance to Step 5
+
+Step 5 — Stack Recommendation
+
+Run decision tree logic (see Stack Logic below)
+Display recommended tools as cards. Each card shows:
+
+Tool logo/icon
+Tool name
+Why it was recommended (1 line)
+Phase badge (MVP = available now, Phase 2 = coming soon)
+
+
+Save to stack_recommendations
+Button: "Confirm & Find My Leads" →
+
+Create a row in lead_lists with processing_status = 'pending'
+POST to https://shreyahubcredo.app.n8n.cloud/webhook-test/lead-scrapping-list with payload: { user_id, icp_id, lead_list_id }
+Advance to Step 6
+
+
+
+Step 6 — Lead List Loading
+
+Full screen loading state while n8n scrapes LinkedIn
+Animated status messages:
+
+"Building your LinkedIn search..."
+"Scraping matching profiles..."
+"Generating research blurbs..."
+"Finalising your lead list..."
+
+
+Poll lead_lists table every 3 seconds on processing_status
+When processing_status = 'complete' → redirect to /dashboard
+
+
+5. /dashboard — Main Dashboard
+Layout: Sidebar nav on left, main content area on right.
+Sidebar items:
+
+HubCredo logo
+Dashboard (home)
+My Leads
+My Stack
+Settings
+User avatar + name at bottom
+
+Dashboard home:
+
+Welcome message: "Good morning, [name]. Here's your outbound setup."
+Stats row: Total leads, Approved leads, Pending review, Stack tools ready
+Recent lead list preview (5 leads) with link to full list
+Stack recommendation summary cards
+
+
+6. /dashboard/leads — Lead Review Page
+
+Table of all leads from leads table
+Columns: Name, Job Title, Company, Industry, Location, LinkedIn, Research Blurb, Status
+Actions per row: Approve ✓ | Reject ✗
+Bulk actions: Approve All, Reject Selected
+Filter by: review_status, industry, company_size, country
+"Request More Leads" button → triggers n8n webhook again with same ICP
+Empty state if no leads yet
+
+
+7. /dashboard/stack — Stack Recommendation Page
+
+Cards for each recommended tool
+Show: tool name, category, description, why recommended
+Phase 2 tools shown as "Coming Soon" with greyed out style
+Each active tool has a "Set Up" button (links to tool website for now)
+
+
+8. /dashboard/settings — Settings Page
+
+Profile info (name, email) — editable
+Subscription tier display
+Credit balance display
+Danger zone: Delete account
+
+
+Stack Recommendation Decision Tree Logic
+Build this as a utility function lib/stackLogic.ts:
+IF email_enabled:
+  → recommend 'apollo' (leads, mvp)
+  → recommend 'instantly' (email, phase2)
+  → recommend 'mailreach' (warmup, phase2)
+
+IF linkedin_enabled:
+  → recommend 'apollo' (leads, mvp) -- if not already added
+  → recommend 'expandi' (linkedin, phase2)
+
+IF monthly_lead_target >= 50:
+  → recommend 'hubspot' (crm, phase2)
+
+IF email_enabled AND linkedin_enabled:
+  → recommend 'slack' (alerts, phase2)
+
+ALWAYS recommend:
+  → 'apollo' (leads, mvp)
+Save the output as a JSONB array in stack_recommendations.tools:
+json[
+  {
+    "slug": "apollo",
+    "tool_name": "Apollo.io",
+    "category": "leads",
+    "reason": "Best source for B2B leads matching your ICP",
+    "is_required": true,
+    "phase": "mvp"
+  }
+]
+
+Supabase Auth Setup
+
+Use @supabase/ssr for server-side auth in Next.js App Router
+Create middleware to protect all /dashboard and /onboarding routes
+Redirect unauthenticated users to /login
+After Google OAuth, check if profiles.onboarding_complete = true:
+
+Yes → /dashboard
+No → /onboarding
+
+
+Create profile row automatically on first sign in if it doesn't exist
+
+
+Real-time Polling Logic
+For both loading states (website analysis and lead generation):
+typescriptconst pollStatus = async (table: string, id: string, field: string) => {
+  const interval = setInterval(async () => {
+    const { data } = await supabase
+      .from(table)
+      .select(field)
+      .eq('id', id)
+      .single()
+
+    if (data?.[field] === 'complete') {
+      clearInterval(interval)
+      // advance to next step
+    }
+    if (data?.[field] === 'failed') {
+      clearInterval(interval)
+      // show error state
+    }
+  }, 3000)
+}
+
+Design System
+Apply these across all pages:
+css/* Colors */
+--bg-primary: #0E0E0E
+--bg-secondary: #161616
+--bg-card: #1C1C1C
+--border: #2A2A2A
+--text-primary: #F5F5F5
+--text-secondary: #888888
+--accent: #F5A623        /* amber accent */
+--accent-hover: #E09612
+--success: #22C55E
+--error: #EF4444
+--warning: #F59E0B
+
+/* Typography */
+Display font: Bebas Neue (headlines)
+Body font: DM Sans (all body text, UI elements)
+
+/* Spacing */
+Use 8px base grid throughout
+
+/* Borders */
+Subtle 1px borders using --border color
+Border radius: 8px for cards, 6px for inputs, 4px for badges
+
+/* Shadows */
+Cards: 0 1px 3px rgba(0,0,0,0.4)
+Modals: 0 8px 32px rgba(0,0,0,0.6)
+
+Component Guidelines
+
+All form inputs: dark background (#1C1C1C), subtle border, white text, amber focus ring
+Buttons: Primary = amber background + dark text. Secondary = transparent + border. Destructive = red.
+Loading spinners: simple amber spinning ring
+Toast notifications: bottom-right, dark card style
+Tags/chips: small rounded pills with subtle background
+Tables: dark rows, subtle hover state, no heavy borders
+
+
+File Structure
+/app
+  /page.tsx                  (landing page)
+  /login/page.tsx
+  /signup/page.tsx
+  /onboarding/page.tsx       (multi-step wizard)
+  /dashboard
+    /page.tsx                (dashboard home)
+    /leads/page.tsx
+    /stack/page.tsx
+    /settings/page.tsx
+  /api
+    /webhook/analysis/route.ts
+    /webhook/leads/route.ts
+/components
+  /ui                        (Button, Input, Card, Badge, Toast, Spinner)
+  /onboarding                (StepURL, StepReview, StepICP, StepChannels, StepStack, StepLoading)
+  /dashboard                 (Sidebar, StatsRow, LeadTable, StackCard)
+  /landing                   (Hero, HowItWorks, Problem, StackPreview, CTA)
+/lib
+  /supabase.ts               (client + server supabase instances)
+  /stackLogic.ts             (decision tree)
+  /hooks                     (usePolling, useOnboarding, useLeads)
+/middleware.ts               (auth protection)
+
+Important Rules
+
+No mock data — all data comes from Supabase
+No placeholder text — every string must be real product copy
+Every page must handle loading, error, and empty states
+Mobile responsive — all pages must work on mobile
+The landing page must feel hand-crafted — no generic AI aesthetics, no purple gradients, no stock photos
+Supabase client must be initialized properly for both client and server components using @supabase/ssr
+All n8n webhook calls must be made server-side via Next.js API routes — never expose webhook URLs in client code
+TypeScript strict mode — no any types

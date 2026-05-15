@@ -1,8 +1,26 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import authRouter from "./auth";
+import analysesRouter from "./analyses";
+import icpsRouter from "./icps";
+import settingsRouter from "./settings";
+import stacksRouter from "./stacks";
+import leadsRouter from "./leads";
+import dashboardRouter from "./dashboard";
+import webhooksRouter from "./webhooks";
+import toolsRouter from "./tools";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(authRouter);
+router.use(analysesRouter);
+router.use(icpsRouter);
+router.use(settingsRouter);
+router.use(stacksRouter);
+router.use(leadsRouter);
+router.use(dashboardRouter);
+router.use(webhooksRouter);
+router.use(toolsRouter);
 
 export default router;

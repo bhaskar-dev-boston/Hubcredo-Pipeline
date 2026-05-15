@@ -3,20 +3,36 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: HubCredo API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: analyses
+    description: Company analysis operations
+  - name: icps
+    description: ICP (Ideal Customer Profile) operations
+  - name: leads
+    description: Lead operations
+  - name: stacks
+    description: Stack recommendation operations
+  - name: settings
+    description: Outreach settings operations
+  - name: webhooks
+    description: n8n webhook proxy operations
+  - name: dashboard
+    description: Dashboard summary operations
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +40,529 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # Auth / Profile
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "401":
+          description: Unauthorized
+
+  /auth/profile:
+    patch:
+      operationId: updateProfile
+      tags: [auth]
+      summary: Update user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+
+  # Company Analyses
+  /analyses:
+    get:
+      operationId: listAnalyses
+      tags: [analyses]
+      summary: List company analyses for current user
+      responses:
+        "200":
+          description: List of analyses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CompanyAnalysis"
+
+    post:
+      operationId: createAnalysis
+      tags: [analyses]
+      summary: Create a new company analysis and trigger n8n scraping
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalysisInput"
+      responses:
+        "201":
+          description: Created analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyAnalysis"
+
+  /analyses/current:
+    get:
+      operationId: getCurrentAnalysis
+      tags: [analyses]
+      summary: Get the current (most recent) analysis for the user
+      responses:
+        "200":
+          description: Current analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyAnalysis"
+        "404":
+          description: No analysis found
+
+  /analyses/{id}:
+    get:
+      operationId: getAnalysis
+      tags: [analyses]
+      summary: Get a specific company analysis
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyAnalysis"
+        "404":
+          description: Not found
+
+    patch:
+      operationId: updateAnalysis
+      tags: [analyses]
+      summary: Update analysis (for founder edits in Step 2)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalysisUpdate"
+      responses:
+        "200":
+          description: Updated analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyAnalysis"
+
+  # ICPs
+  /icps:
+    get:
+      operationId: listIcps
+      tags: [icps]
+      summary: List ICPs for current user
+      responses:
+        "200":
+          description: List of ICPs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Icp"
+
+    post:
+      operationId: createIcp
+      tags: [icps]
+      summary: Create a new ICP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IcpInput"
+      responses:
+        "201":
+          description: Created ICP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Icp"
+
+  /icps/current:
+    get:
+      operationId: getCurrentIcp
+      tags: [icps]
+      summary: Get the current ICP
+      responses:
+        "200":
+          description: Current ICP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Icp"
+        "404":
+          description: No ICP found
+
+  /icps/{id}:
+    patch:
+      operationId: updateIcp
+      tags: [icps]
+      summary: Update an ICP
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IcpUpdate"
+      responses:
+        "200":
+          description: Updated ICP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Icp"
+
+  # Outreach Settings
+  /settings/outreach:
+    get:
+      operationId: getOutreachSettings
+      tags: [settings]
+      summary: Get outreach settings for current user
+      responses:
+        "200":
+          description: Outreach settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutreachSettings"
+        "404":
+          description: No settings found
+
+    post:
+      operationId: createOutreachSettings
+      tags: [settings]
+      summary: Create outreach settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OutreachSettingsInput"
+      responses:
+        "201":
+          description: Created settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutreachSettings"
+
+    patch:
+      operationId: updateOutreachSettings
+      tags: [settings]
+      summary: Update outreach settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OutreachSettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutreachSettings"
+
+  # Stack Recommendations
+  /stacks:
+    get:
+      operationId: listStacks
+      tags: [stacks]
+      summary: List stack recommendations for current user
+      responses:
+        "200":
+          description: Stack recommendations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StackRecommendation"
+
+    post:
+      operationId: createStack
+      tags: [stacks]
+      summary: Generate and save a stack recommendation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StackInput"
+      responses:
+        "201":
+          description: Created stack recommendation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StackRecommendation"
+
+  /stacks/current:
+    get:
+      operationId: getCurrentStack
+      tags: [stacks]
+      summary: Get the current stack recommendation
+      responses:
+        "200":
+          description: Current stack recommendation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StackRecommendation"
+        "404":
+          description: No stack found
+
+  # Lead Lists
+  /lead-lists:
+    get:
+      operationId: listLeadLists
+      tags: [leads]
+      summary: List lead lists for current user
+      responses:
+        "200":
+          description: Lead lists
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeadList"
+
+    post:
+      operationId: createLeadList
+      tags: [leads]
+      summary: Create a new lead list and trigger n8n scraping
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadListInput"
+      responses:
+        "201":
+          description: Created lead list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadList"
+
+  /lead-lists/current:
+    get:
+      operationId: getCurrentLeadList
+      tags: [leads]
+      summary: Get the most recent lead list
+      responses:
+        "200":
+          description: Current lead list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadList"
+        "404":
+          description: No lead list found
+
+  /lead-lists/{id}:
+    get:
+      operationId: getLeadList
+      tags: [leads]
+      summary: Get a specific lead list
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lead list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadList"
+
+  # Leads
+  /leads:
+    get:
+      operationId: listLeads
+      tags: [leads]
+      summary: List leads with optional filters
+      parameters:
+        - name: lead_list_id
+          in: query
+          schema:
+            type: string
+        - name: review_status
+          in: query
+          schema:
+            type: string
+        - name: industry
+          in: query
+          schema:
+            type: string
+        - name: company_size
+          in: query
+          schema:
+            type: string
+        - name: hq_country
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Leads
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Lead"
+
+  /leads/{id}/review:
+    patch:
+      operationId: reviewLead
+      tags: [leads]
+      summary: Approve or reject a lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadReview"
+      responses:
+        "200":
+          description: Updated lead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+
+  /leads/bulk-review:
+    post:
+      operationId: bulkReviewLeads
+      tags: [leads]
+      summary: Bulk approve or reject leads
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkLeadReview"
+      responses:
+        "200":
+          description: Updated leads count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkReviewResult"
+
+  # Dashboard Summary (wow endpoint)
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard summary stats
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  # Webhooks (server-side proxies for n8n — never expose n8n URLs to client)
+  /webhooks/trigger-analysis:
+    post:
+      operationId: triggerAnalysis
+      tags: [webhooks]
+      summary: Trigger n8n website analysis webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TriggerAnalysisInput"
+      responses:
+        "200":
+          description: Webhook triggered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookResult"
+
+  /webhooks/trigger-lead-scraping:
+    post:
+      operationId: triggerLeadScraping
+      tags: [webhooks]
+      summary: Trigger n8n lead list scraping webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TriggerLeadScrapingInput"
+      responses:
+        "200":
+          description: Webhook triggered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookResult"
+
+  # Tools Catalogue
+  /tools:
+    get:
+      operationId: listTools
+      tags: [stacks]
+      summary: List all tools in the catalogue
+      responses:
+        "200":
+          description: Tools
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tool"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +573,298 @@ components:
       required:
         - status
 
+    Profile:
+      type: object
+      required: [id, email]
+      properties:
+        id:              { type: string }
+        email:           { type: string }
+        full_name:       { type: ["string", "null"] }
+        avatar_url:      { type: ["string", "null"] }
+        onboarding_step: { type: ["string", "null"] }
+        onboarding_complete: { type: boolean }
+        subscription_tier:   { type: string }
+        subscription_status: { type: string }
+        credit_balance:      { type: integer }
+        created_at:      { type: ["string", "null"] }
+        updated_at:      { type: ["string", "null"] }
+
+    ProfileUpdate:
+      type: object
+      properties:
+        full_name:        { type: string }
+        avatar_url:       { type: string }
+        onboarding_step:  { type: string }
+        onboarding_complete: { type: boolean }
+
+    CompanyAnalysis:
+      type: object
+      required: [id, user_id, processing_status]
+      properties:
+        id:                   { type: string }
+        user_id:              { type: string }
+        website_url:          { type: ["string", "null"] }
+        company_name:         { type: ["string", "null"] }
+        tagline:              { type: ["string", "null"] }
+        product_summary:      { type: ["string", "null"] }
+        target_market:        { type: ["string", "null"] }
+        value_props:          { type: ["array", "null"], items: { type: string } }
+        keywords:             { type: ["array", "null"], items: { type: string } }
+        icp_signals:          { type: ["array", "null"], items: { type: string } }
+        positioning:          { type: ["string", "null"] }
+        processing_status:    { type: string }
+        error_message:        { type: ["string", "null"] }
+        is_current:           { type: boolean }
+        created_at:           { type: ["string", "null"] }
+        updated_at:           { type: ["string", "null"] }
+
+    AnalysisInput:
+      type: object
+      required: [website_url]
+      properties:
+        website_url: { type: string }
+
+    AnalysisUpdate:
+      type: object
+      properties:
+        company_name:     { type: string }
+        tagline:          { type: string }
+        product_summary:  { type: string }
+        target_market:    { type: string }
+        value_props:      { type: array, items: { type: string } }
+        keywords:         { type: array, items: { type: string } }
+        icp_signals:      { type: array, items: { type: string } }
+        positioning:      { type: string }
+
+    Icp:
+      type: object
+      required: [id, user_id]
+      properties:
+        id:                       { type: string }
+        user_id:                  { type: string }
+        job_titles:               { type: ["array", "null"], items: { type: string } }
+        company_sizes:            { type: ["array", "null"], items: { type: string } }
+        industries:               { type: ["array", "null"], items: { type: string } }
+        geographies:              { type: ["array", "null"], items: { type: string } }
+        buying_signals:           { type: ["array", "null"], items: { type: string } }
+        excluded_industries:      { type: ["array", "null"], items: { type: string } }
+        excluded_company_sizes:   { type: ["array", "null"], items: { type: string } }
+        ai_suggested:             { type: boolean }
+        is_current:               { type: boolean }
+        created_at:               { type: ["string", "null"] }
+        updated_at:               { type: ["string", "null"] }
+
+    IcpInput:
+      type: object
+      properties:
+        job_titles:               { type: array, items: { type: string } }
+        company_sizes:            { type: array, items: { type: string } }
+        industries:               { type: array, items: { type: string } }
+        geographies:              { type: array, items: { type: string } }
+        buying_signals:           { type: array, items: { type: string } }
+        excluded_industries:      { type: array, items: { type: string } }
+        excluded_company_sizes:   { type: array, items: { type: string } }
+        ai_suggested:             { type: boolean }
+
+    IcpUpdate:
+      type: object
+      properties:
+        job_titles:               { type: array, items: { type: string } }
+        company_sizes:            { type: array, items: { type: string } }
+        industries:               { type: array, items: { type: string } }
+        geographies:              { type: array, items: { type: string } }
+        buying_signals:           { type: array, items: { type: string } }
+        excluded_industries:      { type: array, items: { type: string } }
+        excluded_company_sizes:   { type: array, items: { type: string } }
+
+    OutreachSettings:
+      type: object
+      required: [id, user_id]
+      properties:
+        id:                       { type: string }
+        user_id:                  { type: string }
+        email_enabled:            { type: boolean }
+        linkedin_enabled:         { type: boolean }
+        monthly_lead_target:      { type: ["integer", "null"] }
+        monthly_email_target:     { type: ["integer", "null"] }
+        monthly_linkedin_target:  { type: ["integer", "null"] }
+        messaging_framework:      { type: ["string", "null"] }
+        is_current:               { type: boolean }
+        created_at:               { type: ["string", "null"] }
+        updated_at:               { type: ["string", "null"] }
+
+    OutreachSettingsInput:
+      type: object
+      properties:
+        email_enabled:            { type: boolean }
+        linkedin_enabled:         { type: boolean }
+        monthly_lead_target:      { type: integer }
+        monthly_email_target:     { type: integer }
+        monthly_linkedin_target:  { type: integer }
+        messaging_framework:      { type: string }
+
+    OutreachSettingsUpdate:
+      type: object
+      properties:
+        email_enabled:            { type: boolean }
+        linkedin_enabled:         { type: boolean }
+        monthly_lead_target:      { type: integer }
+        monthly_email_target:     { type: integer }
+        monthly_linkedin_target:  { type: integer }
+        messaging_framework:      { type: string }
+
+    ToolItem:
+      type: object
+      required: [slug, tool_name, category, reason, phase]
+      properties:
+        slug:       { type: string }
+        tool_name:  { type: string }
+        category:   { type: string }
+        reason:     { type: string }
+        is_required: { type: boolean }
+        phase:      { type: string }
+
+    StackRecommendation:
+      type: object
+      required: [id, user_id, tools]
+      properties:
+        id:          { type: string }
+        user_id:     { type: string }
+        icp_id:      { type: ["string", "null"] }
+        settings_id: { type: ["string", "null"] }
+        tools:       { type: array, items: { $ref: "#/components/schemas/ToolItem" } }
+        is_current:  { type: boolean }
+        created_at:  { type: ["string", "null"] }
+
+    StackInput:
+      type: object
+      required: [icp_id, settings_id]
+      properties:
+        icp_id:      { type: string }
+        settings_id: { type: string }
+
+    Tool:
+      type: object
+      required: [id, slug, name, category]
+      properties:
+        id:               { type: string }
+        slug:             { type: string }
+        name:             { type: string }
+        category:         { type: string }
+        description:      { type: ["string", "null"] }
+        logo_url:         { type: ["string", "null"] }
+        pricing_summary:  { type: ["string", "null"] }
+        referral_url:     { type: ["string", "null"] }
+        setup_guide_url:  { type: ["string", "null"] }
+        phase:            { type: string }
+        is_active:        { type: boolean }
+
+    LeadList:
+      type: object
+      required: [id, user_id, status]
+      properties:
+        id:                 { type: string }
+        user_id:            { type: string }
+        icp_id:             { type: ["string", "null"] }
+        label:              { type: string }
+        source:             { type: string }
+        total_count:        { type: integer }
+        status:             { type: string }
+        processing_status:  { type: ["string", "null"] }
+        error_message:      { type: ["string", "null"] }
+        created_at:         { type: ["string", "null"] }
+        updated_at:         { type: ["string", "null"] }
+
+    LeadListInput:
+      type: object
+      required: [icp_id]
+      properties:
+        icp_id:  { type: string }
+        label:   { type: string }
+
+    Lead:
+      type: object
+      required: [id, lead_list_id, user_id]
+      properties:
+        id:                   { type: string }
+        lead_list_id:         { type: string }
+        user_id:              { type: string }
+        first_name:           { type: ["string", "null"] }
+        last_name:            { type: ["string", "null"] }
+        email:                { type: ["string", "null"] }
+        linkedin_url:         { type: ["string", "null"] }
+        job_title:            { type: ["string", "null"] }
+        seniority:            { type: ["string", "null"] }
+        department:           { type: ["string", "null"] }
+        company_name:         { type: ["string", "null"] }
+        company_domain:       { type: ["string", "null"] }
+        company_size:         { type: ["string", "null"] }
+        industry:             { type: ["string", "null"] }
+        hq_country:           { type: ["string", "null"] }
+        hq_city:              { type: ["string", "null"] }
+        profile_picture_url:  { type: ["string", "null"] }
+        research_blurb:       { type: ["string", "null"] }
+        review_status:        { type: string }
+        reviewed_at:          { type: ["string", "null"] }
+        rejection_reason:     { type: ["string", "null"] }
+        created_at:           { type: ["string", "null"] }
+        updated_at:           { type: ["string", "null"] }
+
+    LeadReview:
+      type: object
+      required: [review_status]
+      properties:
+        review_status:    { type: string }
+        rejection_reason: { type: string }
+
+    BulkLeadReview:
+      type: object
+      required: [lead_ids, review_status]
+      properties:
+        lead_ids:         { type: array, items: { type: string } }
+        review_status:    { type: string }
+        rejection_reason: { type: string }
+
+    BulkReviewResult:
+      type: object
+      required: [updated_count]
+      properties:
+        updated_count: { type: integer }
+
+    DashboardSummary:
+      type: object
+      required: [total_leads, approved_leads, pending_leads, rejected_leads, stack_tools_count, lead_lists_count]
+      properties:
+        total_leads:        { type: integer }
+        approved_leads:     { type: integer }
+        pending_leads:      { type: integer }
+        rejected_leads:     { type: integer }
+        stack_tools_count:  { type: integer }
+        lead_lists_count:   { type: integer }
+        recent_leads:
+          type: array
+          items:
+            $ref: "#/components/schemas/Lead"
+
+    TriggerAnalysisInput:
+      type: object
+      required: [user_id, website_url, analysis_id]
+      properties:
+        user_id:     { type: string }
+        website_url: { type: string }
+        analysis_id: { type: string }
+
+    TriggerLeadScrapingInput:
+      type: object
+      required: [user_id, icp_id, lead_list_id]
+      properties:
+        user_id:      { type: string }
+        icp_id:       { type: string }
+        lead_list_id: { type: string }
+
+    WebhookResult:
+      type: object
+      required: [success]
+      properties:
+        success: { type: boolean }
+        message: { type: ["string", "null"] }

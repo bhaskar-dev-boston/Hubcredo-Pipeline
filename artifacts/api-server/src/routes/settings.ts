@@ -67,7 +67,7 @@ router.patch("/settings/outreach", requireAuth, async (req: AuthenticatedRequest
     return;
   }
 
-  // Get current settings id
+  // Try to find existing current settings
   const { data: existing } = await supabase
     .from("outreach_settings")
     .select("id")
@@ -76,7 +76,24 @@ router.patch("/settings/outreach", requireAuth, async (req: AuthenticatedRequest
     .single();
 
   if (!existing) {
-    res.status(404).json({ error: "No settings found" });
+    // No settings yet — create them
+    const { data, error } = await supabase
+      .from("outreach_settings")
+      .insert({
+        user_id: req.userId!,
+        ...parsed.data,
+        is_current: true,
+      })
+      .select()
+      .single();
+
+    if (error || !data) {
+      req.log.error({ error }, "Failed to create outreach settings");
+      res.status(500).json({ error: "Failed to create settings" });
+      return;
+    }
+
+    res.status(201).json(UpdateOutreachSettingsResponse.parse(data));
     return;
   }
 

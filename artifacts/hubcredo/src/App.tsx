@@ -1,3 +1,4 @@
+import './index.css'
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -12,6 +13,7 @@ import Leads from "@/pages/dashboard/Leads";
 import Stack from "@/pages/dashboard/Stack";
 import Settings from "@/pages/dashboard/Settings";
 import NotFound from "@/pages/not-found";
+
 
 const queryClient = new QueryClient({
   defaultOptions: {

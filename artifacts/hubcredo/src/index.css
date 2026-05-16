@@ -1,9 +1,184 @@
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap');
-@import "tailwindcss";
-@import "tw-animate-css";
-@plugin "@tailwindcss/typography";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@custom-variant dark (&:is(.dark *));
+:root {
+  --button-outline: rgba(0,0,0, .10);
+  --badge-outline: rgba(0,0,0, .05);
+  --opaque-button-border-intensity: -8;
+  --elevate-1: rgba(0,0,0, .03);
+  --elevate-2: rgba(0,0,0, .06);
+
+  /* #FFFFFF */
+  --background: 0 0% 100%;
+  /* #0A0A0A */
+  --foreground: 0 0% 4%;
+  /* #E2E8F0 */
+  --border: 214 32% 91%;
+  /* #FFFFFF */
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 4%;
+  --card-border: 214 32% 91%;
+
+  /* Sidebar: #F5F7FA */
+  --sidebar: 216 33% 97%;
+  --sidebar-foreground: 0 0% 4%;
+  --sidebar-border: 214 32% 91%;
+  /* #2563EB */
+  --sidebar-primary: 221 83% 53%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  /* #EFF6FF */
+  --sidebar-accent: 214 100% 97%;
+  /* #2563EB */
+  --sidebar-accent-foreground: 221 83% 53%;
+  --sidebar-ring: 221 83% 53%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 4%;
+  --popover-border: 214 32% 91%;
+
+  /* Primary: #2563EB */
+  --primary: 221 83% 53%;
+  --primary-foreground: 0 0% 100%;
+
+  /* Secondary: light gray */
+  --secondary: 216 33% 97%;
+  --secondary-foreground: 0 0% 4%;
+
+  /* Muted: #F5F7FA */
+  --muted: 216 33% 97%;
+  /* #64748B */
+  --muted-foreground: 215 16% 47%;
+
+  /* Accent: #2563EB */
+  --accent: 221 83% 53%;
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  /* Input border: #E2E8F0 */
+  --input: 214 32% 91%;
+  /* Ring: #2563EB */
+  --ring: 221 83% 53%;
+
+  --chart-1: 221 83% 53%;
+  --chart-2: 160 60% 40%;
+  --chart-3: 270 60% 55%;
+  --chart-4: 43 74% 60%;
+  --chart-5: 340 70% 55%;
+
+  --app-font-sans: 'DM Sans', sans-serif;
+  --app-font-serif: Georgia, serif;
+  --app-font-mono: Menlo, monospace;
+  --app-font-display: 'Bebas Neue', sans-serif;
+  --radius: 0.5rem;
+
+  --shadow-2xs: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-xs: 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow: 0 2px 6px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.08), 0 4px 8px rgba(0,0,0,0.04);
+  --shadow-xl: 0 16px 40px rgba(0,0,0,0.10), 0 8px 16px rgba(0,0,0,0.06);
+  --shadow-2xl: 0 24px 64px rgba(0,0,0,0.12);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+
+  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+}
+
+@layer base {
+  body {
+    font-family: var(--app-font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+}
+
+@layer utilities {
+  input[type="search"]::-webkit-search-cancel-button {
+    display: none;
+  }
+
+  [contenteditable][data-placeholder]:empty::before {
+    content: attr(data-placeholder);
+    color: hsl(var(--muted-foreground));
+    pointer-events: none;
+  }
+
+  .no-default-hover-elevate {
+    /* Marker class */
+  }
+
+  .no-default-active-elevate {
+    /* Marker class */
+  }
+
+  .toggle-elevate::before,
+  .toggle-elevate-2::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0px;
+    border-radius: inherit;
+    z-index: -1;
+  }
+
+  .toggle-elevate.toggle-elevated::before {
+    background-color: var(--elevate-2);
+  }
+
+  .border.toggle-elevate::before {
+    inset: -1px;
+  }
+
+  .hover-elevate:not(.no-default-hover-elevate),
+  .active-elevate:not(.no-default-active-elevate),
+  .hover-elevate-2:not(.no-default-hover-elevate),
+  .active-elevate-2:not(.no-default-active-elevate) {
+    position: relative;
+    z-index: 0;
+  }
+
+  .hover-elevate:not(.no-default-hover-elevate)::after,
+  .active-elevate:not(.no-default-active-elevate)::after,
+  .hover-elevate-2:not(.no-default-hover-elevate)::after,
+  .active-elevate-2:not(.no-default-active-elevate)::after {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0px;
+    border-radius: inherit;
+    z-index: 999;
+  }
+
+  .hover-elevate:hover:not(.no-default-hover-elevate)::after,
+  .active-elevate:active:not(.no-default-active-elevate)::after {
+    background-color: var(--elevate-1);
+  }
+
+  .hover-elevate-2:hover:not(.no-default-hover-elevate)::after,
+  .active-elevate-2:active:not(.no-default-active-elevate)::after {
+    background-color: var(--elevate-2);
+  }
+
+  .border.hover-elevate:not(.no-hover-interaction-elevate)::after,
+  .border.active-elevate:not(.no-active-interaction-elevate)::after,
+  .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
+  .border.active-elevate-2:not(.no-active-interaction-elevate)::after {
+    inset: -1px;
+  }
+}
 
 @theme inline {
   --color-background: hsl(var(--background));

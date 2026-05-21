@@ -8,8 +8,9 @@ import {
   useCreateIcp,
   useGetOutreachSettings,
   useUpdateOutreachSettings,
+  useAutoFillIcp,
 } from "@workspace/api-client-react";
-import { Loader2, Save, CheckCircle } from "lucide-react";
+import { Loader2, Save, CheckCircle, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Icp, OutreachSettings } from "@workspace/api-client-react";
 
@@ -37,6 +38,7 @@ export default function Settings() {
   const [targetGeo, setTargetGeo] = useState<string[]>([]);
   const [excludedIndustries, setExcludedIndustries] = useState<string[]>([]);
   const createIcp = useCreateIcp();
+  const autoFillIcp = useAutoFillIcp();
 
   const [monthlyLeadTarget, setMonthlyLeadTarget] = useState<string>("");
   const [messagingFramework, setMessagingFramework] = useState<string>("");
@@ -86,6 +88,23 @@ export default function Settings() {
     }
   }
 
+  async function handleAutoFillIcp() {
+    try {
+      const filled = await autoFillIcp.mutateAsync();
+      if (filled.job_titles) setJobTitles(filled.job_titles);
+      if (filled.industries) setTargetIndustries(filled.industries);
+      if (filled.company_sizes) setTargetSize(filled.company_sizes);
+      if (filled.geographies) setTargetGeo(filled.geographies);
+      if (filled.buying_signals) setBuyingSignals(filled.buying_signals);
+      if (filled.excluded_industries) setExcludedIndustries(filled.excluded_industries);
+      refetchIcps();
+      toast({ title: "ICP auto-filled!", description: "AI has populated your ICP from your website analysis. Review and save." });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Could not auto-fill ICP.";
+      toast({ title: "Auto-fill failed", description: msg, variant: "destructive" });
+    }
+  }
+
   async function handleSaveOutreach() {
     try {
       await updateOutreach.mutateAsync({ data: { email_enabled: emailEnabled, linkedin_enabled: linkedinEnabled, monthly_lead_target: monthlyLeadTarget ? Number(monthlyLeadTarget) : undefined, messaging_framework: messagingFramework || undefined } });
@@ -110,21 +129,21 @@ export default function Settings() {
 
   return (
     <DashboardLayout>
-      <div className="p-8 max-w-3xl mx-auto">
-        <div className="mb-8 pt-2">
-          <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "2.2rem", letterSpacing: "0.04em" }} className="text-[#0A0A0A] mb-1">
+      <div className="p-4 sm:p-8 max-w-3xl mx-auto">
+        <div className="mb-6 sm:mb-8 pt-2">
+          <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "2rem", letterSpacing: "0.04em" }} className="text-[#0A0A0A] mb-1">
             Settings
           </h1>
           <p className="text-[#64748B] text-sm">Manage your profile, ICP, and outreach preferences</p>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-8 bg-[#F5F7FA] border border-[#E2E8F0] rounded-lg p-1 w-fit">
+        <div className="flex gap-1 mb-6 sm:mb-8 bg-[#F5F7FA] border border-[#E2E8F0] rounded-lg p-1 w-full sm:w-fit overflow-x-auto">
           {tabs.map(({ id, label }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
                 activeTab === id
                   ? "bg-white text-[#0A0A0A] shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-[#E2E8F0]"
                   : "text-[#64748B] hover:text-[#0A0A0A]"
@@ -156,14 +175,32 @@ export default function Settings() {
 
         {activeTab === "icp" && (
           <div className="bg-white border border-[#E2E8F0] rounded-xl p-6 space-y-6 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-            <div className="flex items-center justify-between">
-              <h2 className="text-[#0A0A0A] font-semibold">Ideal Customer Profile</h2>
-              {(icps as Icp[]).length > 0 && (
-                <div className="flex items-center gap-1.5 text-xs text-green-700">
-                  <CheckCircle className="w-3.5 h-3.5" /> Configured
-                </div>
-              )}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-[#0A0A0A] font-semibold">Ideal Customer Profile</h2>
+                {(icps as Icp[]).length > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs text-green-700 mt-1">
+                    <CheckCircle className="w-3.5 h-3.5" /> Configured
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={handleAutoFillIcp}
+                disabled={autoFillIcp.isPending}
+                className="flex items-center gap-1.5 px-3 py-2 bg-[#2563EB] text-white text-xs font-semibold rounded-lg hover:bg-[#1D4ED8] transition-colors disabled:opacity-50 shrink-0"
+              >
+                {autoFillIcp.isPending
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <Sparkles className="w-3.5 h-3.5" />}
+                {autoFillIcp.isPending ? "Analysing…" : "Auto-fill from website"}
+              </button>
             </div>
+            {autoFillIcp.isPending && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-xs text-blue-700 flex items-center gap-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                AI is reading your website analysis and generating your ICP — this takes about 5 seconds…
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-[#0A0A0A] mb-1.5">Target job titles</label>
               <TagInput value={jobTitles} onChange={setJobTitles} placeholder="e.g. VP of Sales, Head of Growth" />

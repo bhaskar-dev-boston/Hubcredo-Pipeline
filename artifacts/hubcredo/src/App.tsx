@@ -1,4 +1,3 @@
-import './index.css'
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -12,8 +11,8 @@ import Dashboard from "@/pages/dashboard/Dashboard";
 import Leads from "@/pages/dashboard/Leads";
 import Stack from "@/pages/dashboard/Stack";
 import Settings from "@/pages/dashboard/Settings";
+import DomainFinder from "@/pages/dashboard/DomainFinder";
 import NotFound from "@/pages/not-found";
-
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,6 +45,9 @@ function Router() {
       </Route>
       <Route path="/dashboard/settings">
         <ProtectedRoute component={Settings} />
+      </Route>
+      <Route path="/dashboard/domains">
+        <ProtectedRoute component={DomainFinder} />
       </Route>
       <Route component={NotFound} />
     </Switch>

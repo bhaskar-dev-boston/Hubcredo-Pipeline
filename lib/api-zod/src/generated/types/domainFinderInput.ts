@@ -6,7 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface StackInput {
-  icp_id: string;
-  settings_id?: string;
+export interface DomainFinderInput {
+  keyword: string;
+  purpose: string;
 }

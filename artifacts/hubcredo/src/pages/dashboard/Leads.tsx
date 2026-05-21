@@ -8,29 +8,40 @@ import {
   useReviewLead,
   useListIcps,
   useGetMe,
+  useAutoFillIcp,
+  getListIcpsQueryKey,
 } from "@workspace/api-client-react";
-import { Users, Plus, Loader2, ThumbsUp, ThumbsDown, ExternalLink, Zap, ChevronDown } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
+import { Users, Plus, Loader2, ThumbsUp, ThumbsDown, ExternalLink, Zap, ChevronDown, Sparkles, ArrowRight, X, Building2, MapPin, Briefcase, Mail, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Lead, LeadList, Icp } from "@workspace/api-client-react";
 
 export default function Leads() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
   const [showNewList, setShowNewList] = useState(false);
   const [listLabel, setListLabel] = useState("");
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [scraping, setScraping] = useState(false);
+  const [profileLead, setProfileLead] = useState<Lead | null>(null);
 
   const { data: me } = useGetMe();
   const { data: leadLists = [], isLoading: listsLoading, refetch: refetchLists } = useListLeadLists();
   const { data: leads = [], isLoading: leadsLoading, refetch: refetchLeads } = useListLeads(
     selectedListId ? { lead_list_id: selectedListId } : undefined
   );
-  const { data: icps = [] } = useListIcps();
+  const { data: icps = [], refetch: refetchIcps } = useListIcps();
   const createLeadList = useCreateLeadList();
   const triggerScraping = useTriggerLeadScraping();
   const reviewLead = useReviewLead();
+  const autoFillIcp = useAutoFillIcp();
 
   const currentIcp = (icps as Icp[])[0];
+  const hasIcp =
+    !!currentIcp &&
+    ((currentIcp.job_titles?.length ?? 0) > 0 || (currentIcp.industries?.length ?? 0) > 0);
   const lists = leadLists as LeadList[];
   const activeListId = selectedListId ?? lists[0]?.id ?? null;
   const selectedList = lists.find((l) => l.id === activeListId);
@@ -54,13 +65,30 @@ export default function Leads() {
     }
   }
 
+  async function handleAutoFill() {
+    try {
+      await autoFillIcp.mutateAsync();
+      await queryClient.invalidateQueries({ queryKey: getListIcpsQueryKey() });
+      await refetchIcps();
+      toast({ title: "ICP auto-filled!", description: "Your ICP has been populated from your website analysis. You can now generate leads." });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.toLowerCase().includes("no completed") || msg.toLowerCase().includes("analysis")) {
+        toast({ title: "Website analysis needed", description: "Run your website analysis on the Dashboard first, then come back here.", variant: "destructive" });
+        setLocation("/dashboard");
+      } else {
+        toast({ title: "Auto-fill failed", description: msg || "Could not generate ICP. Try again.", variant: "destructive" });
+      }
+    }
+  }
+
   async function handleGenerateLeads() {
     if (!me) {
       toast({ title: "Not signed in", description: "Please sign in and try again.", variant: "destructive" });
       return;
     }
-    if (!currentIcp) {
-      toast({ title: "ICP required", description: "Set up your ICP in Settings before generating leads.", variant: "destructive" });
+    if (!hasIcp) {
+      toast({ title: "ICP required", description: "Fill in your ICP in Settings before generating leads.", variant: "destructive" });
       return;
     }
 
@@ -111,11 +139,11 @@ export default function Leads() {
 
   return (
     <DashboardLayout>
-      <div className="p-8 max-w-5xl mx-auto">
+      <div className="p-4 sm:p-8 max-w-5xl mx-auto">
         {/* Header */}
-        <div className="flex items-start justify-between mb-6 pt-2">
+        <div className="flex items-start justify-between mb-5 pt-2">
           <div>
-            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "2.2rem", letterSpacing: "0.04em" }} className="text-[#0A0A0A] mb-1">
+            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "2rem", letterSpacing: "0.04em" }} className="text-[#0A0A0A] mb-1">
               My Leads
             </h1>
             <p className="text-[#64748B] text-sm">Generate and manage qualified prospects from LinkedIn</p>
@@ -123,35 +151,64 @@ export default function Leads() {
         </div>
 
         {/* ── MAIN TRIGGER CARD ── */}
-        <div className="bg-[#2563EB] rounded-xl p-6 mb-8 flex flex-col sm:flex-row items-start sm:items-center gap-5">
-          <div className="w-12 h-12 bg-white/15 rounded-xl flex items-center justify-center shrink-0">
-            <Zap className="w-6 h-6 text-white" />
+        {!hasIcp ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-8 flex gap-4 items-start">
+            <div className="w-9 h-9 bg-amber-100 rounded-lg flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles className="w-5 h-5 text-amber-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-800 mb-0.5">Fill in your ICP to generate leads</p>
+              <p className="text-sm text-amber-700 leading-relaxed mb-3">
+                The AI needs at least your <strong>target job titles</strong> or <strong>target industries</strong> to find the right prospects.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setLocation("/dashboard/settings")}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-amber-600 text-white text-xs font-semibold rounded-lg hover:bg-amber-700 transition-colors"
+                >
+                  Fill in ICP manually <ArrowRight className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={handleAutoFill}
+                  disabled={autoFillIcp.isPending}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-white border border-amber-300 text-amber-700 text-xs font-semibold rounded-lg hover:bg-amber-50 transition-colors disabled:opacity-50"
+                >
+                  {autoFillIcp.isPending
+                    ? <Loader2 className="w-3 h-3 animate-spin" />
+                    : <Sparkles className="w-3 h-3" />}
+                  {autoFillIcp.isPending ? "Generating ICP…" : "Auto-fill from website analysis"}
+                </button>
+              </div>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-white font-semibold text-base mb-0.5">Generate LinkedIn leads</p>
-            <p className="text-blue-100 text-sm leading-relaxed">
-              Triggers your n8n scraping workflow with your ICP targeting.
-              {selectedList
-                ? <> Running against <span className="font-semibold text-white">"{selectedList.label}"</span>.</>
-                : lists.length === 0
-                ? " A new list will be created automatically."
-                : " Using your most recent list."}
-            </p>
-            {!currentIcp && (
-              <p className="text-yellow-200 text-xs mt-1.5">⚠ No ICP found — set one up in Settings first.</p>
-            )}
+        ) : (
+          <div className="bg-[#2563EB] rounded-xl p-6 mb-8 flex flex-col sm:flex-row items-start sm:items-center gap-5">
+            <div className="w-12 h-12 bg-white/15 rounded-xl flex items-center justify-center shrink-0">
+              <Zap className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-semibold text-base mb-0.5">Generate LinkedIn leads</p>
+              <p className="text-blue-100 text-sm leading-relaxed">
+                Triggers your Engine with your ICP targeting It may take <b>upto 5 minutes</b> to give you the best results.
+                {selectedList
+                  ? <> Running against <span className="font-semibold text-white">"{selectedList.label}"</span>.</>
+                  : lists.length === 0
+                  ? " A new list will be created automatically."
+                  : " Using your most recent list."}
+              </p>
+            </div>
+            <button
+              onClick={handleGenerateLeads}
+              disabled={scraping}
+              className="flex items-center gap-2.5 px-6 py-3 bg-white text-[#2563EB] font-bold rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50 shrink-0 text-sm"
+            >
+              {scraping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+              {scraping ? "Scraping…" : "Generate leads"}
+            </button>
           </div>
-          <button
-            onClick={handleGenerateLeads}
-            disabled={scraping || !currentIcp}
-            className="flex items-center gap-2.5 px-6 py-3 bg-white text-[#2563EB] font-bold rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50 shrink-0 text-sm"
-          >
-            {scraping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            {scraping ? "Scraping…" : "Generate leads"}
-          </button>
-        </div>
+        )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Left — lists */}
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1 mb-3">
@@ -280,10 +337,24 @@ export default function Leads() {
                   return (
                     <div
                       key={lead.id}
-                      className="bg-white border border-[#E2E8F0] rounded-xl p-4 flex items-start gap-4 hover:border-[#CBD5E1] transition-colors"
+                      onClick={() => setProfileLead(lead)}
+                      className="bg-white border border-[#E2E8F0] rounded-xl p-4 flex items-start gap-4 hover:border-[#2563EB]/40 hover:shadow-sm transition-all cursor-pointer"
                     >
-                      <div className="w-9 h-9 rounded-full bg-[#EFF6FF] border border-[#BFDBFE] flex items-center justify-center text-[#2563EB] text-sm font-bold shrink-0">
-                        {displayName[0]?.toUpperCase() ?? "?"}
+                      <div className="w-10 h-10 rounded-full bg-[#EFF6FF] border border-[#BFDBFE] flex items-center justify-center text-[#2563EB] text-sm font-bold shrink-0 overflow-hidden">
+                        {lead.profile_picture_url ? (
+                          <img
+                            src={lead.profile_picture_url}
+                            alt={displayName}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const el = e.currentTarget;
+                              el.style.display = "none";
+                              el.parentElement!.textContent = displayName[0]?.toUpperCase() ?? "?";
+                            }}
+                          />
+                        ) : (
+                          displayName[0]?.toUpperCase() ?? "?"
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -298,6 +369,7 @@ export default function Leads() {
                         {lead.email && <p className="text-xs text-[#64748B] mt-0.5">{lead.email}</p>}
                         {lead.linkedin_url && (
                           <a href={lead.linkedin_url} target="_blank" rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
                             className="inline-flex items-center gap-1 text-xs text-[#2563EB] hover:text-[#1D4ED8] mt-1 transition-colors">
                             LinkedIn <ExternalLink className="w-3 h-3" />
                           </a>
@@ -306,14 +378,14 @@ export default function Leads() {
                       {(!lead.review_status || lead.review_status === "pending") && (
                         <div className="flex gap-2 shrink-0">
                           <button
-                            onClick={() => handleReview(lead.id, "approved")}
+                            onClick={(e) => { e.stopPropagation(); handleReview(lead.id, "approved"); }}
                             className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E2E8F0] text-[#64748B] hover:text-green-600 hover:border-green-200 hover:bg-green-50 transition-colors"
                             title="Approve"
                           >
                             <ThumbsUp className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => handleReview(lead.id, "rejected")}
+                            onClick={(e) => { e.stopPropagation(); handleReview(lead.id, "rejected"); }}
                             className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E2E8F0] text-[#64748B] hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors"
                             title="Reject"
                           >
@@ -329,6 +401,187 @@ export default function Leads() {
           </div>
         </div>
       </div>
+
+      {/* ── PROFILE SLIDE-OVER ── */}
+      {profileLead && (() => {
+        const lead = profileLead;
+        const displayName = [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Unknown";
+        return (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/30 z-40 backdrop-blur-[1px]"
+              onClick={() => setProfileLead(null)}
+            />
+            {/* Panel */}
+            <div className="fixed top-0 right-0 h-full w-full max-w-md bg-white z-50 shadow-2xl flex flex-col overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-[#E2E8F0]">
+                <p className="text-xs font-semibold text-[#64748B] uppercase tracking-widest">Lead profile</p>
+                <button
+                  onClick={() => setProfileLead(null)}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#F5F7FA] text-[#64748B] transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto">
+                {/* Identity block */}
+                <div className="px-6 py-6 border-b border-[#E2E8F0]">
+                  <div className="flex items-start gap-4">
+                    <div className="w-16 h-16 rounded-full bg-[#EFF6FF] border-2 border-[#BFDBFE] flex items-center justify-center text-[#2563EB] text-xl font-bold shrink-0 overflow-hidden">
+                      {lead.profile_picture_url ? (
+                        <img
+                          src={lead.profile_picture_url}
+                          alt={displayName}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const el = e.currentTarget;
+                            el.style.display = "none";
+                            el.parentElement!.textContent = displayName[0]?.toUpperCase() ?? "?";
+                          }}
+                        />
+                      ) : (
+                        displayName[0]?.toUpperCase() ?? "?"
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-lg font-semibold text-[#0A0A0A] leading-tight">{displayName}</h2>
+                      {lead.job_title && <p className="text-sm text-[#64748B] mt-0.5">{lead.job_title}</p>}
+                      {lead.company_name && (
+                        <p className="text-sm text-[#64748B]">{lead.company_name}</p>
+                      )}
+                      <span className={`inline-block mt-2 text-xs px-2.5 py-0.5 rounded-full border font-medium ${statusPill(lead.review_status)}`}>
+                        {lead.review_status ?? "new"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Details */}
+                <div className="px-6 py-5 space-y-5">
+                  {/* Contact */}
+                  {(lead.email || lead.linkedin_url) && (
+                    <div>
+                      <p className="text-xs font-semibold text-[#0A0A0A] uppercase tracking-widest mb-2">Contact</p>
+                      <div className="space-y-2">
+                        {lead.email && (
+                          <div className="flex items-center gap-3">
+                            <Mail className="w-4 h-4 text-[#64748B] shrink-0" />
+                            <a href={`mailto:${lead.email}`} className="text-sm text-[#2563EB] hover:underline truncate">{lead.email}</a>
+                          </div>
+                        )}
+                        {lead.linkedin_url && (
+                          <div className="flex items-center gap-3">
+                            <ExternalLink className="w-4 h-4 text-[#64748B] shrink-0" />
+                            <a href={lead.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-sm text-[#2563EB] hover:underline truncate">
+                              LinkedIn profile
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Role */}
+                  {(lead.seniority || lead.department) && (
+                    <div>
+                      <p className="text-xs font-semibold text-[#0A0A0A] uppercase tracking-widest mb-2">Role</p>
+                      <div className="space-y-2">
+                        {lead.seniority && (
+                          <div className="flex items-center gap-3">
+                            <Briefcase className="w-4 h-4 text-[#64748B] shrink-0" />
+                            <span className="text-sm text-[#0A0A0A] capitalize">{lead.seniority}</span>
+                          </div>
+                        )}
+                        {lead.department && (
+                          <div className="flex items-center gap-3">
+                            <Users className="w-4 h-4 text-[#64748B] shrink-0" />
+                            <span className="text-sm text-[#0A0A0A]">{lead.department}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Company */}
+                  {(lead.company_name || lead.company_domain || lead.company_size || lead.industry) && (
+                    <div>
+                      <p className="text-xs font-semibold text-[#0A0A0A] uppercase tracking-widest mb-2">Company</p>
+                      <div className="space-y-2">
+                        {lead.company_name && (
+                          <div className="flex items-center gap-3">
+                            <Building2 className="w-4 h-4 text-[#64748B] shrink-0" />
+                            <span className="text-sm text-[#0A0A0A]">{lead.company_name}</span>
+                          </div>
+                        )}
+                        {lead.company_domain && (
+                          <div className="flex items-center gap-3">
+                            <Globe className="w-4 h-4 text-[#64748B] shrink-0" />
+                            <a href={`https://${lead.company_domain}`} target="_blank" rel="noopener noreferrer" className="text-sm text-[#2563EB] hover:underline">{lead.company_domain}</a>
+                          </div>
+                        )}
+                        {lead.company_size && (
+                          <div className="flex items-center gap-3">
+                            <Users className="w-4 h-4 text-[#64748B] shrink-0" />
+                            <span className="text-sm text-[#0A0A0A]">{lead.company_size} employees</span>
+                          </div>
+                        )}
+                        {lead.industry && (
+                          <div className="flex items-center gap-3">
+                            <Briefcase className="w-4 h-4 text-[#64748B] shrink-0" />
+                            <span className="text-sm text-[#0A0A0A]">{lead.industry}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Location */}
+                  {(lead.hq_city || lead.hq_country) && (
+                    <div>
+                      <p className="text-xs font-semibold text-[#0A0A0A] uppercase tracking-widest mb-2">Location</p>
+                      <div className="flex items-center gap-3">
+                        <MapPin className="w-4 h-4 text-[#64748B] shrink-0" />
+                        <span className="text-sm text-[#0A0A0A]">
+                          {[lead.hq_city, lead.hq_country].filter(Boolean).join(", ")}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Research blurb */}
+                  {lead.research_blurb && (
+                    <div>
+                      <p className="text-xs font-semibold text-[#0A0A0A] uppercase tracking-widest mb-2">AI Research Notes</p>
+                      <p className="text-sm text-[#64748B] leading-relaxed bg-[#F5F7FA] border border-[#E2E8F0] rounded-lg p-3">{lead.research_blurb}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer actions */}
+              {(!lead.review_status || lead.review_status === "pending") && (
+                <div className="px-6 py-4 border-t border-[#E2E8F0] flex gap-3">
+                  <button
+                    onClick={() => { handleReview(lead.id, "approved"); setProfileLead(null); }}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <ThumbsUp className="w-4 h-4" /> Approve
+                  </button>
+                  <button
+                    onClick={() => { handleReview(lead.id, "rejected"); setProfileLead(null); }}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
+                  >
+                    <ThumbsDown className="w-4 h-4" /> Reject
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
+        );
+      })()}
     </DashboardLayout>
   );
 }

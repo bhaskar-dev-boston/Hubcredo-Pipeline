@@ -189,7 +189,7 @@ export interface StackRecommendation {
 
 export interface StackInput {
   icp_id: string;
-  settings_id: string;
+  settings_id?: string;
 }
 
 export interface Tool {
@@ -321,6 +321,42 @@ export interface WebhookResult {
   success: boolean;
   /** @nullable */
   message?: string | null;
+}
+
+export interface DomainFinderInput {
+  keyword: string;
+  purpose: string;
+}
+
+export interface DomainResult {
+  /** @nullable */
+  domain?: string | null;
+  /** @nullable */
+  company_name?: string | null;
+  /** @nullable */
+  website?: string | null;
+  /** @nullable */
+  industry?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  country?: string | null;
+  /** @nullable */
+  employees?: string | null;
+  /** @nullable */
+  founded?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  linkedin?: string | null;
+  /** @nullable */
+  score?: number | null;
+}
+
+export interface DomainFinderResponse {
+  domains: DomainResult[];
 }
 
 export type ListLeadsParams = {

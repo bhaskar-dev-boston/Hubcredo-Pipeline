@@ -216,6 +216,26 @@ export const CreateIcpBody = zod.object({
 
 
 /**
+ * @summary Auto-fill ICP from website analysis using AI
+ */
+export const AutoFillIcpResponse = zod.object({
+  "id": zod.string(),
+  "user_id": zod.string(),
+  "job_titles": zod.array(zod.string()).nullish(),
+  "company_sizes": zod.array(zod.string()).nullish(),
+  "industries": zod.array(zod.string()).nullish(),
+  "geographies": zod.array(zod.string()).nullish(),
+  "buying_signals": zod.array(zod.string()).nullish(),
+  "excluded_industries": zod.array(zod.string()).nullish(),
+  "excluded_company_sizes": zod.array(zod.string()).nullish(),
+  "ai_suggested": zod.boolean().optional(),
+  "is_current": zod.boolean().optional(),
+  "created_at": zod.string().nullish(),
+  "updated_at": zod.string().nullish()
+})
+
+
+/**
  * @summary Get the current ICP
  */
 export const GetCurrentIcpResponse = zod.object({
@@ -354,7 +374,7 @@ export const ListStacksResponse = zod.array(ListStacksResponseItem)
  */
 export const CreateStackBody = zod.object({
   "icp_id": zod.string(),
-  "settings_id": zod.string()
+  "settings_id": zod.string().optional()
 })
 
 
@@ -604,6 +624,32 @@ export const TriggerLeadScrapingBody = zod.object({
 export const TriggerLeadScrapingResponse = zod.object({
   "success": zod.boolean(),
   "message": zod.string().nullish()
+})
+
+
+/**
+ * @summary Find domains matching a keyword via n8n
+ */
+export const FindDomainsBody = zod.object({
+  "keyword": zod.string(),
+  "purpose": zod.string()
+})
+
+export const FindDomainsResponse = zod.object({
+  "domains": zod.array(zod.object({
+  "domain": zod.string().nullish(),
+  "company_name": zod.string().nullish(),
+  "website": zod.string().nullish(),
+  "industry": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "country": zod.string().nullish(),
+  "employees": zod.string().nullish(),
+  "founded": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "linkedin": zod.string().nullish(),
+  "score": zod.number().nullish()
+}))
 })
 
 

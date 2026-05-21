@@ -26,6 +26,8 @@ import type {
   BulkReviewResult,
   CompanyAnalysis,
   DashboardSummary,
+  DomainFinderInput,
+  DomainFinderResponse,
   HealthStatus,
   Icp,
   IcpInput,
@@ -805,6 +807,76 @@ export const useCreateIcp = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCreateIcpMutationOptions(options));
+    }
+
+export const getAutoFillIcpUrl = () => {
+
+
+
+
+  return `/api/icps/auto-fill`
+}
+
+/**
+ * @summary Auto-fill ICP from website analysis using AI
+ */
+export const autoFillIcp = async ( options?: RequestInit): Promise<Icp> => {
+
+  return customFetch<Icp>(getAutoFillIcpUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getAutoFillIcpMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof autoFillIcp>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof autoFillIcp>>, TError,void, TContext> => {
+
+const mutationKey = ['autoFillIcp'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof autoFillIcp>>, void> = () => {
+
+
+          return  autoFillIcp(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AutoFillIcpMutationResult = NonNullable<Awaited<ReturnType<typeof autoFillIcp>>>
+
+    export type AutoFillIcpMutationError = ErrorType<void>
+
+    /**
+ * @summary Auto-fill ICP from website analysis using AI
+ */
+export const useAutoFillIcp = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof autoFillIcp>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof autoFillIcp>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getAutoFillIcpMutationOptions(options));
     }
 
 export const getGetCurrentIcpUrl = () => {
@@ -2146,6 +2218,77 @@ export const useTriggerLeadScraping = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getTriggerLeadScrapingMutationOptions(options));
+    }
+
+export const getFindDomainsUrl = () => {
+
+
+
+
+  return `/api/domains/find`
+}
+
+/**
+ * @summary Find domains matching a keyword via n8n
+ */
+export const findDomains = async (domainFinderInput: DomainFinderInput, options?: RequestInit): Promise<DomainFinderResponse> => {
+
+  return customFetch<DomainFinderResponse>(getFindDomainsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      domainFinderInput,)
+  }
+);}
+
+
+
+
+export const getFindDomainsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof findDomains>>, TError,{data: BodyType<DomainFinderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof findDomains>>, TError,{data: BodyType<DomainFinderInput>}, TContext> => {
+
+const mutationKey = ['findDomains'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof findDomains>>, {data: BodyType<DomainFinderInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  findDomains(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type FindDomainsMutationResult = NonNullable<Awaited<ReturnType<typeof findDomains>>>
+    export type FindDomainsMutationBody = BodyType<DomainFinderInput>
+    export type FindDomainsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Find domains matching a keyword via n8n
+ */
+export const useFindDomains = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof findDomains>>, TError,{data: BodyType<DomainFinderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof findDomains>>,
+        TError,
+        {data: BodyType<DomainFinderInput>},
+        TContext
+      > => {
+      return useMutation(getFindDomainsMutationOptions(options));
     }
 
 export const getListToolsUrl = () => {

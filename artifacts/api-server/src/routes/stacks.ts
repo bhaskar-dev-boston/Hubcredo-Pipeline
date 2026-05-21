@@ -33,14 +33,47 @@ router.post("/stacks", requireAuth, async (req: AuthenticatedRequest, res): Prom
     return;
   }
 
-  // Fetch settings to compute recommendations
-  const { data: settings } = await supabase
-    .from("outreach_settings")
+  // Fetch ICP — required for AI recommendations
+  const { data: icp, error: icpError } = await supabase
+    .from("icps")
     .select("*")
-    .eq("id", parsed.data.settings_id)
+    .eq("id", parsed.data.icp_id)
     .single();
 
-  const tools = computeStackRecommendations(settings || {});
+  if (icpError || !icp) {
+    res.status(400).json({ error: "ICP not found. Please complete your ICP profile in Settings first." });
+    return;
+  }
+
+  // Validate the ICP has enough content to generate meaningful recommendations
+  const hasJobTitles = Array.isArray(icp.job_titles) && icp.job_titles.length > 0;
+  const hasIndustries = Array.isArray(icp.industries) && icp.industries.length > 0;
+  if (!hasJobTitles && !hasIndustries) {
+    res.status(400).json({
+      error: "Your ICP has no target job titles or industries. Please fill in your ICP in Settings → ICP tab first.",
+    });
+    return;
+  }
+
+  // Fetch settings if provided (optional)
+  let settings = {};
+  if (parsed.data.settings_id) {
+    const { data: s } = await supabase
+      .from("outreach_settings")
+      .select("*")
+      .eq("id", parsed.data.settings_id)
+      .single();
+    if (s) settings = s;
+  }
+
+  let tools;
+  try {
+    tools = await computeStackRecommendations(icp, settings);
+  } catch (err) {
+    req.log.error({ err }, "AI stack generation failed");
+    res.status(500).json({ error: "Failed to generate AI stack recommendations. Please try again." });
+    return;
+  }
 
   // Mark old as not current
   await supabase
@@ -53,7 +86,7 @@ router.post("/stacks", requireAuth, async (req: AuthenticatedRequest, res): Prom
     .insert({
       user_id: req.userId!,
       icp_id: parsed.data.icp_id,
-      settings_id: parsed.data.settings_id,
+      settings_id: parsed.data.settings_id ?? null,
       tools,
       is_current: true,
     })
@@ -62,7 +95,7 @@ router.post("/stacks", requireAuth, async (req: AuthenticatedRequest, res): Prom
 
   if (error || !data) {
     req.log.error({ error }, "Failed to create stack");
-    res.status(500).json({ error: "Failed to create stack recommendation" });
+    res.status(500).json({ error: "Failed to save stack recommendation" });
     return;
   }
 

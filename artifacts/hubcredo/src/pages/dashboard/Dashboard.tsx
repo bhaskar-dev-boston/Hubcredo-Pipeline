@@ -38,7 +38,7 @@ export default function Dashboard() {
       await triggerAnalysis.mutateAsync({
         data: {
           user_id: me?.id ?? "",
-          website_url: analysis.website_url,
+          website_url: analysis.website_url ?? "",
           analysis_id: analysis.id,
         },
       });
@@ -73,9 +73,9 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout>
-      <div className="p-8 max-w-5xl mx-auto">
-        <div className="mb-8 pt-2">
-          <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "2.2rem", letterSpacing: "0.04em" }} className="text-[#0A0A0A] mb-1">
+      <div className="p-4 sm:p-8 max-w-5xl mx-auto">
+        <div className="mb-6 sm:mb-8 pt-2">
+          <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "2rem", letterSpacing: "0.04em" }} className="text-[#0A0A0A] mb-1">
             Dashboard
           </h1>
           <p className="text-[#64748B] text-sm">Your sales infrastructure at a glance</p>

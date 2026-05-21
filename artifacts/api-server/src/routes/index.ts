@@ -9,6 +9,7 @@ import leadsRouter from "./leads";
 import dashboardRouter from "./dashboard";
 import webhooksRouter from "./webhooks";
 import toolsRouter from "./tools";
+import domainsRouter from "./domains";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(leadsRouter);
 router.use(dashboardRouter);
 router.use(webhooksRouter);
 router.use(toolsRouter);
+router.use(domainsRouter);
 
 export default router;

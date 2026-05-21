@@ -5,8 +5,8 @@
  * HubCredo API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { DomainResult } from './domainResult';
 
-export interface StackInput {
-  icp_id: string;
-  settings_id?: string;
+export interface DomainFinderResponse {
+  domains: DomainResult[];
 }

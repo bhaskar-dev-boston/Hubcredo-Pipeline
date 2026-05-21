@@ -7,8 +7,8 @@ import {
   TriggerLeadScrapingResponse,
 } from "@workspace/api-zod";
 
-const N8N_ANALYSIS_WEBHOOK = "https://shreyahubcredo.app.n8n.cloud/webhook-test/lead-scrapping";
-const N8N_LEAD_SCRAPING_WEBHOOK = "https://shreyahubcredo.app.n8n.cloud/webhook-test/lead-scrapping-list";
+const N8N_ANALYSIS_WEBHOOK = "https://shreyahubcredo.app.n8n.cloud/webhook/lead-scrapping";
+const N8N_LEAD_SCRAPING_WEBHOOK = "https://shreyahubcredo.app.n8n.cloud/webhook/lead-scrapping-list";
 
 const router: IRouter = Router();
 

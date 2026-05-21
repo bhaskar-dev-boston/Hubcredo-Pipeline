@@ -12,6 +12,8 @@ export * from './bulkLeadReview';
 export * from './bulkReviewResult';
 export * from './companyAnalysis';
 export * from './dashboardSummary';
+export * from './domainFinderResponse';
+export * from './domainResult';
 export * from './healthStatus';
 export * from './icp';
 export * from './icpInput';

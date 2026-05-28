@@ -338,7 +338,7 @@ export interface DomainResult {
   /** @nullable */
   industry?: string | null;
   /** @nullable */
-  description?: string | null;
+  renewal_price?: number | null;
   /** @nullable */
   country?: string | null;
   /** @nullable */
@@ -350,7 +350,7 @@ export interface DomainResult {
   /** @nullable */
   phone?: string | null;
   /** @nullable */
-  linkedin?: string | null;
+  registration_price?: number | null;
   /** @nullable */
   score?: number | null;
 }

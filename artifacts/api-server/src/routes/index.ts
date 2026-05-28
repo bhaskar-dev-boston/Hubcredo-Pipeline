@@ -10,6 +10,8 @@ import dashboardRouter from "./dashboard";
 import webhooksRouter from "./webhooks";
 import toolsRouter from "./tools";
 import domainsRouter from "./domains";
+import inboxkitRouter from "./inboxkit";
+import contactsRouter from "./contacts";
 
 const router: IRouter = Router();
 
@@ -24,5 +26,7 @@ router.use(dashboardRouter);
 router.use(webhooksRouter);
 router.use(toolsRouter);
 router.use(domainsRouter);
+router.use(inboxkitRouter);
+router.use(contactsRouter);
 
 export default router;

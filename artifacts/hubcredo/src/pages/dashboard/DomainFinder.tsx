@@ -1,12 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { CreditCostBadge } from "@/components/ui/CreditCostBadge";
 import {
   Globe, Search, Loader2, Briefcase, Sparkles, AlertCircle,
   ExternalLink, RefreshCw, ShoppingCart, User, Plus, Check,
-  Trash2, Link, Copy, CheckCheck, Wallet, Tag,
+  Trash2, Link, Copy, CheckCheck, Wallet, Tag, Zap,  // ← add Zap here
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getToken } from "@/lib/auth";
+import { useCreditStore } from "@/store/creditStore";
+
+const USD_TO_CREDITS = 95; // $1 = ₹95 = 95 credits
+
+function domainPriceToCredits(registrationPrice: number | null | undefined): number {
+  if (registrationPrice == null) return 0;
+  const dollars = registrationPrice > 500 ? registrationPrice / 100 : registrationPrice;
+  return Math.round(dollars * USD_TO_CREDITS);
+}
 
 interface DomainResult {
   id?: string; domain?: string | null; company_name?: string | null;
@@ -44,12 +54,15 @@ async function apiFetch(path: string, opts?: RequestInit) {
   });
 }
 
-// Format price — handles both cents (int) and dollars (float)
+const USD_TO_INR = 95;
+
+// Format price — converts USD to INR at ₹95/$1
+// Handles both cents (int > 500) and dollars (float)
 function formatPrice(value: number | null | undefined): string | null {
   if (value == null) return null;
-  // If stored as cents (integer > 100 for typical domain prices), divide by 100
   const dollars = value > 500 ? value / 100 : value;
-  return `$${dollars.toFixed(2)}`;
+  const inr = Math.round(dollars * USD_TO_INR);
+  return `₹${inr.toLocaleString("en-IN")}`;
 }
 
 const POLL_INTERVAL_MS = 10_000;
@@ -225,6 +238,7 @@ function ConnectExistingDomain({ onConnected }: { onConnected?: (domain: string)
 // ── Main component ───────────────────────────────────────────────────
 export default function DomainFinder() {
   const { toast } = useToast();
+  const { balance, deductOptimistic, fetchBalance, setBalance } = useCreditStore();
 
   const [keyword, setKeyword] = useState("");
   const [industry, setIndustry] = useState("");
@@ -394,13 +408,31 @@ export default function DomainFinder() {
     const contact = contacts.find(c => c.id === selectedContactId);
     if (!contact) return;
 
+    // Calculate credit cost based on domain registration price
+    const domainData = storedDomains.find(d => (d.domain || d.website) === pendingDomain);
+    const creditsRequired = domainPriceToCredits(domainData?.registration_price);
+
+    // Check balance upfront if we have it
+    if (creditsRequired > 0 && balance !== null && balance < creditsRequired) {
+      toast({
+        title: "Not enough credits",
+        description: `This domain costs ${creditsRequired} credits but you only have ${balance}. Top up in Billing.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setShowContactModal(false);
     setBuyingDomain(pendingDomain);
+
+    // Optimistic deduction
+    if (creditsRequired > 0) deductOptimistic(creditsRequired);
 
     try {
       const checkRes = await apiFetch(`/api/inboxkit/check?domain=${encodeURIComponent(pendingDomain)}`);
       const checkData = await checkRes.json();
       if (checkData.available === false) {
+        if (creditsRequired > 0) fetchBalance(); // restore optimistic
         toast({ title: "Domain unavailable", variant: "destructive" }); return;
       }
 
@@ -424,14 +456,32 @@ export default function DomainFinder() {
       const purchaseData = await purchaseRes.json();
       if (!purchaseRes.ok) throw new Error(purchaseData.error ?? "Purchase failed");
 
+      // Confirm credit deduction server-side
+      if (creditsRequired > 0) {
+        const spendRes = await apiFetch("/api/billing/spend-fixed", {
+          method: "POST",
+          body: JSON.stringify({
+            amount: creditsRequired,
+            description: `domain_purchase: ${pendingDomain}`,
+          }),
+        });
+        const spendData = await spendRes.json();
+        if (spendRes.ok && typeof spendData.newBalance === "number") {
+          setBalance(spendData.newBalance);
+        } else {
+          fetchBalance(); // sync real balance
+        }
+      }
+
       const domainId = purchaseData?.domains?.[0]?.id ?? purchaseData?.id;
       setPurchasedDomain({ id: domainId, name: pendingDomain });
       toast({
         title: "Domain purchased!",
-        description: `${pendingDomain} purchased. SPF/DKIM/DMARC auto-configured — propagates in 1–4 hours.`,
+        description: `${pendingDomain} purchased — ${creditsRequired} credits deducted. SPF/DKIM/DMARC auto-configured.`,
       });
       setShowMailboxModal(true);
     } catch (err) {
+      if (creditsRequired > 0) fetchBalance(); // restore optimistic on failure
       toast({
         title: "Purchase failed",
         description: err instanceof Error ? err.message : "Could not purchase domain.",
@@ -550,7 +600,7 @@ export default function DomainFinder() {
         </div>
 
         {/* Search card */}
-        <div className="relative bg-gradient-to-br from-[#2563EB] to-[#7C3AED] rounded-2xl p-5 sm:p-8 mb-6 sm:mb-8 overflow-hidden">
+        <div className="relative rounded-2xl p-5 sm:p-8 mb-6 sm:mb-8 overflow-hidden" style={{ background: "linear-gradient(135deg, #2563EB, #7C3AED)" }}>
           <div className="absolute inset-0 opacity-10" style={{
             backgroundImage: "radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)",
             backgroundSize: "40px 40px",
@@ -588,6 +638,7 @@ export default function DomainFinder() {
                 className="flex items-center justify-center gap-2 px-6 py-3 bg-white text-[#2563EB] font-bold rounded-xl hover:bg-blue-50 transition-all disabled:opacity-50 shadow-lg active:scale-95 text-sm">
                 {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                 {searching ? "Searching…" : "Find domains"}
+                {!searching && <CreditCostBadge action="domain_check" variant="dark" />}
               </button>
             </form>
           </div>
@@ -659,7 +710,7 @@ export default function DomainFinder() {
                 return (
                   <div key={d.id ?? i}
                     className={`flex items-center gap-2 sm:gap-3 px-4 sm:px-5 py-3 sm:py-3.5 hover:bg-[#F5F7FA] transition-colors ${i < storedDomains.length - 1 ? "border-b border-[#F1F5F9]" : ""}`}>
-                    
+
                     {/* Avatar */}
                     <div className="w-7 h-7 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] flex items-center justify-center text-[#2563EB] font-bold text-xs shrink-0">
                       {label[0]?.toUpperCase() ?? "?"}
@@ -670,12 +721,12 @@ export default function DomainFinder() {
 
                     {/* Keyword tag */}
                     {d.keyword && (
-                      <span className="hidden md:inline text-xs text-[#64748B] bg-[#F5F7FA] border border-[#E2E8F0] px-2 py-0.5 rounded-full shrink-0">{d.keyword}</span>
+                      <span className="text-xs text-[#64748B] bg-[#F5F7FA] border border-[#E2E8F0] px-2 py-0.5 rounded-full shrink-0">{d.keyword}</span>
                     )}
 
                     {/* ── Price badge ── */}
                     {regPrice && (
-                      <div className="hidden sm:flex flex-col items-end shrink-0 min-w-[72px]">
+                      <div className="flex flex-col items-end shrink-0 min-w-[72px]">
                         <div className="flex items-center gap-1">
                           <Tag className="w-3 h-3 text-[#2563EB]" />
                           <span className="text-xs font-bold text-[#0A0A0A]">{regPrice}<span className="font-normal text-[#94A3B8]">/yr</span></span>
@@ -687,26 +738,26 @@ export default function DomainFinder() {
                     )}
 
                     {/* Actions */}
-                    <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
                       {href && (
                         <a href={href} target="_blank" rel="noopener noreferrer"
                           className="flex items-center gap-1 text-xs text-[#2563EB] hover:text-[#1D4ED8] px-2 py-1 rounded-lg hover:bg-[#EFF6FF]">
                           <ExternalLink className="w-3.5 h-3.5" />
-                          <span className="hidden sm:inline">Visit</span>
+                          <span>Visit</span>
                         </a>
                       )}
                       {domainVal && (
                         supported ? (
                           <button onClick={() => openContactModal(domainVal)} disabled={!!buyingDomain}
-                            className="flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 border border-emerald-200 hover:bg-emerald-50 px-2 sm:px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50 active:scale-95">
+                            className="flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 border border-emerald-200 hover:bg-emerald-50 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50 active:scale-95">
                             {buyingDomain === domainVal ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShoppingCart className="w-3 h-3" />}
                             <span>{buyingDomain === domainVal ? "Buying…" : "Buy & Setup"}</span>
                           </button>
                         ) : (
                           <span title={`Only ${SUPPORTED_TLDS.join(", ")} domains are supported`}
-                            className="flex items-center gap-1 text-xs text-[#94A3B8] border border-[#E2E8F0] px-2 sm:px-2.5 py-1 rounded-lg cursor-not-allowed">
+                            className="flex items-center gap-1 text-xs text-[#94A3B8] border border-[#E2E8F0] px-2.5 py-1 rounded-lg cursor-not-allowed">
                             <ShoppingCart className="w-3 h-3" />
-                            <span className="hidden sm:inline">Unsupported TLD</span>
+                            <span>Unsupported TLD</span>
                           </span>
                         )
                       )}
@@ -838,24 +889,49 @@ export default function DomainFinder() {
                 )}
 
                 {/* ── Price summary before confirming ── */}
-                {pendingRegPrice && (
-                  <div className="flex items-center justify-between px-4 py-3 bg-[#F5F7FA] border border-[#E2E8F0] rounded-xl">
-                    <div className="flex items-center gap-2">
-                      <Tag className="w-4 h-4 text-[#64748B]" />
-                      <span className="text-xs text-[#475569] font-medium">Registration price</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-sm font-bold text-[#0A0A0A]">{pendingRegPrice}</span>
-                      <span className="text-xs text-[#94A3B8]">/yr</span>
-                      {formatPrice(pendingDomainData?.renewal_price) && formatPrice(pendingDomainData?.renewal_price) !== pendingRegPrice && (
-                        <p className="text-[10px] text-[#94A3B8]">renews at {formatPrice(pendingDomainData?.renewal_price)}/yr</p>
+                {pendingRegPrice && (() => {
+                  const pendingCredits = domainPriceToCredits(pendingDomainData?.registration_price);
+                  const hasEnough = balance === null || pendingCredits === 0 || balance >= pendingCredits;
+                  return (
+                    <div className="bg-[#F5F7FA] border border-[#E2E8F0] rounded-xl overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <Tag className="w-3.5 h-3.5 text-[#64748B]" />
+                          <span className="text-xs text-[#475569] font-medium">Registration</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm font-bold text-[#0A0A0A]">{pendingRegPrice}</span>
+                          <span className="text-xs text-[#94A3B8]">/yr</span>
+                          {formatPrice(pendingDomainData?.renewal_price) && formatPrice(pendingDomainData?.renewal_price) !== pendingRegPrice && (
+                            <p className="text-[10px] text-[#94A3B8]">renews at {formatPrice(pendingDomainData?.renewal_price)}/yr</p>
+                          )}
+                        </div>
+                      </div>
+                      {pendingCredits > 0 && (
+                        <div className={`flex items-center justify-between px-4 py-2.5 border-t ${hasEnough ? "border-[#E2E8F0]" : "border-red-200 bg-red-50"}`}>
+                          <div className="flex items-center gap-2">
+                            <Zap className={`w-3.5 h-3.5 ${hasEnough ? "text-[#2563EB]" : "text-red-500"}`} />
+                            <span className={`text-xs font-medium ${hasEnough ? "text-[#475569]" : "text-red-600"}`}>Credits charged</span>
+                          </div>
+                          <div className="text-right">
+                            <span className={`text-sm font-bold ${hasEnough ? "text-[#2563EB]" : "text-red-600"}`}>{pendingCredits} cr</span>
+                            {balance !== null && (
+                              <p className={`text-[10px] ${hasEnough ? "text-[#94A3B8]" : "text-red-500 font-semibold"}`}>
+                                {hasEnough ? `balance: ${balance} cr` : `need ${pendingCredits - balance} more`}
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 <div className="flex gap-3 pt-1">
-                  <button onClick={handleConfirmPurchase} disabled={!canProceed}
+                  <button onClick={handleConfirmPurchase} disabled={!canProceed || (() => {
+                    const pendingCredits = domainPriceToCredits(pendingDomainData?.registration_price);
+                    return pendingCredits > 0 && balance !== null && balance < pendingCredits;
+                  })()}
                     className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#2563EB] text-white text-sm font-semibold rounded-xl hover:bg-[#1D4ED8] transition-colors disabled:opacity-50 active:scale-95">
                     <ShoppingCart className="w-4 h-4" />
                     {canProceed

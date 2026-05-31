@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu, Zap } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { Link } from "wouter";
+import { useCreditStore } from "@/store/creditStore";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -9,6 +10,9 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { balance, fetchBalance } = useCreditStore();
+
+  useEffect(() => { fetchBalance(); }, []);
 
   return (
     <div className="flex min-h-screen bg-[#F5F7FA]">
@@ -35,7 +39,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               HubCredo
             </span>
           </Link>
-          <div className="w-9" />
+          {/* Credit balance on mobile header */}
+          {balance !== null ? (
+            <Link href="/dashboard/billing"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg text-xs font-semibold text-[#2563EB]">
+              <Zap className="w-3 h-3" />
+              {balance.toLocaleString()}
+            </Link>
+          ) : (
+            <div className="w-9" />
+          )}
         </header>
 
         <main className="flex-1 overflow-auto bg-white">

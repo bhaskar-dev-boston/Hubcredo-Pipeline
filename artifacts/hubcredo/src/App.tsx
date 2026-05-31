@@ -12,6 +12,7 @@ import Leads from "@/pages/dashboard/Leads";
 import Stack from "@/pages/dashboard/Stack";
 import Settings from "@/pages/dashboard/Settings";
 import DomainFinder from "@/pages/dashboard/DomainFinder";
+import Billing from "@/pages/dashboard/Billing";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -48,6 +49,9 @@ function Router() {
       </Route>
       <Route path="/dashboard/domains">
         <ProtectedRoute component={DomainFinder} />
+      </Route>
+      <Route path="/dashboard/billing">
+        <ProtectedRoute component={Billing} />
       </Route>
       <Route component={NotFound} />
     </Switch>

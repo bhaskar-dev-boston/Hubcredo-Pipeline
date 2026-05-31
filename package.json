@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@rollup/rollup-win32-x64-msvc": "^4.60.4",
-    "lightningcss-win32-x64-msvc": "^1.32.0"
+    "lightningcss-win32-x64-msvc": "^1.32.0",
+    "razorpay": "^2.9.6"
   }
 }

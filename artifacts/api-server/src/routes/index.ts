@@ -12,6 +12,7 @@ import toolsRouter from "./tools";
 import domainsRouter from "./domains";
 import inboxkitRouter from "./inboxkit";
 import contactsRouter from "./contacts";
+import billingRouter from "./billing";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(toolsRouter);
 router.use(domainsRouter);
 router.use(inboxkitRouter);
 router.use(contactsRouter);
+router.use(billingRouter);
 
 export default router;

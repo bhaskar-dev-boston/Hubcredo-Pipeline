@@ -6,9 +6,12 @@ import {
   TriggerLeadScrapingBody,
   TriggerLeadScrapingResponse,
 } from "@workspace/api-zod";
+import { spendCredits, getCreditBalance } from "../lib/credits";
 
 const N8N_ANALYSIS_WEBHOOK = "https://shreyahubcredo.app.n8n.cloud/webhook/lead-scrapping";
 const N8N_LEAD_SCRAPING_WEBHOOK = "https://shreyahubcredo.app.n8n.cloud/webhook/lead-scrapping-list";
+
+const VALID_LEAD_COUNTS = [10, 25, 50, 100];
 
 const router: IRouter = Router();
 
@@ -16,6 +19,13 @@ router.post("/webhooks/trigger-analysis", requireAuth, async (req: Authenticated
   const parsed = TriggerAnalysisBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const spend = await spendCredits(req.userId!, "company_analysis");
+  if (!spend.success) {
+    const balance = await getCreditBalance(req.userId!);
+    res.status(402).json({ error: "Insufficient credits", required: spend.required ?? 15, balance });
     return;
   }
 
@@ -37,7 +47,6 @@ router.post("/webhooks/trigger-analysis", requireAuth, async (req: Authenticated
     res.json(TriggerAnalysisResponse.parse({ success: true, message: "Analysis triggered" }));
   } catch (err) {
     req.log.error({ err }, "Failed to trigger analysis webhook");
-    // Still return success — n8n might be in test mode
     res.json(TriggerAnalysisResponse.parse({ success: true, message: "Analysis triggered (webhook may be in test mode)" }));
   }
 });
@@ -49,6 +58,23 @@ router.post("/webhooks/trigger-lead-scraping", requireAuth, async (req: Authenti
     return;
   }
 
+  // Validate lead_count — must be one of the allowed values
+  const rawCount = (req.body as Record<string, unknown>).lead_count;
+  const leadCount = typeof rawCount === "number" && VALID_LEAD_COUNTS.includes(rawCount)
+    ? rawCount
+    : 10;
+
+  const spend = await spendCredits(req.userId!, "lead_enrichment", leadCount);
+  if (!spend.success) {
+    const balance = await getCreditBalance(req.userId!);
+    res.status(402).json({
+      error: "Insufficient credits",
+      required: spend.required ?? leadCount * 15,
+      balance,
+    });
+    return;
+  }
+
   try {
     const response = await fetch(N8N_LEAD_SCRAPING_WEBHOOK, {
       method: "POST",
@@ -57,6 +83,7 @@ router.post("/webhooks/trigger-lead-scraping", requireAuth, async (req: Authenti
         user_id: parsed.data.user_id,
         icp_id: parsed.data.icp_id,
         lead_list_id: parsed.data.lead_list_id,
+        lead_count: leadCount,
       }),
     });
 

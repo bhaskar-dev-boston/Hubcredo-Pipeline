@@ -8,7 +8,6 @@ import {
   useReviewLead,
   useListIcps,
   useGetMe,
-  useAutoFillIcp,
   getListIcpsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -36,7 +35,6 @@ export default function Leads() {
   const createLeadList = useCreateLeadList();
   const triggerScraping = useTriggerLeadScraping();
   const reviewLead = useReviewLead();
-  const autoFillIcp = useAutoFillIcp();
 
   const currentIcp = (icps as Icp[])[0];
   const hasIcp =
@@ -66,20 +64,7 @@ export default function Leads() {
   }
 
   async function handleAutoFill() {
-    try {
-      await autoFillIcp.mutateAsync();
-      await queryClient.invalidateQueries({ queryKey: getListIcpsQueryKey() });
-      await refetchIcps();
-      toast({ title: "ICP auto-filled!", description: "Your ICP has been populated from your website analysis. You can now generate leads." });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "";
-      if (msg.toLowerCase().includes("no completed") || msg.toLowerCase().includes("analysis")) {
-        toast({ title: "Website analysis needed", description: "Run your website analysis on the Dashboard first, then come back here.", variant: "destructive" });
-        setLocation("/dashboard");
-      } else {
-        toast({ title: "Auto-fill failed", description: msg || "Could not generate ICP. Try again.", variant: "destructive" });
-      }
-    }
+    toast({ title: "Feature unavailable", description: "Auto-fill will be available soon.", variant: "destructive" });
   }
 
   async function handleGenerateLeads() {

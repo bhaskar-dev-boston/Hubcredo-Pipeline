@@ -1,13 +1,16 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, Layers, Settings, LogOut, Zap, X, Globe } from "lucide-react";
+import { LayoutDashboard, Users, Layers, Settings, LogOut, Zap, X, Globe, CreditCard } from "lucide-react";
 import { removeToken } from "@/lib/auth";
 import { useGetMe } from "@workspace/api-client-react";
+import { useCreditStore } from "@/store/creditStore";
+import { useEffect } from "react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/leads", label: "My Leads", icon: Users },
   { href: "/dashboard/stack", label: "My Stack", icon: Layers },
   { href: "/dashboard/domains", label: "Domain Finder", icon: Globe },
+  { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
@@ -19,6 +22,11 @@ interface SidebarProps {
 export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const [location, setLocation] = useLocation();
   const { data: profile } = useGetMe();
+  const { balance, fetchBalance } = useCreditStore();
+
+  useEffect(() => {
+    fetchBalance();
+  }, []);
 
   function handleLogout() {
     removeToken();
@@ -45,7 +53,6 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
             HubCredo
           </span>
         </Link>
-        {/* Close on mobile */}
         <button
           onClick={onClose}
           className="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F5F7FA] transition-colors"
@@ -53,6 +60,18 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
           <X className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Credit balance pill */}
+      {balance !== null && (
+        <div className="mx-3 mt-3">
+          <Link href="/dashboard/billing" onClick={onClose}
+            className="flex items-center gap-2 px-3 py-2 bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl hover:bg-[#DBEAFE] transition-colors">
+            <Zap className="w-3.5 h-3.5 text-[#2563EB] shrink-0" />
+            <span className="text-xs font-semibold text-[#2563EB]">{balance.toLocaleString()} credits</span>
+            <span className="ml-auto text-[10px] text-[#93C5FD]">Top up →</span>
+          </Link>
+        </div>
+      )}
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
@@ -112,14 +131,12 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
 
       {/* Mobile sidebar — slide-in drawer */}
       <>
-        {/* Backdrop */}
         <div
           className={`lg:hidden fixed inset-0 bg-black/40 backdrop-blur-[2px] z-40 transition-opacity duration-300 ${
             mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
           }`}
           onClick={onClose}
         />
-        {/* Drawer */}
         <div
           className={`lg:hidden fixed inset-y-0 left-0 z-50 flex flex-col w-72 shadow-2xl transition-transform duration-300 ease-in-out ${
             mobileOpen ? "translate-x-0" : "-translate-x-full"

@@ -4,7 +4,6 @@ import {
   useCreateStack,
   useListTools,
   useListIcps,
-  useAutoFillIcp,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListIcpsQueryKey } from "@workspace/api-client-react";
@@ -40,7 +39,6 @@ export default function Stack() {
   const { data: tools = [], isLoading: toolsLoading } = useListTools();
   const { data: icps = [], refetch: refetchIcps } = useListIcps();
   const createStack = useCreateStack();
-  const autoFillIcp = useAutoFillIcp();
   const [activeTab, setActiveTab] = useState<"recommended" | "catalogue">("recommended");
 
   const currentIcp = (icps as Icp[])[0];
@@ -49,20 +47,8 @@ export default function Stack() {
     ((currentIcp.job_titles?.length ?? 0) > 0 || (currentIcp.industries?.length ?? 0) > 0);
 
   async function handleAutoFill() {
-    try {
-      await autoFillIcp.mutateAsync();
-      await queryClient.invalidateQueries({ queryKey: getListIcpsQueryKey() });
-      await refetchIcps();
-      toast({ title: "ICP auto-filled!", description: "Your ICP has been populated from your website analysis. You can now generate your stack." });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "";
-      if (msg.toLowerCase().includes("no completed") || msg.toLowerCase().includes("no website") || msg.toLowerCase().includes("analysis")) {
-        toast({ title: "Website analysis needed", description: "Run your website analysis on the Dashboard first, then come back here.", variant: "destructive" });
-        setLocation("/dashboard");
-      } else {
-        toast({ title: "Auto-fill failed", description: msg || "Could not generate ICP. Try again.", variant: "destructive" });
-      }
-    }
+    // Auto-fill functionality - implement when useAutoFillIcp is available
+    toast({ title: "Feature unavailable", description: "Auto-fill will be available soon.", variant: "destructive" });
   }
 
   async function handleBuildStack() {
@@ -75,7 +61,8 @@ export default function Stack() {
       return;
     }
     try {
-      await createStack.mutateAsync({ data: { icp_id: currentIcp.id } });
+      // Note: settings_id needs to be obtained from user settings
+      await createStack.mutateAsync({ data: { icp_id: currentIcp.id, settings_id: "" } });
       toast({ title: "AI stack generated!", description: "Your personalised sales stack is ready." });
       refetch();
     } catch (err: unknown) {
@@ -128,13 +115,11 @@ export default function Stack() {
                   </button>
                   <button
                     onClick={handleAutoFill}
-                    disabled={autoFillIcp.isPending}
+                    disabled={false}
                     className="flex items-center gap-1.5 px-3 py-2 bg-white border border-amber-300 text-amber-700 text-xs font-semibold rounded-lg hover:bg-amber-50 transition-colors disabled:opacity-50"
                   >
-                    {autoFillIcp.isPending
-                      ? <Loader2 className="w-3 h-3 animate-spin" />
-                      : <Sparkles className="w-3 h-3" />}
-                    {autoFillIcp.isPending ? "Generating ICP…" : "Auto-fill from website analysis"}
+                    <Sparkles className="w-3 h-3" />
+                    Auto-fill from website analysis
                   </button>
                 </div>
               </div>

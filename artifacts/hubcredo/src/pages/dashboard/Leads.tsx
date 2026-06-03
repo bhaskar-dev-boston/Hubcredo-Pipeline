@@ -3,6 +3,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   useListLeadLists,
   useCreateLeadList,
+  useDeleteLeadList,
   useListLeads,
   useTriggerLeadScraping,
   useReviewLead,
@@ -12,9 +13,10 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Users, Plus, Loader2, ThumbsUp, ThumbsDown, ExternalLink, Zap, ChevronDown, Sparkles, ArrowRight, X, Building2, MapPin, Briefcase, Mail, Globe } from "lucide-react";
+import { Users, Plus, Loader2, ThumbsUp, ThumbsDown, ExternalLink, Zap, ChevronDown, Sparkles, ArrowRight, X, Building2, MapPin, Briefcase, Mail, Globe, Trash2, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Lead, LeadList, Icp } from "@workspace/api-client-react";
+import { useCreditStore } from "@/store/creditStore";
 
 export default function Leads() {
   const { toast } = useToast();
@@ -25,6 +27,9 @@ export default function Leads() {
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [scraping, setScraping] = useState(false);
   const [profileLead, setProfileLead] = useState<Lead | null>(null);
+  const [leadCount, setLeadCount] = useState(5);
+  const [deleteConfirmList, setDeleteConfirmList] = useState<LeadList | null>(null);
+  const { balance, deductOptimistic, fetchBalance } = useCreditStore();
 
   const { data: me } = useGetMe();
   const { data: leadLists = [], isLoading: listsLoading, refetch: refetchLists } = useListLeadLists();
@@ -33,6 +38,7 @@ export default function Leads() {
   );
   const { data: icps = [], refetch: refetchIcps } = useListIcps();
   const createLeadList = useCreateLeadList();
+  const deleteLeadListMutation = useDeleteLeadList();
   const triggerScraping = useTriggerLeadScraping();
   const reviewLead = useReviewLead();
 
@@ -77,33 +83,60 @@ export default function Leads() {
       return;
     }
 
-    setScraping(true);
-    try {
-      let listId = activeListId;
+    const safeCount = Math.max(5, Math.floor(leadCount));
+    const totalCost = safeCount * 15;
 
-      // Auto-create a list if none exists
-      if (!listId) {
-        const newList = await createLeadList.mutateAsync({
-          data: { icp_id: currentIcp.id, label: "Lead List 1" },
-        });
-        listId = newList.id;
-        setSelectedListId(newList.id);
-        await refetchLists();
-      }
+    // Check balance upfront
+    if (balance !== null && balance < totalCost) {
+      toast({
+        title: "Not enough credits",
+        description: `${safeCount} leads costs ${totalCost} credits but you only have ${balance}. Top up in Billing.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setScraping(true);
+    deductOptimistic(totalCost);
+
+    try {
+      // Always create a fresh list for every generation run
+      const listNumber = lists.length + 1;
+      const newList = await createLeadList.mutateAsync({
+        data: { icp_id: currentIcp.id, label: `Lead List ${listNumber}` },
+      });
+      const listId = newList.id;
+      setSelectedListId(newList.id);
+      await refetchLists();
 
       await triggerScraping.mutateAsync({
-        data: { user_id: me.id, icp_id: currentIcp.id, lead_list_id: listId },
+        data: { user_id: me.id, icp_id: currentIcp.id, lead_list_id: listId, lead_count: safeCount },
       });
 
       toast({
         title: "Lead generation started!",
-        description: "Your n8n workflow is running. Leads will appear here in a few minutes.",
+        description: `Generating ${safeCount} unique leads in "Lead List ${listNumber}" (${totalCost} credits deducted). Check back in a few minutes.`,
       });
       setTimeout(() => refetchLeads(), 8000);
-    } catch {
-      toast({ title: "Error", description: "Could not start lead scraping. Check your n8n workflow is active.", variant: "destructive" });
+    } catch (err: unknown) {
+      fetchBalance(); // restore optimistic deduction
+      const msg = err instanceof Error ? err.message : "Could not start lead scraping. Check your n8n workflow is active.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
     } finally {
       setScraping(false);
+    }
+  }
+
+  async function handleDeleteList(list: LeadList) {
+    try {
+      await deleteLeadListMutation.mutateAsync({ id: list.id });
+      setDeleteConfirmList(null);
+      // If the deleted list was selected, clear selection
+      if (selectedListId === list.id) setSelectedListId(null);
+      await refetchLists();
+      toast({ title: "List deleted", description: `"${list.label}" and all its leads have been removed.` });
+    } catch {
+      toast({ title: "Error", description: "Could not delete the list. Please try again.", variant: "destructive" });
     }
   }
 
@@ -155,41 +188,74 @@ export default function Leads() {
                 </button>
                 <button
                   onClick={handleAutoFill}
-                  disabled={autoFillIcp.isPending}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-white border border-amber-300 text-amber-700 text-xs font-semibold rounded-lg hover:bg-amber-50 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-white border border-amber-300 text-amber-700 text-xs font-semibold rounded-lg hover:bg-amber-50 transition-colors"
                 >
-                  {autoFillIcp.isPending
-                    ? <Loader2 className="w-3 h-3 animate-spin" />
-                    : <Sparkles className="w-3 h-3" />}
-                  {autoFillIcp.isPending ? "Generating ICP…" : "Auto-fill from website analysis"}
+                  <Sparkles className="w-3 h-3" />
+                  Auto-fill from website analysis
                 </button>
               </div>
             </div>
           </div>
         ) : (
-          <div className="bg-[#2563EB] rounded-xl p-6 mb-8 flex flex-col sm:flex-row items-start sm:items-center gap-5">
-            <div className="w-12 h-12 bg-white/15 rounded-xl flex items-center justify-center shrink-0">
-              <Zap className="w-6 h-6 text-white" />
+          <div className="bg-[#2563EB] rounded-xl p-6 mb-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+              <div className="w-12 h-12 bg-white/15 rounded-xl flex items-center justify-center shrink-0">
+                <Zap className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-semibold text-base mb-0.5">Generate LinkedIn leads</p>
+                <p className="text-blue-100 text-sm leading-relaxed">
+                  Triggers your Engine with your ICP targeting It may take <b>upto 5 minutes</b> to give you the best results.
+                  {selectedList
+                    ? <> Running against <span className="font-semibold text-white">"{selectedList.label}"</span>.</>
+                    : lists.length === 0
+                    ? " A new list will be created automatically."
+                    : " Using your most recent list."}
+                </p>
+              </div>
+              <button
+                onClick={handleGenerateLeads}
+                disabled={scraping}
+                className="flex items-center gap-2.5 px-6 py-3 bg-white text-[#2563EB] font-bold rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50 shrink-0 text-sm"
+              >
+                {scraping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                {scraping ? "Scraping…" : "Generate leads"}
+              </button>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white font-semibold text-base mb-0.5">Generate LinkedIn leads</p>
-              <p className="text-blue-100 text-sm leading-relaxed">
-                Triggers your Engine with your ICP targeting It may take <b>upto 5 minutes</b> to give you the best results.
-                {selectedList
-                  ? <> Running against <span className="font-semibold text-white">"{selectedList.label}"</span>.</>
-                  : lists.length === 0
-                  ? " A new list will be created automatically."
-                  : " Using your most recent list."}
-              </p>
+
+            {/* Lead count selector */}
+            <div className="mt-4 pt-4 border-t border-white/20 flex flex-wrap items-center gap-3">
+              <span className="text-blue-100 text-xs font-medium">Number of leads:</span>
+              <div className="flex items-center gap-2">
+                {[5, 10, 25, 50].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setLeadCount(n)}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${leadCount === n ? "bg-white text-[#2563EB]" : "bg-white/15 text-white hover:bg-white/25"}`}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={5}
+                    max={500}
+                    value={leadCount}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value, 10);
+                      if (!isNaN(v)) setLeadCount(Math.max(5, Math.min(500, v)));
+                    }}
+                    className="w-16 px-2 py-1 rounded-md text-xs font-semibold bg-white/15 text-white border border-white/30 focus:outline-none focus:border-white text-center"
+                    placeholder="Custom"
+                  />
+                </div>
+              </div>
+              <span className="text-white/70 text-xs ml-auto">
+                Cost: <span className="text-white font-semibold">{leadCount * 15} credits</span>
+                {balance !== null && <span className="text-blue-200"> · you have {balance.toLocaleString()}</span>}
+              </span>
             </div>
-            <button
-              onClick={handleGenerateLeads}
-              disabled={scraping}
-              className="flex items-center gap-2.5 px-6 py-3 bg-white text-[#2563EB] font-bold rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50 shrink-0 text-sm"
-            >
-              {scraping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-              {scraping ? "Scraping…" : "Generate leads"}
-            </button>
           </div>
         )}
 
@@ -218,18 +284,31 @@ export default function Leads() {
               </div>
             ) : (
               lists.map((list) => (
-                <button
+                <div
                   key={list.id}
-                  onClick={() => setSelectedListId(list.id)}
-                  className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
+                  className={`group relative flex items-center rounded-lg border transition-colors ${
                     activeListId === list.id
-                      ? "bg-[#EFF6FF] border-[#BFDBFE] text-[#2563EB]"
-                      : "bg-white border-[#E2E8F0] text-[#0A0A0A] hover:border-[#CBD5E1] hover:bg-[#F5F7FA]"
+                      ? "bg-[#EFF6FF] border-[#BFDBFE]"
+                      : "bg-white border-[#E2E8F0] hover:border-[#CBD5E1] hover:bg-[#F5F7FA]"
                   }`}
                 >
-                  <p className="text-sm font-medium truncate">{list.label || "Untitled list"}</p>
-                  <p className={`text-xs mt-0.5 capitalize ${activeListId === list.id ? "text-[#2563EB]/70" : "text-[#64748B]"}`}>{list.status}</p>
-                </button>
+                  <button
+                    onClick={() => setSelectedListId(list.id)}
+                    className="flex-1 text-left px-4 py-3 min-w-0"
+                  >
+                    <p className={`text-sm font-medium truncate ${activeListId === list.id ? "text-[#2563EB]" : "text-[#0A0A0A]"}`}>
+                      {list.label || "Untitled list"}
+                    </p>
+                    <p className={`text-xs mt-0.5 capitalize ${activeListId === list.id ? "text-[#2563EB]/70" : "text-[#64748B]"}`}>{list.status}</p>
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteConfirmList(list); }}
+                    className="opacity-0 group-hover:opacity-100 mr-2 shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-[#94A3B8] hover:text-red-500 hover:bg-red-50 transition-all"
+                    title="Delete list"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               ))
             )}
 
@@ -567,6 +646,52 @@ export default function Leads() {
           </>
         );
       })()}
+
+      {/* ── DELETE CONFIRMATION DIALOG ── */}
+      {deleteConfirmList && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/40 z-50 backdrop-blur-[2px]"
+            onClick={() => setDeleteConfirmList(null)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
+              {/* Icon + title */}
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-red-500" />
+                </div>
+                <div>
+                  <p className="text-[#0A0A0A] font-semibold text-base leading-tight">Delete this list?</p>
+                  <p className="text-[#64748B] text-sm mt-1 leading-relaxed">
+                    <span className="font-medium text-[#0A0A0A]">"{deleteConfirmList.label || "Untitled list"}"</span> and all the leads inside it will be permanently deleted. This cannot be undone.
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteConfirmList(null)}
+                  className="flex-1 py-2.5 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-lg hover:bg-[#F5F7FA] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeleteList(deleteConfirmList)}
+                  disabled={deleteLeadListMutation.isPending}
+                  className="flex-1 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {deleteLeadListMutation.isPending
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <Trash2 className="w-4 h-4" />}
+                  {deleteLeadListMutation.isPending ? "Deleting…" : "Yes, delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </DashboardLayout>
   );
 }

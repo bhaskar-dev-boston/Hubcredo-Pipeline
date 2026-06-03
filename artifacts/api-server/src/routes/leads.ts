@@ -102,6 +102,35 @@ router.get("/lead-lists/:id", requireAuth, async (req: AuthenticatedRequest, res
   res.json(GetLeadListResponse.parse(data));
 });
 
+router.delete("/lead-lists/:id", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const id = req.params.id;
+  if (!id) {
+    res.status(400).json({ error: "Missing list id" });
+    return;
+  }
+
+  // Delete all leads in this list first (cascade)
+  await supabase
+    .from("leads")
+    .delete()
+    .eq("lead_list_id", id)
+    .eq("user_id", req.userId!);
+
+  const { error } = await supabase
+    .from("lead_lists")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", req.userId!);
+
+  if (error) {
+    req.log.error({ error }, "Failed to delete lead list");
+    res.status(500).json({ error: "Failed to delete lead list" });
+    return;
+  }
+
+  res.json({ success: true });
+});
+
 // Leads
 router.get("/leads", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const queryParams = ListLeadsQueryParams.safeParse(req.query);

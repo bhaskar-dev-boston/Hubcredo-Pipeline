@@ -7,8 +7,8 @@ interface CreditCostBadgeProps {
 
 const CREDIT_COSTS: Record<string, number> = {
   domain_check: 10,
-  lead_scraping: 50,
-  company_analysis: 100,
+  lead_scraping: 15,
+  company_analysis: 50,
 };
 
 export function CreditCostBadge({ action, variant = "light" }: CreditCostBadgeProps) {

@@ -6,12 +6,16 @@ import {
   TriggerLeadScrapingBody,
   TriggerLeadScrapingResponse,
 } from "@workspace/api-zod";
-import { spendCredits, getCreditBalance } from "../lib/credits";
+import { spendCreditsFixed, getCreditBalance } from "../lib/credits";
+import { supabase } from "../lib/supabase";
 
 const N8N_ANALYSIS_WEBHOOK = "https://shreyahubcredo.app.n8n.cloud/webhook/lead-scrapping";
 const N8N_LEAD_SCRAPING_WEBHOOK = "https://shreyahubcredo.app.n8n.cloud/webhook/lead-scrapping-list";
 
-const VALID_LEAD_COUNTS = [10, 25, 50, 100];
+const ANALYSIS_COST = 50;
+const COST_PER_LEAD = 15;
+const MIN_LEADS = 5;
+const MAX_LEADS = 500;
 
 const router: IRouter = Router();
 
@@ -22,10 +26,10 @@ router.post("/webhooks/trigger-analysis", requireAuth, async (req: Authenticated
     return;
   }
 
-  const spend = await spendCredits(req.userId!, "company_analysis");
+  const spend = await spendCreditsFixed(req.userId!, ANALYSIS_COST, "company_analysis");
   if (!spend.success) {
     const balance = await getCreditBalance(req.userId!);
-    res.status(402).json({ error: "Insufficient credits", required: spend.required ?? 15, balance });
+    res.status(402).json({ error: "Insufficient credits", required: ANALYSIS_COST, balance });
     return;
   }
 
@@ -58,21 +62,38 @@ router.post("/webhooks/trigger-lead-scraping", requireAuth, async (req: Authenti
     return;
   }
 
-  // Validate lead_count — must be one of the allowed values
+  // lead_count: minimum 5, maximum 500, custom value allowed
   const rawCount = (req.body as Record<string, unknown>).lead_count;
-  const leadCount = typeof rawCount === "number" && VALID_LEAD_COUNTS.includes(rawCount)
-    ? rawCount
-    : 10;
+  const parsedCount = typeof rawCount === "number" ? Math.floor(rawCount) : parseInt(String(rawCount ?? ""), 10);
+  const leadCount = !isNaN(parsedCount) && parsedCount >= MIN_LEADS && parsedCount <= MAX_LEADS
+    ? parsedCount
+    : MIN_LEADS;
 
-  const spend = await spendCredits(req.userId!, "lead_enrichment", leadCount);
+  const totalCost = leadCount * COST_PER_LEAD;
+  const spend = await spendCreditsFixed(req.userId!, totalCost, `lead_enrichment ×${leadCount}`);
   if (!spend.success) {
     const balance = await getCreditBalance(req.userId!);
     res.status(402).json({
       error: "Insufficient credits",
-      required: spend.required ?? leadCount * 15,
+      required: totalCost,
       balance,
     });
     return;
+  }
+
+  // Fetch existing LinkedIn URLs for this user to pass to n8n for deduplication
+  let existingLinkedinUrls: string[] = [];
+  try {
+    const { data: existingLeads } = await supabase
+      .from("leads")
+      .select("linkedin_url")
+      .eq("user_id", req.userId!)
+      .not("linkedin_url", "is", null);
+    existingLinkedinUrls = (existingLeads ?? [])
+      .map((l: { linkedin_url: string | null }) => l.linkedin_url)
+      .filter((url): url is string => !!url);
+  } catch {
+    req.log.warn("Could not fetch existing LinkedIn URLs for dedup");
   }
 
   try {
@@ -84,6 +105,7 @@ router.post("/webhooks/trigger-lead-scraping", requireAuth, async (req: Authenti
         icp_id: parsed.data.icp_id,
         lead_list_id: parsed.data.lead_list_id,
         lead_count: leadCount,
+        exclude_linkedin_urls: existingLinkedinUrls,
       }),
     });
 

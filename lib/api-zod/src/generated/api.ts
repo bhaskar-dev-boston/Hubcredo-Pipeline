@@ -618,7 +618,8 @@ export const TriggerAnalysisResponse = zod.object({
 export const TriggerLeadScrapingBody = zod.object({
   "user_id": zod.string(),
   "icp_id": zod.string(),
-  "lead_list_id": zod.string()
+  "lead_list_id": zod.string(),
+  "lead_count": zod.number().int().min(5).max(500).optional()
 })
 
 export const TriggerLeadScrapingResponse = zod.object({

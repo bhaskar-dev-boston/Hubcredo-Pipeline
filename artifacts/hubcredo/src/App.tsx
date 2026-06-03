@@ -13,6 +13,8 @@ import Stack from "@/pages/dashboard/Stack";
 import Settings from "@/pages/dashboard/Settings";
 import DomainFinder from "@/pages/dashboard/DomainFinder";
 import Billing from "@/pages/dashboard/Billing";
+import Campaigns from "@/pages/dashboard/Campaigns";
+import InboxPage from "@/pages/dashboard/Inbox";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -52,6 +54,12 @@ function Router() {
       </Route>
       <Route path="/dashboard/billing">
         <ProtectedRoute component={Billing} />
+      </Route>
+      <Route path="/dashboard/campaigns">
+        <ProtectedRoute component={Campaigns} />
+      </Route>
+      <Route path="/dashboard/inbox">
+        <ProtectedRoute component={InboxPage} />
       </Route>
       <Route component={NotFound} />
     </Switch>

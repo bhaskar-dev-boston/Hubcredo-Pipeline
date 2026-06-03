@@ -10,7 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { getToken } from "@/lib/auth";
 import { useCreditStore } from "@/store/creditStore";
 
-const USD_TO_CREDITS = 95; // $1 = ₹95 = 95 credits
+// ₹380 = 3000 credits (Growth tier rate); $1 = ₹95 → $1 = 95 * (3000/380) = 750 credits
+const USD_TO_CREDITS = 750;
 
 function domainPriceToCredits(registrationPrice: number | null | undefined): number {
   if (registrationPrice == null) return 0;
@@ -29,13 +30,13 @@ interface DomainResult {
 
 interface Contact {
   id: string; first_name: string; last_name: string; email: string;
-  phone: string; address: string; city: string; state?: string;
+  phone: string; address1: string; city: string; state?: string;
   postal_code: string; country: string; is_default: boolean;
 }
 
 const EMPTY_CONTACT = {
   first_name: "", last_name: "", email: "", phone: "",
-  address: "", city: "", state: "", postal_code: "", country: "US",
+  address1: "", city: "", state: "", postal_code: "", country: "US",
 };
 
 const SUPPORTED_TLDS = [".com", ".co", ".net", ".shop", ".org", ".info"];
@@ -267,8 +268,6 @@ export default function DomainFinder() {
   const [showMailboxModal, setShowMailboxModal] = useState(false);
   const [purchasedDomain, setPurchasedDomain] = useState<{ id: string; name: string } | null>(null);
   const [mailboxUsername, setMailboxUsername] = useState("");
-  const [mailboxFirstName, setMailboxFirstName] = useState("");
-  const [mailboxLastName, setMailboxLastName] = useState("");
   const [creatingMailbox, setCreatingMailbox] = useState(false);
 
   useEffect(() => {
@@ -324,7 +323,20 @@ export default function DomainFinder() {
   async function handleFind(e: React.FormEvent) {
     e.preventDefault();
     if (!keyword.trim()) return;
+
+    // Check balance upfront before hitting the server
+    if (balance !== null && balance < 10) {
+      toast({
+        title: "Not enough credits",
+        description: `Domain search costs 10 credits but you only have ${balance}. Top up in Billing.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSearching(true); setNewDomainsAdded(false);
+    deductOptimistic(10);
+
     try {
       const res = await apiFetch("/api/domains/find", {
         method: "POST",
@@ -335,12 +347,30 @@ export default function DomainFinder() {
         }),
       });
       const data = await res.json();
+
+      // Sync real balance from server response
+      if (typeof data.newBalance === "number") {
+        setBalance(data.newBalance);
+      }
+
+      if (res.status === 402) {
+        toast({
+          title: "Not enough credits",
+          description: `Domain search costs 10 credits but you only have ${data.balance ?? 0}. Top up in Billing.`,
+          variant: "destructive",
+        });
+        fetchBalance(); // restore optimistic deduction
+        return;
+      }
+
       if (!res.ok) throw new Error(data.error || "Domain search failed");
-      toast({ title: "Search started!", description: "Domains will appear here shortly." });
+
+      toast({ title: "Search started!", description: "Domains will appear here shortly. 10 credits deducted." });
       setTimeout(() => fetchDomains(true), 5000);
       setTimeout(() => fetchDomains(true), 10000);
       setTimeout(() => fetchDomains(true), 18000);
     } catch (err: unknown) {
+      fetchBalance(); // restore optimistic deduction on error
       toast({
         title: "Search failed",
         description: err instanceof Error ? err.message : "Could not reach domain finder service.",
@@ -369,8 +399,8 @@ export default function DomainFinder() {
   }
 
   async function handleSaveNewContact() {
-    const { first_name, last_name, email, phone, address, city, postal_code } = newContact;
-    if (!first_name || !last_name || !email || !phone || !address || !city || !postal_code) {
+    const { first_name, last_name, email, phone, address1, city, postal_code } = newContact;
+    if (!first_name || !last_name || !email || !phone || !address1 || !city || !postal_code) {
       toast({ title: "Missing fields", description: "Please fill all required fields.", variant: "destructive" });
       return;
     }
@@ -445,7 +475,7 @@ export default function DomainFinder() {
             last_name: contact.last_name,
             email: contact.email,
             phone: contact.phone,
-            address_line1: contact.address,
+            address_line1: contact.address1,
             city: contact.city,
             state: contact.state ?? "",
             postal_code: contact.postal_code,
@@ -473,8 +503,23 @@ export default function DomainFinder() {
         }
       }
 
-      const domainId = purchaseData?.domains?.[0]?.id ?? purchaseData?.id;
-      setPurchasedDomain({ id: domainId, name: pendingDomain });
+      // Extract domain ID - backend now ensures it's in domain_id or domains[0].id
+      const domainId = purchaseData?.domain_id || purchaseData?.domains?.[0]?.id;
+      
+      if (!domainId) {
+        throw new Error("Failed to extract domain ID from purchase response");
+      }
+      
+      setPurchasedDomain({
+        id: String(domainId),
+        name: pendingDomain,
+      });
+
+      console.log("Purchased Domain SET:", {
+        id: String(domainId),
+        name: pendingDomain,
+      });
+
       toast({
         title: "Domain purchased!",
         description: `${pendingDomain} purchased — ${creditsRequired} credits deducted. SPF/DKIM/DMARC auto-configured.`,
@@ -494,28 +539,56 @@ export default function DomainFinder() {
   }
 
   async function handleCreateMailbox() {
-    if (!purchasedDomain || !mailboxUsername.trim()) return;
-    setCreatingMailbox(true);
-    try {
-      const res = await apiFetch("/api/inboxkit/mailbox", {
-        method: "POST",
-        body: JSON.stringify({
-          domain_id: purchasedDomain.id,
-          username: mailboxUsername.trim(),
-          first_name: mailboxFirstName.trim() || mailboxUsername.trim(),
-          last_name: mailboxLastName.trim(),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Mailbox creation failed");
-      toast({ title: "Mailbox created!", description: `${mailboxUsername}@${purchasedDomain.name} is ready. Warmup started.` });
-      setShowMailboxModal(false);
-      setMailboxUsername(""); setMailboxFirstName(""); setMailboxLastName("");
-      setPurchasedDomain(null);
-    } catch (err) {
-      toast({ title: "Mailbox creation failed", description: err instanceof Error ? err.message : "Try again.", variant: "destructive" });
-    } finally { setCreatingMailbox(false); }
+  if (!purchasedDomain?.id || !mailboxUsername.trim()) {
+    toast({
+      title: "Missing information",
+      description: "Domain ID and username are required.",
+      variant: "destructive",
+    });
+    return;
   }
+
+  setCreatingMailbox(true);
+
+  try {
+    console.log("Purchased Domain:", purchasedDomain);
+
+    const res = await apiFetch("/api/inboxkit/mailbox", {
+      method: "POST",
+      body: JSON.stringify({
+        domain_id: purchasedDomain.id,
+        username: mailboxUsername.trim(),
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error ?? "Mailbox creation failed");
+    }
+
+    toast({
+      title: "Mailbox created!",
+      description: `${mailboxUsername}@${purchasedDomain.name} is ready. Warmup started.`,
+    });
+
+    setShowMailboxModal(false);
+
+    setMailboxUsername("");
+
+    setPurchasedDomain(null);
+
+  } catch (err) {
+    toast({
+      title: "Mailbox creation failed",
+      description:
+        err instanceof Error ? err.message : "Try again.",
+      variant: "destructive",
+    });
+  } finally {
+    setCreatingMailbox(false);
+  }
+}
 
   function Field({ label, required, placeholder, value, onChange, hint, type = "text" }: {
     label: string; required?: boolean; placeholder: string;
@@ -536,11 +609,14 @@ export default function DomainFinder() {
   const nc = newContact;
   const setNc = (k: keyof typeof EMPTY_CONTACT) => (v: string) => setNewContact(p => ({ ...p, [k]: v }));
   const canProceed = !!selectedContactId;
-  const requiredFilled = nc.first_name && nc.last_name && nc.email && nc.phone && nc.address && nc.city && nc.postal_code;
+  const requiredFilled = nc.first_name && nc.last_name && nc.email && nc.phone && nc.address1 && nc.city && nc.postal_code;
 
   // ── Find the pending domain's price for contact modal ──────────────
   const pendingDomainData = storedDomains.find(d => (d.domain || d.website) === pendingDomain);
   const pendingRegPrice = formatPrice(pendingDomainData?.registration_price);
+  const pendingCredits = domainPriceToCredits(pendingDomainData?.registration_price);
+  const shortfall = balance !== null && pendingCredits > 0 ? Math.max(0, pendingCredits - balance) : 0;
+  const insufficientCredits = shortfall > 0;
 
   return (
     <DashboardLayout>
@@ -706,6 +782,8 @@ export default function DomainFinder() {
                 const supported = domainVal ? isSupportedTLD(domainVal) : false;
                 const regPrice = formatPrice(d.registration_price);
                 const renPrice = formatPrice(d.renewal_price);
+                const itemCredits = domainPriceToCredits(d.registration_price);
+                const notEnough = itemCredits > 0 && balance !== null && balance < itemCredits;
 
                 return (
                   <div key={d.id ?? i}
@@ -749,9 +827,24 @@ export default function DomainFinder() {
                       {domainVal && (
                         supported ? (
                           <button onClick={() => openContactModal(domainVal)} disabled={!!buyingDomain}
-                            className="flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 border border-emerald-200 hover:bg-emerald-50 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50 active:scale-95">
-                            {buyingDomain === domainVal ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShoppingCart className="w-3 h-3" />}
-                            <span>{buyingDomain === domainVal ? "Buying…" : "Buy & Setup"}</span>
+                            title={notEnough ? `You need ${itemCredits.toLocaleString()} credits (you have ${(balance ?? 0).toLocaleString()})` : undefined}
+                            className={`flex items-center gap-1 text-xs font-semibold border px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50 active:scale-95 ${
+                              notEnough
+                                ? "text-red-600 border-red-200 hover:bg-red-50"
+                                : "text-emerald-600 hover:text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                            }`}>
+                            {buyingDomain === domainVal
+                              ? <Loader2 className="w-3 h-3 animate-spin" />
+                              : notEnough
+                                ? <AlertCircle className="w-3 h-3" />
+                                : <ShoppingCart className="w-3 h-3" />}
+                            <span>
+                              {buyingDomain === domainVal
+                                ? "Buying…"
+                                : notEnough
+                                  ? `Need ${itemCredits.toLocaleString()} cr`
+                                  : "Buy & Setup"}
+                            </span>
                           </button>
                         ) : (
                           <span title={`Only ${SUPPORTED_TLDS.join(", ")} domains are supported`}
@@ -828,7 +921,7 @@ export default function DomainFinder() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-[#0A0A0A] truncate">{c.first_name} {c.last_name}</p>
                             <p className="text-xs text-[#64748B] truncate">{c.email} · {c.phone}</p>
-                            <p className="text-xs text-[#94A3B8] truncate">{c.address}, {c.city}, {c.country}</p>
+                            <p className="text-xs text-[#94A3B8] truncate">{c.address1}, {c.city}, {c.country}</p>
                           </div>
                           {c.is_default && (
                             <span className="text-[10px] font-semibold text-[#2563EB] bg-[#EFF6FF] border border-[#BFDBFE] px-1.5 py-0.5 rounded-full shrink-0">Default</span>
@@ -858,7 +951,7 @@ export default function DomainFinder() {
                     </div>
                     <Field label="Email" required type="email" placeholder="john@example.com" value={nc.email} onChange={setNc("email")} />
                     <Field label="Phone" required placeholder="+1.5555555555" value={nc.phone} onChange={setNc("phone")} hint="Format: +1.5555555555" />
-                    <Field label="Address" required placeholder="123 Main St" value={nc.address} onChange={setNc("address")} />
+                    <Field label="Address" required placeholder="123 Main St" value={nc.address1} onChange={setNc("address1")} />
                     <div className="grid grid-cols-2 gap-3">
                       <Field label="City" required placeholder="New York" value={nc.city} onChange={setNc("city")} />
                       <Field label="State" placeholder="NY" value={nc.state ?? ""} onChange={setNc("state")} />
@@ -889,54 +982,69 @@ export default function DomainFinder() {
                 )}
 
                 {/* ── Price summary before confirming ── */}
-                {pendingRegPrice && (() => {
-                  const pendingCredits = domainPriceToCredits(pendingDomainData?.registration_price);
-                  const hasEnough = balance === null || pendingCredits === 0 || balance >= pendingCredits;
-                  return (
-                    <div className="bg-[#F5F7FA] border border-[#E2E8F0] rounded-xl overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-2.5">
+                {pendingRegPrice && (
+                  <div className="bg-[#F5F7FA] border border-[#E2E8F0] rounded-xl overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <Tag className="w-3.5 h-3.5 text-[#64748B]" />
+                        <span className="text-xs text-[#475569] font-medium">Registration</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-sm font-bold text-[#0A0A0A]">{pendingRegPrice}</span>
+                        <span className="text-xs text-[#94A3B8]">/yr</span>
+                        {formatPrice(pendingDomainData?.renewal_price) && formatPrice(pendingDomainData?.renewal_price) !== pendingRegPrice && (
+                          <p className="text-[10px] text-[#94A3B8]">renews at {formatPrice(pendingDomainData?.renewal_price)}/yr</p>
+                        )}
+                      </div>
+                    </div>
+                    {pendingCredits > 0 && (
+                      <div className="flex items-center justify-between px-4 py-2.5 border-t border-[#E2E8F0]">
                         <div className="flex items-center gap-2">
-                          <Tag className="w-3.5 h-3.5 text-[#64748B]" />
-                          <span className="text-xs text-[#475569] font-medium">Registration</span>
+                          <Zap className="w-3.5 h-3.5 text-[#2563EB]" />
+                          <span className="text-xs font-medium text-[#475569]">Credits charged</span>
                         </div>
                         <div className="text-right">
-                          <span className="text-sm font-bold text-[#0A0A0A]">{pendingRegPrice}</span>
-                          <span className="text-xs text-[#94A3B8]">/yr</span>
-                          {formatPrice(pendingDomainData?.renewal_price) && formatPrice(pendingDomainData?.renewal_price) !== pendingRegPrice && (
-                            <p className="text-[10px] text-[#94A3B8]">renews at {formatPrice(pendingDomainData?.renewal_price)}/yr</p>
+                          <span className="text-sm font-bold text-[#2563EB]">{pendingCredits.toLocaleString()} cr</span>
+                          {balance !== null && (
+                            <p className="text-[10px] text-[#94A3B8]">your balance: {balance.toLocaleString()} cr</p>
                           )}
                         </div>
                       </div>
-                      {pendingCredits > 0 && (
-                        <div className={`flex items-center justify-between px-4 py-2.5 border-t ${hasEnough ? "border-[#E2E8F0]" : "border-red-200 bg-red-50"}`}>
-                          <div className="flex items-center gap-2">
-                            <Zap className={`w-3.5 h-3.5 ${hasEnough ? "text-[#2563EB]" : "text-red-500"}`} />
-                            <span className={`text-xs font-medium ${hasEnough ? "text-[#475569]" : "text-red-600"}`}>Credits charged</span>
-                          </div>
-                          <div className="text-right">
-                            <span className={`text-sm font-bold ${hasEnough ? "text-[#2563EB]" : "text-red-600"}`}>{pendingCredits} cr</span>
-                            {balance !== null && (
-                              <p className={`text-[10px] ${hasEnough ? "text-[#94A3B8]" : "text-red-500 font-semibold"}`}>
-                                {hasEnough ? `balance: ${balance} cr` : `need ${pendingCredits - balance} more`}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                    )}
+                  </div>
+                )}
+
+                {/* ── Insufficient credits warning banner ── */}
+                {insufficientCredits && (
+                  <div className="flex items-start gap-3 px-4 py-3.5 bg-red-50 border border-red-200 rounded-xl">
+                    <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-red-700">Not enough credits</p>
+                      <p className="text-xs text-red-600 mt-0.5">
+                        This domain costs <strong>{pendingCredits.toLocaleString()} credits</strong> but you only have{" "}
+                        <strong>{(balance ?? 0).toLocaleString()}</strong>.{" "}
+                        You need <strong>{shortfall.toLocaleString()} more credits</strong> to proceed.
+                      </p>
+                      <button
+                        onClick={() => { setShowContactModal(false); window.location.href = "/billing"; }}
+                        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-red-700 underline underline-offset-2 hover:text-red-800">
+                        Top up credits →
+                      </button>
                     </div>
-                  );
-                })()}
+                  </div>
+                )}
 
                 <div className="flex gap-3 pt-1">
-                  <button onClick={handleConfirmPurchase} disabled={!canProceed || (() => {
-                    const pendingCredits = domainPriceToCredits(pendingDomainData?.registration_price);
-                    return pendingCredits > 0 && balance !== null && balance < pendingCredits;
-                  })()}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#2563EB] text-white text-sm font-semibold rounded-xl hover:bg-[#1D4ED8] transition-colors disabled:opacity-50 active:scale-95">
+                  <button
+                    onClick={handleConfirmPurchase}
+                    disabled={!canProceed || insufficientCredits}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#2563EB] text-white text-sm font-semibold rounded-xl hover:bg-[#1D4ED8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-95">
                     <ShoppingCart className="w-4 h-4" />
-                    {canProceed
-                      ? `Confirm Purchase${pendingRegPrice ? ` · ${pendingRegPrice}` : ""}`
-                      : "Select a contact to continue"}
+                    {insufficientCredits
+                      ? `Need ${shortfall.toLocaleString()} more credits`
+                      : canProceed
+                        ? `Confirm Purchase${pendingRegPrice ? ` · ${pendingRegPrice}` : ""}`
+                        : "Select a contact to continue"}
                   </button>
                   <button onClick={() => setShowContactModal(false)}
                     className="px-4 py-3 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-xl hover:bg-[#F5F7FA] transition-colors active:scale-95 shrink-0">
@@ -977,18 +1085,6 @@ export default function DomainFinder() {
                     <span className="px-2 sm:px-3 py-2.5 bg-[#F5F7FA] text-xs text-[#64748B] border-l border-[#E2E8F0] shrink-0 truncate max-w-[140px]">
                       @{purchasedDomain.name}
                     </span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-semibold text-[#0A0A0A] mb-1 block">First name</label>
-                    <input value={mailboxFirstName} onChange={e => setMailboxFirstName(e.target.value)} placeholder="John"
-                      className="w-full px-3 py-2.5 border border-[#E2E8F0] rounded-xl text-sm focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 transition-all" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-[#0A0A0A] mb-1 block">Last name</label>
-                    <input value={mailboxLastName} onChange={e => setMailboxLastName(e.target.value)} placeholder="Smith"
-                      className="w-full px-3 py-2.5 border border-[#E2E8F0] rounded-xl text-sm focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 transition-all" />
                   </div>
                 </div>
               </div>

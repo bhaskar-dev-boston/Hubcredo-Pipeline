@@ -13,6 +13,7 @@ import {
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Icp, OutreachSettings } from "@workspace/api-client-react";
+import { CreditCostBadge } from "@/components/ui/CreditCostBadge";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -136,6 +137,7 @@ export default function Dashboard() {
                     ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     : <Globe className="w-3.5 h-3.5" />}
                   {triggerAnalysis.isPending ? "Running…" : "Run website analysis"}
+                  {!triggerAnalysis.isPending && <CreditCostBadge action="company_analysis" variant="dark" />}
                 </button>
               </div>
             ) : (

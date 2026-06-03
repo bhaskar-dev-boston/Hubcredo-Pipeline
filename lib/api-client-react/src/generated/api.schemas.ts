@@ -315,6 +315,7 @@ export interface TriggerLeadScrapingInput {
   user_id: string;
   icp_id: string;
   lead_list_id: string;
+  lead_count?: number;
 }
 
 export interface WebhookResult {

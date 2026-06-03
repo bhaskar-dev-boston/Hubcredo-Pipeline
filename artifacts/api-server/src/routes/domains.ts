@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { supabase } from "../lib/supabase";
 import { requireAuth, type AuthenticatedRequest } from "../lib/auth";
 
-const N8N_DOMAIN_FINDER_WEBHOOK = "https://shreyahubcredo.app.n8n.cloud/webhook-test/lead-domain-finder";
+const N8N_DOMAIN_FINDER_WEBHOOK = "https://shreyahubcredo.app.n8n.cloud/webhook/lead-domain-finder";
 
 const router: IRouter = Router();
 

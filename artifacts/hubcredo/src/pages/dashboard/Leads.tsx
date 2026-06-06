@@ -13,7 +13,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Users, Plus, Loader2, ThumbsUp, ThumbsDown, ExternalLink, Zap, ChevronDown, Sparkles, ArrowRight, X, Building2, MapPin, Briefcase, Mail, Globe, Trash2, AlertTriangle } from "lucide-react";
+import { Users, Plus, Loader2, ThumbsUp, ThumbsDown, ExternalLink, Zap, ChevronDown, Sparkles, ArrowRight, X, Building2, MapPin, Briefcase, Mail, Globe, Trash2, AlertTriangle, Linkedin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Lead, LeadList, Icp } from "@workspace/api-client-react";
 import { useCreditStore } from "@/store/creditStore";
@@ -398,6 +398,7 @@ export default function Leads() {
               <div className="space-y-2">
                 {(leads as Lead[]).map((lead) => {
                   const displayName = [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Unknown";
+                  const linkedinStatus = (lead as Lead & { linkedin_status?: string }).linkedin_status;
                   return (
                     <div
                       key={lead.id}
@@ -426,6 +427,19 @@ export default function Leads() {
                           <span className={`text-xs px-2 py-0.5 rounded-full border ${statusPill(lead.review_status)}`}>
                             {lead.review_status ?? "new"}
                           </span>
+                          {linkedinStatus && linkedinStatus !== "not_contacted" && (
+                            <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${
+                              linkedinStatus === "request_sent" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                              linkedinStatus === "connected"    ? "bg-green-50 text-green-700 border-green-200" :
+                              linkedinStatus === "replied"      ? "bg-blue-50 text-blue-700 border-blue-200" :
+                              "bg-[#F5F7FA] text-[#64748B] border-[#E2E8F0]"
+                            }`}>
+                              <Linkedin className="w-2.5 h-2.5" />
+                              {linkedinStatus === "request_sent" ? "Sent" :
+                               linkedinStatus === "connected"    ? "Connected" :
+                               linkedinStatus === "replied"      ? "Replied" : "Paused"}
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-[#64748B] mt-0.5">
                           {lead.job_title}{lead.company_name ? ` · ${lead.company_name}` : ""}
@@ -470,6 +484,7 @@ export default function Leads() {
       {profileLead && (() => {
         const lead = profileLead;
         const displayName = [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Unknown";
+        const linkedinStatus = (lead as Lead & { linkedin_status?: string }).linkedin_status;
         return (
           <>
             {/* Backdrop */}
@@ -516,9 +531,24 @@ export default function Leads() {
                       {lead.company_name && (
                         <p className="text-sm text-[#64748B]">{lead.company_name}</p>
                       )}
-                      <span className={`inline-block mt-2 text-xs px-2.5 py-0.5 rounded-full border font-medium ${statusPill(lead.review_status)}`}>
-                        {lead.review_status ?? "new"}
-                      </span>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <span className={`inline-block text-xs px-2.5 py-0.5 rounded-full border font-medium ${statusPill(lead.review_status)}`}>
+                          {lead.review_status ?? "new"}
+                        </span>
+                        {linkedinStatus && linkedinStatus !== "not_contacted" && (
+                          <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border font-medium ${
+                            linkedinStatus === "request_sent" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                            linkedinStatus === "connected"    ? "bg-green-50 text-green-700 border-green-200" :
+                            linkedinStatus === "replied"      ? "bg-blue-50 text-blue-700 border-blue-200" :
+                            "bg-[#F5F7FA] text-[#64748B] border-[#E2E8F0]"
+                          }`}>
+                            <Linkedin className="w-3 h-3" />
+                            {linkedinStatus === "request_sent" ? "Request sent" :
+                             linkedinStatus === "connected"    ? "Connected" :
+                             linkedinStatus === "replied"      ? "Replied on LinkedIn" : "LI paused"}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

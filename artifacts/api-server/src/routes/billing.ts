@@ -7,30 +7,37 @@ import { requireAuth, type AuthenticatedRequest } from "../lib/auth";
 
 const router: IRouter = Router();
 
-// ── Pack / tier definitions (amounts in paise: 1 INR = 100 paise) ─────
-// Pricing at ₹95 per USD: Starter=$4→₹380, Growth=$10→₹950, Scale=$25→₹2375
-const TOPUP_PACKS: Record<string, { credits: number; amount_inr: number; name: string }> = {
-  starter: { credits: 1000,  amount_inr: 38000,  name: "Starter Pack" },
-  growth:  { credits: 5000,  amount_inr: 95000,  name: "Growth Pack"  },
-  scale:   { credits: 15000, amount_inr: 237500, name: "Scale Pack"   },
+// ── Pack / tier definitions ────────────────────────────────────────────
+// INR amounts in paise (1 INR = 100 paise), USD amounts in cents (1 USD = 100 cents)
+// Exchange rate: ₹95 per $1
+const TOPUP_PACKS: Record<string, { credits: number; amount_inr: number; amount_usd: number; name: string }> = {
+  starter: { credits: 1000,  amount_inr: 38000,  amount_usd: 400,  name: "Starter Pack" },
+  growth:  { credits: 5000,  amount_inr: 95000,  amount_usd: 1000, name: "Growth Pack"  },
+  scale:   { credits: 15000, amount_inr: 237500, amount_usd: 2500, name: "Scale Pack"   },
 };
 
 // Growth=$4/mo→₹380, Scale=$9/mo→₹855 (at ₹95/$1)
-const SUBSCRIPTION_TIERS: Record<string, { credits: number; amount_inr: number }> = {
-  growth: { credits: 3000,  amount_inr: 38000 },
-  scale:  { credits: 12000, amount_inr: 85500 },
+const SUBSCRIPTION_TIERS: Record<string, { credits: number; amount_inr: number; amount_usd: number }> = {
+  growth: { credits: 3000,  amount_inr: 38000, amount_usd: 400 },
+  scale:  { credits: 12000, amount_inr: 85500, amount_usd: 900 },
 };
 
 // ── POST /billing/create-order ────────────────────────────────────────
 router.post("/billing/create-order", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { type, tier, pack_id } = req.body as {
+  const { type, tier, pack_id, currency = "INR" } = req.body as {
     type: "subscription" | "topup";
     tier?: string;
     pack_id?: string;
+    currency?: "INR" | "USD";
   };
 
   if (type !== "subscription" && type !== "topup") {
     res.status(400).json({ error: "type must be 'subscription' or 'topup'" });
+    return;
+  }
+
+  if (currency !== "INR" && currency !== "USD") {
+    res.status(400).json({ error: "currency must be 'INR' or 'USD'" });
     return;
   }
 
@@ -51,9 +58,11 @@ router.post("/billing/create-order", requireAuth, async (req: AuthenticatedReque
         return;
       }
 
+      const amount = currency === "USD" ? pack.amount_usd : pack.amount_inr;
+
       const order = await razorpay.orders.create({
-        amount: pack.amount_inr,
-        currency: "INR",
+        amount,
+        currency,
         receipt: receiptId,
         notes: {
           user_id: req.userId!,
@@ -67,7 +76,7 @@ router.post("/billing/create-order", requireAuth, async (req: AuthenticatedReque
         user_id: req.userId!,
         pack_id,
         credits: pack.credits,
-        amount_paid_cents: pack.amount_inr,
+        amount_paid_cents: amount,
         razorpay_payment_intent_id: order.id,
         status: "pending",
       });
@@ -90,10 +99,11 @@ router.post("/billing/create-order", requireAuth, async (req: AuthenticatedReque
     }
 
     const tierConfig = SUBSCRIPTION_TIERS[tier];
+    const amount = currency === "USD" ? tierConfig.amount_usd : tierConfig.amount_inr;
 
     const order = await razorpay.orders.create({
-      amount: tierConfig.amount_inr,
-      currency: "INR",
+      amount,
+      currency,
       receipt: receiptId,
       notes: {
         user_id: req.userId!,

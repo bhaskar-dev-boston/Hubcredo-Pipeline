@@ -2,7 +2,8 @@ import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { getToken } from "@/lib/auth";
+import { useEffect } from "react";
+import { getToken, refreshAccessToken, getRefreshToken, removeToken } from "@/lib/auth";
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import Signup from "@/pages/Signup";
@@ -15,6 +16,7 @@ import DomainFinder from "@/pages/dashboard/DomainFinder";
 import Billing from "@/pages/dashboard/Billing";
 import Campaigns from "@/pages/dashboard/Campaigns";
 import InboxPage from "@/pages/dashboard/Inbox";
+import LinkedInOutreach from "@/pages/dashboard/LinkedIn";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -61,15 +63,65 @@ function Router() {
       <Route path="/dashboard/inbox">
         <ProtectedRoute component={InboxPage} />
       </Route>
+      <Route path="/dashboard/linkedin">
+        <ProtectedRoute component={LinkedInOutreach} />
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
+}
+
+function AuthRefresher() {
+  useEffect(() => {
+    const init = async () => {
+      const token = getToken();
+      const refreshToken = getRefreshToken();
+
+      if (!token && !refreshToken) return;
+
+      if (refreshToken) {
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+          queryClient.invalidateQueries();
+        } else {
+          removeToken();
+          window.location.href = '/login';
+        }
+      } else if (token) {
+        const res = await fetch('/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.status === 401) {
+          removeToken();
+          window.location.href = '/login';
+        }
+      }
+    };
+
+    init();
+
+    const REFRESH_INTERVAL = 45 * 60 * 1000;
+    const interval = setInterval(async () => {
+      if (getRefreshToken()) {
+        const newToken = await refreshAccessToken();
+        if (!newToken) {
+          removeToken();
+          window.location.href = '/login';
+        }
+      }
+    }, REFRESH_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return null;
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <AuthRefresher />
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <Router />
         </WouterRouter>

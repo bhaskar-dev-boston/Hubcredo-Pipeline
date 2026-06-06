@@ -83,4 +83,99 @@ router.post("/domains/find", requireAuth, async (req: AuthenticatedRequest, res)
   }
 });
 
+
+// ── Domain Warmup ─────────────────────────────────────────────────────────────
+
+router.get(
+  "/domain-warmup",
+  requireAuth,
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    try {
+      const { data, error } = await supabase
+        .from("domain_warmup")
+        .select("*")
+        .eq("user_id", req.userId!)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        res.status(500).json({ error: "Failed to fetch warmup domains" });
+        return;
+      }
+      res.json(data || []);
+    } catch (err) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
+router.post(
+  "/domain-warmup",
+  requireAuth,
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    try {
+      const { domain } = req.body;
+
+      if (!domain || typeof domain !== "string" || !domain.trim()) {
+        res.status(400).json({ error: "domain is required" });
+        return;
+      }
+
+      // Check if already warming this domain
+      const { data: existing } = await supabase
+        .from("domain_warmup")
+        .select("id")
+        .eq("user_id", req.userId!)
+        .eq("domain", domain.trim())
+        .single();
+
+      if (existing) {
+        res.status(409).json({ error: "Domain is already being warmed up" });
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("domain_warmup")
+        .insert({
+          user_id: req.userId!,
+          domain: domain.trim(),
+          status: "warming",
+          started_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) {
+        res.status(500).json({ error: "Failed to add domain to warmup" });
+        return;
+      }
+
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
+router.delete(
+  "/domain-warmup/:id",
+  requireAuth,
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    try {
+      const { error } = await supabase
+        .from("domain_warmup")
+        .delete()
+        .eq("id", req.params.id)
+        .eq("user_id", req.userId!);
+
+      if (error) {
+        res.status(500).json({ error: "Failed to remove warmup domain" });
+        return;
+      }
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
 export default router;

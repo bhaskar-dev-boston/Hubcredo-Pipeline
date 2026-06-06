@@ -9,6 +9,8 @@ import { getToken } from "@/lib/auth";
 import { useCreditStore } from "@/store/creditStore";
 import { openRazorpayCheckout, type RazorpayPaymentResponse } from "@/lib/razorpay";
 
+type Currency = "INR" | "USD";
+
 interface BillingStatus {
   credit_balance: number;
   subscription_tier: string;
@@ -32,14 +34,16 @@ const PLANS = [
   {
     id: "free",
     name: "Free",
-    price: "₹0",
+    priceINR: "₹0",
+    priceUSD: "$0",
     credits: 200,
     features: ["200 credits/month", "Basic company analysis", "Up to 10 leads/month", "Community support"],
   },
   {
     id: "growth",
     name: "Growth",
-    price: "₹380/mo",
+    priceINR: "₹380/mo",
+    priceUSD: "$4/mo",
     credits: 3000,
     features: ["3,000 credits/month", "Unlimited company analyses", "Up to 500 leads/month", "Domain finder", "Email support"],
     highlight: true,
@@ -47,16 +51,17 @@ const PLANS = [
   {
     id: "scale",
     name: "Scale",
-    price: "₹855/mo",
+    priceINR: "₹855/mo",
+    priceUSD: "$9/mo",
     credits: 12000,
     features: ["12,000 credits/month", "Everything in Growth", "Unlimited leads", "Priority support", "Custom integrations"],
   },
 ];
 
 const TOPUP_PACKS = [
-  { id: "starter", name: "Starter",     credits: 1000,  price: "₹380",  description: "Perfect for occasional use" },
-  { id: "growth",  name: "Growth Pack", credits: 5000,  price: "₹950",  description: "Most popular" },
-  { id: "scale",   name: "Scale Pack",  credits: 15000, price: "₹2,375", description: "Best value per credit" },
+  { id: "starter", name: "Starter",     credits: 1000,  priceINR: "₹380",   priceUSD: "$4",  description: "Perfect for occasional use" },
+  { id: "growth",  name: "Growth Pack", credits: 5000,  priceINR: "₹950",   priceUSD: "$10", description: "Most popular" },
+  { id: "scale",   name: "Scale Pack",  credits: 15000, priceINR: "₹2,375", priceUSD: "$25", description: "Best value per credit" },
 ];
 
 async function apiFetch(path: string, opts?: RequestInit) {
@@ -70,12 +75,40 @@ async function apiFetch(path: string, opts?: RequestInit) {
   });
 }
 
+function CurrencyToggle({ currency, onChange }: { currency: Currency; onChange: (c: Currency) => void }) {
+  return (
+    <div className="flex items-center gap-1 bg-[#F1F5F9] rounded-xl p-1 text-sm font-semibold select-none">
+      <button
+        onClick={() => onChange("INR")}
+        className={`px-3 py-1.5 rounded-lg transition-all ${
+          currency === "INR"
+            ? "bg-white text-[#0A0A0A] shadow-sm"
+            : "text-[#64748B] hover:text-[#0A0A0A]"
+        }`}
+      >
+        ₹ INR
+      </button>
+      <button
+        onClick={() => onChange("USD")}
+        className={`px-3 py-1.5 rounded-lg transition-all ${
+          currency === "USD"
+            ? "bg-white text-[#0A0A0A] shadow-sm"
+            : "text-[#64748B] hover:text-[#0A0A0A]"
+        }`}
+      >
+        $ USD
+      </button>
+    </div>
+  );
+}
+
 export default function Billing() {
   const { toast } = useToast();
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [currency, setCurrency] = useState<Currency>("INR");
   const { setBalance, fetchBalance } = useCreditStore();
 
   useEffect(() => { fetchStatus(); }, []);
@@ -100,7 +133,7 @@ export default function Billing() {
     try {
       const res = await apiFetch("/api/billing/create-order", {
         method: "POST",
-        body: JSON.stringify({ type, ...extra }),
+        body: JSON.stringify({ type, currency, ...extra }),
       });
       const orderData = await res.json();
       if (!res.ok) throw new Error(orderData.error ?? "Failed to create order");
@@ -179,9 +212,12 @@ export default function Billing() {
   return (
     <DashboardLayout>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-10">
-        <div>
-          <h1 className="text-2xl font-bold text-[#0A0A0A]">Billing & Credits</h1>
-          <p className="text-sm text-[#64748B] mt-1">Manage your subscription and credit balance.</p>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold text-[#0A0A0A]">Billing & Credits</h1>
+            <p className="text-sm text-[#64748B] mt-1">Manage your subscription and credit balance.</p>
+          </div>
+          <CurrencyToggle currency={currency} onChange={setCurrency} />
         </div>
 
         {/* ── Section 1: Credit Balance ── */}
@@ -260,7 +296,10 @@ export default function Billing() {
 
         {/* ── Section 2: Subscription Plans ── */}
         <section>
-          <h2 className="font-semibold text-[#0A0A0A] mb-4 text-lg">Subscription Plans</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-[#0A0A0A] text-lg">Subscription Plans</h2>
+            <span className="text-xs text-[#94A3B8]">Paying in {currency === "INR" ? "Indian Rupees (₹)" : "US Dollars ($)"}</span>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {PLANS.map((plan) => {
               const isActive = tier === plan.id;
@@ -290,7 +329,9 @@ export default function Billing() {
                     <span className="font-bold text-[#0A0A0A]">{plan.name}</span>
                   </div>
 
-                  <p className="text-2xl font-bold text-[#0A0A0A] mb-1">{plan.price}</p>
+                  <p className="text-2xl font-bold text-[#0A0A0A] mb-1 transition-all">
+                    {currency === "INR" ? plan.priceINR : plan.priceUSD}
+                  </p>
                   <p className="text-xs text-[#64748B] mb-4">{plan.credits.toLocaleString()} credits/month</p>
 
                   <ul className="space-y-2 flex-1 mb-5">
@@ -320,7 +361,7 @@ export default function Billing() {
                         plan.highlight ? "bg-[#7C3AED] text-white hover:bg-[#6D28D9]" : "bg-[#2563EB] text-white hover:bg-[#1D4ED8]"
                       }`}
                     >
-                      {checkoutLoading === plan.id ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Upgrade"}
+                      {checkoutLoading === plan.id ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : `Upgrade · ${currency === "INR" ? plan.priceINR : plan.priceUSD}`}
                     </button>
                   )}
 
@@ -344,7 +385,9 @@ export default function Billing() {
                   <ShoppingCart className="w-4 h-4 text-[#2563EB]" />
                   <span className="font-bold text-[#0A0A0A]">{pack.name}</span>
                 </div>
-                <p className="text-2xl font-bold text-[#0A0A0A] mb-0.5">{pack.price}</p>
+                <p className="text-2xl font-bold text-[#0A0A0A] mb-0.5 transition-all">
+                  {currency === "INR" ? pack.priceINR : pack.priceUSD}
+                </p>
                 <p className="text-sm text-[#64748B] mb-1">{pack.credits.toLocaleString()} credits</p>
                 <p className="text-xs text-[#94A3B8] mb-5 flex-1">{pack.description}</p>
                 <button
@@ -352,7 +395,11 @@ export default function Billing() {
                   disabled={!!checkoutLoading}
                   className="w-full py-2 text-sm font-semibold text-white bg-[#2563EB] hover:bg-[#1D4ED8] rounded-xl transition-colors disabled:opacity-50"
                 >
-                  {checkoutLoading === `topup_${pack.id}` ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Buy credits"}
+                  {checkoutLoading === `topup_${pack.id}` ? (
+                    <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                  ) : (
+                    `Buy · ${currency === "INR" ? pack.priceINR : pack.priceUSD}`
+                  )}
                 </button>
               </div>
             ))}

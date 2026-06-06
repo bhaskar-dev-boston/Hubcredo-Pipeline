@@ -57,11 +57,11 @@ async function apiFetch(path: string, opts?: RequestInit) {
 
 const USD_TO_INR = 95;
 
-// Format price — converts USD to INR at ₹95/$1
-// Handles both cents (int > 500) and dollars (float)
-function formatPrice(value: number | null | undefined): string | null {
+// Format price — handles both cents (int > 500) and dollars (float)
+function formatPrice(value: number | null | undefined, currency: "INR" | "USD" = "INR"): string | null {
   if (value == null) return null;
   const dollars = value > 500 ? value / 100 : value;
+  if (currency === "USD") return `$${dollars % 1 === 0 ? dollars.toFixed(0) : dollars.toFixed(2)}`;
   const inr = Math.round(dollars * USD_TO_INR);
   return `₹${inr.toLocaleString("en-IN")}`;
 }
@@ -241,6 +241,7 @@ export default function DomainFinder() {
   const { toast } = useToast();
   const { balance, deductOptimistic, fetchBalance, setBalance } = useCreditStore();
 
+  const [currency, setCurrency] = useState<"INR" | "USD">("INR");
   const [keyword, setKeyword] = useState("");
   const [industry, setIndustry] = useState("");
   const [purpose, setPurpose] = useState("");
@@ -613,7 +614,7 @@ export default function DomainFinder() {
 
   // ── Find the pending domain's price for contact modal ──────────────
   const pendingDomainData = storedDomains.find(d => (d.domain || d.website) === pendingDomain);
-  const pendingRegPrice = formatPrice(pendingDomainData?.registration_price);
+  const pendingRegPrice = formatPrice(pendingDomainData?.registration_price, currency);
   const pendingCredits = domainPriceToCredits(pendingDomainData?.registration_price);
   const shortfall = balance !== null && pendingCredits > 0 ? Math.max(0, pendingCredits - balance) : 0;
   const insufficientCredits = shortfall > 0;
@@ -764,15 +765,28 @@ export default function DomainFinder() {
         {/* Domain list */}
         {!searching && !loadingStored && storedDomains.length > 0 && (
           <div>
-            <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
+            <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2 flex-wrap">
               <p className="text-xs text-[#64748B] uppercase tracking-widest font-semibold">
                 {storedDomains.length} domain{storedDomains.length !== 1 ? "s" : ""} saved
               </p>
-              <button onClick={handleRefresh} disabled={refreshing || searching}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#E2E8F0] rounded-xl text-xs font-semibold text-[#475569] hover:bg-[#F5F7FA] hover:border-[#CBD5E1] transition-all disabled:opacity-50 shadow-sm active:scale-95 shrink-0">
-                <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
-                <span className="hidden xs:inline">{refreshing ? "Refreshing…" : "Refresh"}</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Currency toggle */}
+                <div className="flex items-center gap-0.5 bg-[#F1F5F9] rounded-lg p-0.5 text-xs font-semibold select-none">
+                  <button
+                    onClick={() => setCurrency("INR")}
+                    className={`px-2.5 py-1 rounded-md transition-all ${currency === "INR" ? "bg-white text-[#0A0A0A] shadow-sm" : "text-[#64748B] hover:text-[#0A0A0A]"}`}
+                  >₹ INR</button>
+                  <button
+                    onClick={() => setCurrency("USD")}
+                    className={`px-2.5 py-1 rounded-md transition-all ${currency === "USD" ? "bg-white text-[#0A0A0A] shadow-sm" : "text-[#64748B] hover:text-[#0A0A0A]"}`}
+                  >$ USD</button>
+                </div>
+                <button onClick={handleRefresh} disabled={refreshing || searching}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#E2E8F0] rounded-xl text-xs font-semibold text-[#475569] hover:bg-[#F5F7FA] hover:border-[#CBD5E1] transition-all disabled:opacity-50 shadow-sm active:scale-95 shrink-0">
+                  <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+                  <span className="hidden xs:inline">{refreshing ? "Refreshing…" : "Refresh"}</span>
+                </button>
+              </div>
             </div>
             <div className="bg-white border border-[#E2E8F0] rounded-2xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
               {storedDomains.map((d, i) => {
@@ -780,8 +794,8 @@ export default function DomainFinder() {
                 const href = domainVal ? (domainVal.startsWith("http") ? domainVal : `https://${domainVal}`) : null;
                 const label = domainVal ?? d.company_name ?? "Unknown";
                 const supported = domainVal ? isSupportedTLD(domainVal) : false;
-                const regPrice = formatPrice(d.registration_price);
-                const renPrice = formatPrice(d.renewal_price);
+                const regPrice = formatPrice(d.registration_price, currency);
+                const renPrice = formatPrice(d.renewal_price, currency);
                 const itemCredits = domainPriceToCredits(d.registration_price);
                 const notEnough = itemCredits > 0 && balance !== null && balance < itemCredits;
 
@@ -992,8 +1006,8 @@ export default function DomainFinder() {
                       <div className="text-right">
                         <span className="text-sm font-bold text-[#0A0A0A]">{pendingRegPrice}</span>
                         <span className="text-xs text-[#94A3B8]">/yr</span>
-                        {formatPrice(pendingDomainData?.renewal_price) && formatPrice(pendingDomainData?.renewal_price) !== pendingRegPrice && (
-                          <p className="text-[10px] text-[#94A3B8]">renews at {formatPrice(pendingDomainData?.renewal_price)}/yr</p>
+                        {formatPrice(pendingDomainData?.renewal_price, currency) && formatPrice(pendingDomainData?.renewal_price, currency) !== pendingRegPrice && (
+                          <p className="text-[10px] text-[#94A3B8]">renews at {formatPrice(pendingDomainData?.renewal_price, currency)}/yr</p>
                         )}
                       </div>
                     </div>

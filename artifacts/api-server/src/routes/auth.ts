@@ -96,6 +96,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 
   res.json({
     token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
     user: {
       id: data.user.id,
       email: data.user.email,
@@ -103,12 +104,30 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   });
 });
 
-router.post("/auth/logout", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader?.slice(7);
-  if (token) {
-    await supabase.auth.admin.signOut(token);
+router.post("/auth/refresh", async (req, res): Promise<void> => {
+  const { refresh_token } = req.body;
+  if (!refresh_token) {
+    res.status(400).json({ error: "refresh_token required" });
+    return;
   }
+
+  const { data, error } = await supabase.auth.refreshSession({ refresh_token });
+
+  if (error || !data.session) {
+    req.log.warn({ error }, "Token refresh failed");
+    res.status(401).json({ error: "Token refresh failed. Please log in again." });
+    return;
+  }
+
+  res.json({
+    token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
+  });
+});
+
+router.post("/auth/logout", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  // Token revocation is handled on the client side (removing from localStorage)
+  // Server just confirms logout
   res.status(204).send();
 });
 

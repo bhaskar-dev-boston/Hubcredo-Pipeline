@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, Layers, Settings, LogOut, Zap, X, Globe, CreditCard, Mail, Inbox } from "lucide-react";
+import { LayoutDashboard, Users, Layers, Settings, LogOut, Zap, X, Globe, CreditCard, Mail, Inbox, Linkedin } from "lucide-react";
 import { removeToken } from "@/lib/auth";
 import { useGetMe } from "@workspace/api-client-react";
 import { useCreditStore } from "@/store/creditStore";
@@ -8,6 +8,7 @@ import { useEffect } from "react";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/leads", label: "My Leads", icon: Users },
+  { href: "/dashboard/linkedin", label: "LinkedIn Outreach", icon: Linkedin },
   { href: "/dashboard/campaigns", label: "Campaigns", icon: Mail },
   { href: "/dashboard/inbox", label: "Inbox", icon: Inbox },
   { href: "/dashboard/stack", label: "My Stack", icon: Layers },

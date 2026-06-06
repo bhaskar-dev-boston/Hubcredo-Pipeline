@@ -57,6 +57,99 @@ router.get(
 );
 
 /* -------------------------------------------------------------------------- */
+/*                         SYNC ANALYTICS FROM INSTANTLY                      */
+/* -------------------------------------------------------------------------- */
+
+router.post(
+  "/campaigns/:id/sync",
+  requireAuth,
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    try {
+      const INSTANTLY_API_KEY = process.env.INSTANTLY_API_KEY;
+      if (!INSTANTLY_API_KEY) {
+        res.status(500).json({ error: "INSTANTLY_API_KEY not set" });
+        return;
+      }
+
+      // Get campaign from our DB
+      const { data: campaign } = await supabase
+        .from("email_campaigns")
+        .select("external_campaign_id")
+        .eq("id", req.params.id)
+        .eq("user_id", req.userId!)
+        .single();
+
+      if (!campaign?.external_campaign_id) {
+        res.status(404).json({ error: "No Instantly campaign linked" });
+        return;
+      }
+
+      // ✅ FIXED: correct v2 endpoint — campaign ID goes as query param, not path segment
+      const analyticsRes = await fetch(
+        `https://api.instantly.ai/api/v2/campaigns/analytics?id=${campaign.external_campaign_id}`,
+        {
+          headers: { Authorization: `Bearer ${INSTANTLY_API_KEY}` },
+        }
+      );
+
+      if (!analyticsRes.ok) {
+        const errText = await analyticsRes.text();
+        console.error("Instantly analytics error:", analyticsRes.status, errText);
+        res.status(502).json({ error: "Failed to fetch from Instantly", details: errText });
+        return;
+      }
+
+      // ✅ v2 returns an array — grab first item
+      const analyticsRaw: any = await analyticsRes.json();
+      console.log("INSTANTLY ANALYTICS:", JSON.stringify(analyticsRaw, null, 2));
+
+      const analyticsData = Array.isArray(analyticsRaw) ? analyticsRaw[0] : analyticsRaw;
+
+      if (!analyticsData) {
+        res.status(404).json({ error: "No analytics data returned from Instantly" });
+        return;
+      }
+
+      // ✅ FIXED: correct v2 field names
+      const sent    = analyticsData.emails_sent_count    ?? analyticsData.total_sent    ?? 0;
+      const opened  = analyticsData.emails_opened_count  ?? analyticsData.total_opened  ?? 0;
+      const replied = analyticsData.emails_replied_count ?? analyticsData.total_replied ?? 0;
+      const bounced = analyticsData.emails_bounced_count ?? analyticsData.total_bounced ?? 0;
+      const clicked = analyticsData.emails_clicked_count ?? analyticsData.total_clicked ?? 0;
+
+      // Upsert into campaign_analytics
+      const { error: upsertErr } = await supabase
+        .from("campaign_analytics")
+        .upsert(
+          {
+            campaign_id:   req.params.id,
+            sent_count:    sent,
+            opened_count:  opened,
+            replied_count: replied,
+            bounced_count: bounced,
+            clicked_count: clicked,
+            updated_at:    new Date().toISOString(),
+          },
+          { onConflict: "campaign_id" }
+        );
+
+      if (upsertErr) {
+        console.error("Analytics upsert error:", upsertErr);
+      }
+
+      res.json({
+        success: true,
+        analytics: { sent, opened, replied, bounced, clicked },
+        raw: analyticsData,
+      });
+    } catch (err: any) {
+      console.error("SYNC ERROR:", err);
+      res.status(500).json({ error: "Sync failed", details: err?.message });
+    }
+  }
+);
+
+/* -------------------------------------------------------------------------- */
 /*                               CREATE CAMPAIGN                              */
 /* -------------------------------------------------------------------------- */
 
@@ -74,7 +167,13 @@ router.post(
 
       const { data: campaign, error: campaignError } = await supabase
         .from("email_campaigns")
-        .insert({ user_id: req.userId!, name, sending_domain, lead_list_id: lead_list_id || null, status: "draft" })
+        .insert({
+          user_id:        req.userId!,
+          name,
+          sending_domain,
+          lead_list_id:   lead_list_id || null,
+          status:         "draft",
+        })
         .select()
         .single();
 
@@ -86,14 +185,15 @@ router.post(
 
       if (Array.isArray(sequences) && sequences.length > 0) {
         const sequenceRows = sequences.map((seq: any, index: number) => ({
-          campaign_id: campaign.id,
-          step_number: seq.step_number || index + 1,
-          subject: seq.subject || "",
-          body: seq.body || "",
-          delay_days: seq.delay_days || 0,
+          campaign_id:  campaign.id,
+          user_id:      req.userId!,
+          step_number:  seq.step_number || index + 1,
+          subject:      seq.subject     || "",
+          body:         seq.body        || "",
+          delay_days:   seq.delay_days  || 0,
         }));
         const { error: seqErr } = await supabase.from("campaign_sequences").insert(sequenceRows);
-        if (seqErr) console.error(seqErr);
+        if (seqErr) console.error("SEQ INSERT ERROR:", seqErr);
       }
 
       const { data: fullCampaign } = await supabase
@@ -120,17 +220,21 @@ router.put(
   async (req: AuthenticatedRequest, res): Promise<void> => {
     try {
       const { sequences } = req.body;
-      if (!Array.isArray(sequences)) { res.status(400).json({ error: "sequences must be an array" }); return; }
+      if (!Array.isArray(sequences)) {
+        res.status(400).json({ error: "sequences must be an array" });
+        return;
+      }
 
       await supabase.from("campaign_sequences").delete().eq("campaign_id", req.params.id);
 
       if (sequences.length > 0) {
         const rows = sequences.map((seq: any, index: number) => ({
           campaign_id: req.params.id,
+          user_id:     req.userId!,
           step_number: seq.step_number || index + 1,
-          subject: seq.subject || "",
-          body: seq.body || "",
-          delay_days: seq.delay_days || 0,
+          subject:     seq.subject     || "",
+          body:        seq.body        || "",
+          delay_days:  seq.delay_days  || 0,
         }));
         await supabase.from("campaign_sequences").insert(rows);
       }
@@ -204,11 +308,6 @@ router.post(
 /* -------------------------------------------------------------------------- */
 /*                              LAUNCH CAMPAIGN                               */
 /* -------------------------------------------------------------------------- */
-//
-// Flow:
-//   1. POST /api/v2/campaigns          → create campaign as Draft in Instantly
-//   2. POST /api/v2/leads/add          → push leads from our lead_list into Instantly campaign
-//   3. POST /api/v2/campaigns/{id}/activate → activate the campaign
 
 router.post(
   "/campaigns/:id/launch",
@@ -216,12 +315,17 @@ router.post(
   async (req: AuthenticatedRequest, res): Promise<void> => {
     try {
       const INSTANTLY_API_KEY = process.env.INSTANTLY_API_KEY;
+      const SENDING_EMAIL     = process.env.SENDING_EMAIL;
+
       if (!INSTANTLY_API_KEY) {
-        res.status(500).json({ error: "INSTANTLY_API_KEY is not set in environment variables" });
+        res.status(500).json({ error: "INSTANTLY_API_KEY is not set" });
+        return;
+      }
+      if (!SENDING_EMAIL) {
+        res.status(500).json({ error: "SENDING_EMAIL is not set" });
         return;
       }
 
-      // ── 1. Fetch our campaign + sequences ─────────────────────────────────
       const { data: campaign, error: fetchError } = await supabase
         .from("email_campaigns")
         .select(`*, campaign_sequences(*)`)
@@ -237,27 +341,29 @@ router.post(
         (a, b) => a.step_number - b.step_number
       );
 
-      // ── 2. Build Instantly create-campaign payload ─────────────────────────
       const steps = sortedSteps.map((seq: any, index: number) => ({
-        type: "email",
+        type:  "email",
         delay: index === 0 ? 0 : (seq.delay_days ?? 0),
         variants: [
           {
             subject: seq.subject || "Quick question",
-            body: seq.body || "Hi {{firstName}}",
+            body:    seq.body    || "Hi {{firstName}}",
           },
         ],
       }));
 
       const createPayload: Record<string, any> = {
-        name: campaign.name,
+        name:           campaign.name,
+        email_list:     [SENDING_EMAIL],
+        open_tracking:  true,
+        link_tracking:  true,
         campaign_schedule: {
           schedules: [
             {
-              name: "Default",
-              timing: { from: "09:00", to: "17:00" },
-              days: { "0": false, "1": true, "2": true, "3": true, "4": true, "5": true, "6": false },
-              timezone: "America/Chicago",
+              name:   "Default",
+              timing: { from: "00:00", to: "23:59" },
+              days:   { "0": true, "1": true, "2": true, "3": true, "4": true, "5": true, "6": true },
+              timezone: "Asia/Kolkata",
             },
           ],
         },
@@ -269,119 +375,154 @@ router.post(
 
       console.log("INSTANTLY CREATE PAYLOAD:", JSON.stringify(createPayload, null, 2));
 
-      // ── STEP 1: Create the campaign in Instantly ───────────────────────────
+      // STEP 1: Create
       const createRes = await fetch("https://api.instantly.ai/api/v2/campaigns", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${INSTANTLY_API_KEY}`, "Content-Type": "application/json" },
+        method:  "POST",
+        headers: {
+          Authorization:  `Bearer ${INSTANTLY_API_KEY}`,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(createPayload),
       });
 
       const createText = await createRes.text();
-      console.log("INSTANTLY CREATE STATUS:", createRes.status);
+      console.log("INSTANTLY CREATE STATUS:",   createRes.status);
       console.log("INSTANTLY CREATE RESPONSE:", createText);
 
       if (!createRes.ok) {
         res.status(502).json({
-          error: `Instantly create failed (${createRes.status})`,
+          error:           `Instantly create failed (${createRes.status})`,
           instantly_error: (() => { try { return JSON.parse(createText); } catch { return createText; } })(),
         });
         return;
       }
 
-      const instantlyData = JSON.parse(createText);
+      const instantlyData       = JSON.parse(createText);
       const instantlyCampaignId = instantlyData.id;
 
-      // ── STEP 2: Push leads from our lead_list into Instantly ───────────────
+      // STEP 1.5: PATCH email_list fallback
+      try {
+        const patchRes = await fetch(
+          `https://api.instantly.ai/api/v2/campaigns/${instantlyCampaignId}`,
+          {
+            method:  "PATCH",
+            headers: {
+              Authorization:  `Bearer ${INSTANTLY_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ email_list: [SENDING_EMAIL] }),
+          }
+        );
+        console.log("INSTANTLY PATCH STATUS:", patchRes.status);
+      } catch (patchErr: any) {
+        console.warn("Patch non-fatal:", patchErr?.message);
+      }
+
+      // STEP 2: Push leads
       if (campaign.lead_list_id) {
         try {
-          // Fetch all leads from our Supabase lead list (paginate if needed)
           const { data: leads, error: leadsError } = await supabase
             .from("leads")
-            .select("email, first_name, last_name, company_name, job_title, linkedin_url")
+            .select("email, first_name, last_name, company_name, job_title")
             .eq("lead_list_id", campaign.lead_list_id)
             .limit(1000);
 
-          if (leadsError) {
-            console.warn("Could not fetch leads:", leadsError.message);
-          } else if (leads && leads.length > 0) {
-            // Map to Instantly lead shape — email is required
+          if (!leadsError && leads && leads.length > 0) {
             const instantlyLeads = leads
               .filter((l: any) => !!l.email)
               .map((l: any) => ({
-                email: l.email,
-                first_name: l.first_name || undefined,
-                last_name: l.last_name || undefined,
+                email:        l.email,
+                first_name:   l.first_name   || undefined,
+                last_name:    l.last_name    || undefined,
                 company_name: l.company_name || undefined,
-                job_title: l.job_title || undefined,
+                job_title:    l.job_title    || undefined,
               }));
 
             if (instantlyLeads.length > 0) {
               const leadsRes = await fetch("https://api.instantly.ai/api/v2/leads/add", {
-                method: "POST",
-                headers: { Authorization: `Bearer ${INSTANTLY_API_KEY}`, "Content-Type": "application/json" },
+                method:  "POST",
+                headers: {
+                  Authorization:  `Bearer ${INSTANTLY_API_KEY}`,
+                  "Content-Type": "application/json",
+                },
                 body: JSON.stringify({
-                  campaign_id: instantlyCampaignId,
-                  leads: instantlyLeads,
-                  skip_if_in_campaign: true,
+                  campaign_id:          instantlyCampaignId,
+                  leads:                instantlyLeads,
+                  skip_if_in_campaign:  true,
                 }),
               });
-
               const leadsText = await leadsRes.text();
-              console.log("INSTANTLY LEADS STATUS:", leadsRes.status);
+              console.log("INSTANTLY LEADS STATUS:",   leadsRes.status);
               console.log("INSTANTLY LEADS RESPONSE:", leadsText);
-
-              if (!leadsRes.ok) {
-                // Non-fatal — log warning, still activate
-                console.warn("Failed to add leads to Instantly:", leadsText);
-              } else {
-                console.log(`Added ${instantlyLeads.length} leads to Instantly campaign`);
-              }
             }
           }
         } catch (leadsErr: any) {
-          // Non-fatal — log and continue to activation
           console.warn("Error pushing leads:", leadsErr?.message);
         }
       }
 
-      // ── STEP 3: Activate the campaign ─────────────────────────────────────
+      // STEP 3: Activate — NO Content-Type, NO body
       const activateRes = await fetch(
         `https://api.instantly.ai/api/v2/campaigns/${instantlyCampaignId}/activate`,
         {
-          method: "POST",
-          headers: { Authorization: `Bearer ${INSTANTLY_API_KEY}`, "Content-Type": "application/json" },
+          method:  "POST",
+          headers: { Authorization: `Bearer ${INSTANTLY_API_KEY}` },
         }
       );
 
       const activateText = await activateRes.text();
-      console.log("INSTANTLY ACTIVATE STATUS:", activateRes.status);
+      console.log("INSTANTLY ACTIVATE STATUS:",   activateRes.status);
       console.log("INSTANTLY ACTIVATE RESPONSE:", activateText);
 
       if (!activateRes.ok) {
-        console.warn("Instantly activation warning:", activateText);
+        const activateError = (() => { try { return JSON.parse(activateText); } catch { return activateText; } })();
+        await supabase
+          .from("email_campaigns")
+          .update({
+            status:               "error",
+            external_campaign_id: instantlyCampaignId,
+            updated_at:           new Date().toISOString(),
+          })
+          .eq("id", req.params.id);
+
+        res.status(502).json({
+          error:           `Activation failed (${activateRes.status})`,
+          instantly_error: activateError,
+        });
+        return;
       }
 
-      // ── STEP 4: Update our DB ──────────────────────────────────────────────
+      // STEP 4: Update DB
       await supabase
         .from("email_campaigns")
         .update({
-          status: "active",
-          external_campaign_id: instantlyCampaignId || null,
-          updated_at: new Date().toISOString(),
+          status:               "active",
+          external_campaign_id: instantlyCampaignId,
+          updated_at:           new Date().toISOString(),
         })
         .eq("id", req.params.id);
 
+      // STEP 5: Init analytics row
+      await supabase.from("campaign_analytics").upsert(
+        {
+          campaign_id:   req.params.id,
+          sent_count:    0,
+          opened_count:  0,
+          replied_count: 0,
+          bounced_count: 0,
+          clicked_count: 0,
+        },
+        { onConflict: "campaign_id" }
+      );
+
       res.json({
-        success: true,
-        message: "Campaign launched successfully",
+        success:   true,
+        message:   "Campaign launched and activated successfully",
         instantly: instantlyData,
       });
     } catch (err: any) {
       console.error("LAUNCH ERROR:", err);
-      res.status(500).json({
-        error: "Launch failed — internal server error",
-        details: err?.message ?? String(err),
-      });
+      res.status(500).json({ error: "Launch failed", details: err?.message ?? String(err) });
     }
   }
 );

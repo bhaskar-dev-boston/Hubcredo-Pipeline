@@ -24,7 +24,7 @@ export default function Login() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Login failed");
-      setToken(data.token);
+      setToken(data.token, data.refresh_token);
       setLocation("/dashboard");
     } catch (err: unknown) {
       toast({

@@ -14,6 +14,7 @@ import inboxkitRouter from "./inboxkit";
 import contactsRouter from "./contacts";
 import billingRouter from "./billing";
 import campaignsRouter from "./campaigns";
+import linkedinRouter from "./linkedin";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(inboxkitRouter);
 router.use(contactsRouter);
 router.use(billingRouter);
 router.use(campaignsRouter);
+router.use(linkedinRouter);
 
 export default router;

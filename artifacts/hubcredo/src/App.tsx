@@ -2,7 +2,7 @@ import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useEffect } from "react";
+import { useEffect, type ComponentType } from "react";
 import { getToken, refreshAccessToken, getRefreshToken, removeToken } from "@/lib/auth";
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
@@ -17,6 +17,7 @@ import Billing from "@/pages/dashboard/Billing";
 import Campaigns from "@/pages/dashboard/Campaigns";
 import InboxPage from "@/pages/dashboard/Inbox";
 import LinkedInOutreach from "@/pages/dashboard/LinkedIn";
+import CRM from "@/pages/dashboard/CRM";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -25,7 +26,7 @@ const queryClient = new QueryClient({
   },
 });
 
-function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+function ProtectedRoute({ component: Component }: { component: ComponentType }) {
   if (!getToken()) return <Redirect to="/login" />;
   return <Component />;
 }
@@ -66,6 +67,9 @@ function Router() {
       <Route path="/dashboard/linkedin">
         <ProtectedRoute component={LinkedInOutreach} />
       </Route>
+      <Route path="/dashboard/crm">
+        <ProtectedRoute component={CRM} />
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
@@ -76,9 +80,7 @@ function AuthRefresher() {
     const init = async () => {
       const token = getToken();
       const refreshToken = getRefreshToken();
-
       if (!token && !refreshToken) return;
-
       if (refreshToken) {
         const newToken = await refreshAccessToken();
         if (newToken) {
@@ -97,9 +99,7 @@ function AuthRefresher() {
         }
       }
     };
-
     init();
-
     const REFRESH_INTERVAL = 45 * 60 * 1000;
     const interval = setInterval(async () => {
       if (getRefreshToken()) {
@@ -110,10 +110,8 @@ function AuthRefresher() {
         }
       }
     }, REFRESH_INTERVAL);
-
     return () => clearInterval(interval);
   }, []);
-
   return null;
 }
 

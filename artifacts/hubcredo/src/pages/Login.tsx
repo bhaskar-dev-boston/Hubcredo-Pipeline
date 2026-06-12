@@ -23,6 +23,10 @@ export default function Login() {
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
+      localStorage.setItem(
+  "token",
+  data.token
+);
       if (!res.ok) throw new Error(data.error || "Login failed");
       setToken(data.token, data.refresh_token);
       setLocation("/dashboard");

@@ -1,0 +1,1 @@
+export type CrmFieldMappingInputMapping = { [key: string]: unknown };

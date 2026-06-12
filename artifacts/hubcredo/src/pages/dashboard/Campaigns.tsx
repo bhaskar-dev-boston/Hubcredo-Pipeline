@@ -5,6 +5,7 @@ import {
   CheckCircle2, AlertCircle, Sparkles, X,
   Edit3, Globe, ArrowRight, Trash2, RefreshCw,
   TrendingUp, Eye, MessageSquare, MousePointerClick,
+  Users, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getToken } from "@/lib/auth";
@@ -57,6 +58,29 @@ interface DomainWarmup {
   score: number;
   provider: string;
 }
+
+// ── NEW: lead types ──
+interface InstantlyLead {
+  id: string;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  company_name?: string;
+  status?: number;
+  timestamp_created?: string;
+}
+
+const LEAD_STATUS_MAP: Record<number, { label: string; color: string }> = {
+  1:  { label: "Interested",      color: "text-green-700 bg-green-50 border-green-200" },
+  2:  { label: "Meeting Booked",  color: "text-blue-700 bg-blue-50 border-blue-200" },
+  3:  { label: "Meeting Done",    color: "text-purple-700 bg-purple-50 border-purple-200" },
+  4:  { label: "Won",             color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+  0:  { label: "Out of Office",   color: "text-amber-700 bg-amber-50 border-amber-200" },
+  [-1]: { label: "Not Interested", color: "text-red-700 bg-red-50 border-red-200" },
+  [-2]: { label: "Wrong Person",   color: "text-orange-700 bg-orange-50 border-orange-200" },
+  [-3]: { label: "Lost",           color: "text-gray-700 bg-gray-50 border-gray-200" },
+  [-4]: { label: "No Show",        color: "text-slate-700 bg-slate-50 border-slate-200" },
+};
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   draft:     { label: "Draft",     color: "bg-[#F5F7FA] border-[#E2E8F0] text-[#64748B]",   icon: <Edit3 className="w-3 h-3" /> },
@@ -124,6 +148,13 @@ export default function Campaigns() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // ── NEW: leads state ──
+  const [leads, setLeads] = useState<InstantlyLead[]>([]);
+  const [leadsLoading, setLeadsLoading] = useState(false);
+  const [leadsCursor, setLeadsCursor] = useState<string | undefined>(undefined);
+  const [leadsHasMore, setLeadsHasMore] = useState(false);
+  const [leadsCursorStack, setLeadsCursorStack] = useState<string[]>([]); // for prev pages
+
   const { data: leadLists = [] } = useListLeadLists();
   const { data: icps = [] } = useListIcps();
   const lists = leadLists as LeadList[];
@@ -149,12 +180,61 @@ export default function Campaigns() {
     setSelectedId(id);
     setWizard(false);
     setDetailLoading(true);
+    // reset leads when switching campaigns
+    setLeads([]);
+    setLeadsCursor(undefined);
+    setLeadsCursorStack([]);
+    setLeadsHasMore(false);
     try {
       const res = await apiFetch(`/api/campaigns/${id}?t=${Date.now()}`);
-      if (res.ok) setDetail(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setDetail(data);
+        // auto-load leads if campaign is linked to Instantly
+        if (data.external_campaign_id) {
+          fetchLeads(id, undefined);
+        }
+      }
     } finally {
       setDetailLoading(false);
     }
+  }
+
+  // ── NEW: fetch leads from Instantly via our backend ──
+  async function fetchLeads(campaignId: string, cursor: string | undefined) {
+    setLeadsLoading(true);
+    try {
+      const url = cursor
+        ? `/api/campaigns/${campaignId}/leads?limit=10&starting_after=${cursor}`
+        : `/api/campaigns/${campaignId}/leads?limit=10`;
+      const res = await apiFetch(url);
+      if (!res.ok) {
+        toast({ title: "Could not load leads", variant: "destructive" });
+        return;
+      }
+      const data = await res.json();
+      const items: InstantlyLead[] = data.items || [];
+      setLeads(items);
+      setLeadsHasMore(!!data.next_starting_after);
+      setLeadsCursor(data.next_starting_after);
+    } finally {
+      setLeadsLoading(false);
+    }
+  }
+
+  function handleLeadsNext() {
+    if (!selectedId || !leadsCursor) return;
+    setLeadsCursorStack((prev) => [...prev, leadsCursor]);
+    fetchLeads(selectedId, leadsCursor);
+  }
+
+  function handleLeadsPrev() {
+    if (!selectedId) return;
+    const stack = [...leadsCursorStack];
+    const prevCursor = stack.length > 1 ? stack[stack.length - 2] : undefined;
+    stack.pop();
+    setLeadsCursorStack(stack);
+    fetchLeads(selectedId, prevCursor);
   }
 
   // ── Sync analytics from Instantly ──
@@ -778,6 +858,102 @@ export default function Campaigns() {
                     )}
                   </div>
 
+                  {/* ── NEW: Leads Table ── */}
+                  {detail.external_campaign_id && (
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs text-[#64748B] uppercase tracking-widest font-medium flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5" /> Leads
+                        </p>
+                        <button
+                          onClick={() => {
+                            setLeads([]);
+                            setLeadsCursor(undefined);
+                            setLeadsCursorStack([]);
+                            fetchLeads(detail.id, undefined);
+                          }}
+                          disabled={leadsLoading}
+                          className="flex items-center gap-1 text-xs text-[#2563EB] hover:underline font-medium disabled:opacity-50"
+                        >
+                          {leadsLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                          Refresh
+                        </button>
+                      </div>
+
+                      {leadsLoading && leads.length === 0 ? (
+                        <div className="flex items-center justify-center py-10 bg-white border border-[#E2E8F0] rounded-xl">
+                          <Loader2 className="w-5 h-5 text-[#64748B] animate-spin" />
+                        </div>
+                      ) : leads.length === 0 ? (
+                        <div className="bg-white border border-dashed border-[#E2E8F0] rounded-xl p-6 text-center">
+                          <Users className="w-7 h-7 text-[#CBD5E1] mx-auto mb-2" />
+                          <p className="text-sm text-[#64748B]">No leads found</p>
+                        </div>
+                      ) : (
+                        <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden">
+                          {/* Table header */}
+                          <div className="grid grid-cols-[2fr_2fr_1.5fr_1.2fr] gap-3 px-4 py-2.5 bg-[#F5F7FA] border-b border-[#E2E8F0]">
+                            <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Email</span>
+                            <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Name</span>
+                            <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Company</span>
+                            <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Status</span>
+                          </div>
+
+                          {/* Table rows */}
+                          <div className="divide-y divide-[#F1F5F9]">
+                            {leads.map((lead) => {
+                              const statusInfo = lead.status !== undefined
+                                ? LEAD_STATUS_MAP[lead.status]
+                                : null;
+                              return (
+                                <div
+                                  key={lead.id}
+                                  className="grid grid-cols-[2fr_2fr_1.5fr_1.2fr] gap-3 px-4 py-3 hover:bg-[#F8FAFC] transition-colors"
+                                >
+                                  <span className="text-xs text-[#0A0A0A] truncate font-mono">{lead.email || "—"}</span>
+                                  <span className="text-xs text-[#0A0A0A] truncate">
+                                    {[lead.first_name, lead.last_name].filter(Boolean).join(" ") || "—"}
+                                  </span>
+                                  <span className="text-xs text-[#64748B] truncate">{lead.company_name || "—"}</span>
+                                  <span>
+                                    {statusInfo ? (
+                                      <span className={`inline-block text-xs px-2 py-0.5 rounded-full border font-medium ${statusInfo.color}`}>
+                                        {statusInfo.label}
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs text-[#94A3B8] bg-[#F5F7FA] border border-[#E2E8F0] px-2 py-0.5 rounded-full">
+                                        Not contacted
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Pagination */}
+                          <div className="flex items-center justify-between px-4 py-3 border-t border-[#E2E8F0] bg-[#F5F7FA]">
+                            <button
+                              onClick={handleLeadsPrev}
+                              disabled={leadsCursorStack.length === 0 || leadsLoading}
+                              className="flex items-center gap-1 text-xs font-medium text-[#64748B] hover:text-[#2563EB] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                              <ChevronLeft className="w-3.5 h-3.5" /> Previous
+                            </button>
+                            <span className="text-xs text-[#94A3B8]">{leads.length} leads on this page</span>
+                            <button
+                              onClick={handleLeadsNext}
+                              disabled={!leadsHasMore || leadsLoading}
+                              className="flex items-center gap-1 text-xs font-medium text-[#64748B] hover:text-[#2563EB] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                              Next <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Sequences */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
@@ -859,3 +1035,4 @@ export default function Campaigns() {
     </DashboardLayout>
   );
 }
+

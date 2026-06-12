@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, Layers, Settings, LogOut, Zap, X, Globe, CreditCard, Mail, Inbox, Linkedin } from "lucide-react";
+import { LayoutDashboard, Users, Layers, Settings, LogOut, Zap, X, Globe, CreditCard, Mail, Inbox, Linkedin, Building2 } from "lucide-react";
 import { removeToken } from "@/lib/auth";
 import { useGetMe } from "@workspace/api-client-react";
 import { useCreditStore } from "@/store/creditStore";
@@ -40,6 +40,8 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
     profile?.full_name
       ? profile.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
       : profile?.email?.[0]?.toUpperCase() ?? "U";
+
+  const isCrmActive = location === "/dashboard/crm" || location.startsWith("/dashboard/crm");
 
   const sidebarContent = (
     <aside className="flex flex-col w-64 h-full bg-white border-r border-[#E2E8F0]">
@@ -100,6 +102,32 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
             </Link>
           );
         })}
+
+        {/* Integrations section */}
+        <div className="pt-3 pb-1">
+          <p className="text-[10px] font-semibold text-[#94A3B8] uppercase tracking-widest px-3 pb-2">Integrations</p>
+
+          {/* CRM nav item */}
+          <Link
+            href="/dashboard/crm"
+            onClick={onClose}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group mb-0.5 ${
+              isCrmActive
+                ? "bg-[#2563EB] text-white shadow-[0_2px_8px_rgba(37,99,235,0.25)]"
+                : "text-[#64748B] hover:text-[#0A0A0A] hover:bg-[#F5F7FA]"
+            }`}
+          >
+            <Building2 className={`w-4 h-4 shrink-0 transition-transform duration-150 ${isCrmActive ? "" : "group-hover:scale-110"}`} />
+            CRM
+            {isCrmActive && (
+              <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/70" />
+            )}
+            {!isCrmActive && (
+              <span className="ml-auto text-[10px] text-[#94A3B8]">Attio</span>
+            )}
+          </Link>
+
+        </div>
       </nav>
 
       {/* User footer */}

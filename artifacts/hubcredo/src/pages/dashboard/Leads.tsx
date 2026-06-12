@@ -10,10 +10,12 @@ import {
   useListIcps,
   useGetMe,
   getListIcpsQueryKey,
+  useSyncLeadToCrm,
+  useGetCrmConnection,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Users, Plus, Loader2, ThumbsUp, ThumbsDown, ExternalLink, Zap, ChevronDown, Sparkles, ArrowRight, X, Building2, MapPin, Briefcase, Mail, Globe, Trash2, AlertTriangle, Linkedin } from "lucide-react";
+import { Users, Plus, Loader2, ThumbsUp, ThumbsDown, ExternalLink, Zap, ChevronDown, Sparkles, ArrowRight, X, Building2, MapPin, Briefcase, Mail, Globe, Trash2, AlertTriangle, Linkedin, RefreshCw, CheckCircle2, AlertCircle, Clock, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Lead, LeadList, Icp } from "@workspace/api-client-react";
 import { useCreditStore } from "@/store/creditStore";
@@ -41,6 +43,29 @@ export default function Leads() {
   const deleteLeadListMutation = useDeleteLeadList();
   const triggerScraping = useTriggerLeadScraping();
   const reviewLead = useReviewLead();
+  const syncLead = useSyncLeadToCrm();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: crmConnection } = useGetCrmConnection({ query: { retry: false } as any });
+  const hasCrm = !!crmConnection;
+  const [syncingLeadId, setSyncingLeadId] = useState<string | null>(null);
+
+  async function handleSyncLeadToCrm(leadId: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    setSyncingLeadId(leadId);
+    try {
+      const result = await syncLead.mutateAsync({ id: leadId });
+      if (result.success) {
+        toast({ title: "Synced to Attio", description: "Lead contact updated in your CRM." });
+      } else {
+        toast({ title: "Sync failed", description: result.error ?? "Unknown error", variant: "destructive" });
+      }
+      await refetchLeads();
+    } catch {
+      toast({ title: "Sync error", description: "Could not sync lead to CRM.", variant: "destructive" });
+    } finally {
+      setSyncingLeadId(null);
+    }
+  }
 
   const currentIcp = (icps as Icp[])[0];
   const hasIcp =
@@ -440,11 +465,25 @@ export default function Leads() {
                                linkedinStatus === "replied"      ? "Replied" : "Paused"}
                             </span>
                           )}
+                          {hasCrm && lead.review_status === "approved" && (
+                            <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${
+                              lead.crm_sync_status === "synced" ? "bg-green-50 text-green-700 border-green-200" :
+                              lead.crm_sync_status === "error"  ? "bg-red-50 text-red-700 border-red-200" :
+                              "bg-[#F5F7FA] text-[#64748B] border-[#E2E8F0]"
+                            }`} title={lead.crm_sync_status === "error" ? (lead.crm_sync_error ?? "Sync error") : undefined}>
+                              {lead.crm_sync_status === "synced" ? <CheckCircle2 className="w-2.5 h-2.5" /> :
+                               lead.crm_sync_status === "error"  ? <AlertCircle className="w-2.5 h-2.5" /> :
+                               <Clock className="w-2.5 h-2.5" />}
+                              {lead.crm_sync_status === "synced" ? "CRM synced" :
+                               lead.crm_sync_status === "error"  ? "CRM error" : "Not synced"}
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-[#64748B] mt-0.5">
                           {lead.job_title}{lead.company_name ? ` · ${lead.company_name}` : ""}
                         </p>
                         {lead.email && <p className="text-xs text-[#64748B] mt-0.5">{lead.email}</p>}
+                        {(lead as any).phone && <p className="text-xs text-[#64748B] mt-0.5">{(lead as any).phone}</p>}
                         {lead.linkedin_url && (
                           <a href={lead.linkedin_url} target="_blank" rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
@@ -453,24 +492,44 @@ export default function Leads() {
                           </a>
                         )}
                       </div>
-                      {(!lead.review_status || lead.review_status === "pending") && (
-                        <div className="flex gap-2 shrink-0">
+                      <div className="flex gap-2 shrink-0">
+                        {hasCrm && lead.review_status === "approved" && (
                           <button
-                            onClick={(e) => { e.stopPropagation(); handleReview(lead.id, "approved"); }}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E2E8F0] text-[#64748B] hover:text-green-600 hover:border-green-200 hover:bg-green-50 transition-colors"
-                            title="Approve"
+                            onClick={(e) => handleSyncLeadToCrm(lead.id, e)}
+                            disabled={syncingLeadId === lead.id}
+                            className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${
+                              lead.crm_sync_status === "synced"
+                                ? "border-green-200 text-green-600 hover:bg-green-50"
+                                : lead.crm_sync_status === "error"
+                                ? "border-red-200 text-red-600 hover:bg-red-50"
+                                : "border-[#E2E8F0] text-[#64748B] hover:text-[#2563EB] hover:border-[#2563EB]/30 hover:bg-[#EFF6FF]"
+                            }`}
+                            title={lead.crm_sync_status === "synced" ? "Re-sync to Attio" : lead.crm_sync_status === "error" ? `Retry sync — ${lead.crm_sync_error}` : "Sync to Attio"}
                           >
-                            <ThumbsUp className="w-3.5 h-3.5" />
+                            {syncingLeadId === lead.id
+                              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              : <RefreshCw className="w-3.5 h-3.5" />}
                           </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleReview(lead.id, "rejected"); }}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E2E8F0] text-[#64748B] hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors"
-                            title="Reject"
-                          >
-                            <ThumbsDown className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      )}
+                        )}
+                        {(!lead.review_status || lead.review_status === "pending") && (
+                          <>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleReview(lead.id, "approved"); }}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E2E8F0] text-[#64748B] hover:text-green-600 hover:border-green-200 hover:bg-green-50 transition-colors"
+                              title="Approve"
+                            >
+                              <ThumbsUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleReview(lead.id, "rejected"); }}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E2E8F0] text-[#64748B] hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors"
+                              title="Reject"
+                            >
+                              <ThumbsDown className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -566,6 +625,14 @@ export default function Leads() {
                             <a href={`mailto:${lead.email}`} className="text-sm text-[#2563EB] hover:underline truncate">{lead.email}</a>
                           </div>
                         )}
+                       {lead.phone && (
+  <div className="flex items-center gap-3">
+    <Phone className="w-4 h-4 text-[#64748B] shrink-0" />
+    <a href={`tel:${lead.phone}`} className="text-sm text-[#2563EB] hover:underline truncate">
+      {lead.phone}
+    </a>
+  </div>
+)}
                         {lead.linkedin_url && (
                           <div className="flex items-center gap-3">
                             <ExternalLink className="w-4 h-4 text-[#64748B] shrink-0" />
@@ -654,6 +721,46 @@ export default function Leads() {
                   )}
                 </div>
               </div>
+
+              {/* CRM sync status in panel */}
+              {hasCrm && lead.review_status === "approved" && (
+                <div className="px-6 py-3 border-t border-[#E2E8F0]">
+                  <div className={`flex items-center justify-between p-3 rounded-lg border ${
+                    lead.crm_sync_status === "synced" ? "bg-green-50 border-green-200" :
+                    lead.crm_sync_status === "error"  ? "bg-red-50 border-red-200" :
+                    "bg-[#F5F7FA] border-[#E2E8F0]"
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      {lead.crm_sync_status === "synced" ? <CheckCircle2 className="w-4 h-4 text-green-600" /> :
+                       lead.crm_sync_status === "error"  ? <AlertCircle className="w-4 h-4 text-red-600" /> :
+                       <Clock className="w-4 h-4 text-[#64748B]" />}
+                      <div>
+                        <p className={`text-xs font-medium ${
+                          lead.crm_sync_status === "synced" ? "text-green-800" :
+                          lead.crm_sync_status === "error"  ? "text-red-800" : "text-[#0A0A0A]"
+                        }`}>
+                          {lead.crm_sync_status === "synced" ? "Synced to Attio" :
+                           lead.crm_sync_status === "error"  ? "Sync failed" : "Not synced to CRM"}
+                        </p>
+                        {lead.crm_sync_status === "error" && lead.crm_sync_error && (
+                          <p className="text-xs text-red-600 mt-0.5 truncate max-w-[200px]">{lead.crm_sync_error}</p>
+                        )}
+                        {lead.crm_sync_status === "synced" && lead.crm_synced_at && (
+                          <p className="text-xs text-green-600 mt-0.5">{new Date(lead.crm_synced_at).toLocaleString()}</p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => handleSyncLeadToCrm(lead.id, e)}
+                      disabled={syncingLeadId === lead.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-[#E2E8F0] bg-white text-[#64748B] rounded-lg hover:border-[#2563EB]/40 hover:text-[#2563EB] transition-colors disabled:opacity-50"
+                    >
+                      {syncingLeadId === lead.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      {lead.crm_sync_status === "synced" ? "Re-sync" : "Sync now"}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Footer actions */}
               {(!lead.review_status || lead.review_status === "pending") && (

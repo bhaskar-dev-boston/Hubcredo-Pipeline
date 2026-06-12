@@ -527,4 +527,67 @@ router.post(
   }
 );
 
+
+/* -------------------------------------------------------------------------- */
+/*                        LIST LEADS FROM INSTANTLY                           */
+/* -------------------------------------------------------------------------- */
+
+router.get(
+  "/campaigns/:id/leads",
+  requireAuth,
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    try {
+      const INSTANTLY_API_KEY = process.env.INSTANTLY_API_KEY;
+      if (!INSTANTLY_API_KEY) {
+        res.status(500).json({ error: "INSTANTLY_API_KEY not set" });
+        return;
+      }
+
+      // Get the external_campaign_id from our DB
+      const { data: campaign } = await supabase
+        .from("email_campaigns")
+        .select("external_campaign_id")
+        .eq("id", req.params.id)
+        .eq("user_id", req.userId!)
+        .single();
+
+      if (!campaign?.external_campaign_id) {
+        res.status(404).json({ error: "No Instantly campaign linked" });
+        return;
+      }
+
+      const limit = parseInt(req.query.limit as string) || 20;
+      const starting_after = req.query.starting_after as string | undefined;
+
+      // Instantly v2: POST /api/v2/leads/list
+      const body: Record<string, any> = {
+        filter: { campaign_id: campaign.external_campaign_id },
+        limit,
+      };
+      if (starting_after) body.starting_after = starting_after;
+
+      const leadsRes = await fetch("https://api.instantly.ai/api/v2/leads/list", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${INSTANTLY_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!leadsRes.ok) {
+        const errText = await leadsRes.text();
+        res.status(502).json({ error: "Failed to fetch leads from Instantly", details: errText });
+        return;
+      }
+
+      const data = await leadsRes.json();
+      res.json(data); // { items: [...], next_starting_after: "..." }
+    } catch (err: any) {
+      console.error("LEADS FETCH ERROR:", err);
+      res.status(500).json({ error: "Failed to fetch leads", details: err?.message });
+    }
+  }
+);
+
 export default router;

@@ -15,6 +15,7 @@ import contactsRouter from "./contacts";
 import billingRouter from "./billing";
 import campaignsRouter from "./campaigns";
 import linkedinRouter from "./linkedin";
+import crmRouter from "./crm";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(contactsRouter);
 router.use(billingRouter);
 router.use(campaignsRouter);
 router.use(linkedinRouter);
+router.use(crmRouter);
 
 export default router;

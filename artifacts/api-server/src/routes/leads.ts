@@ -15,6 +15,46 @@ import {
   BulkReviewLeadsBody,
   BulkReviewLeadsResponse,
 } from "@workspace/api-zod";
+import { upsertAttioPerson, DEFAULT_FIELD_MAPPING, type FieldMapping } from "../lib/attio";
+
+async function syncLeadToCrmIfConnected(userId: string, leadId: string, lead: Record<string, any>): Promise<void> {
+  try {
+    const { data: connection } = await supabase
+      .from("crm_connections")
+      .select("access_token, field_mapping")
+      .eq("user_id", userId)
+      .single();
+
+    if (!connection) return;
+
+    const recordId = await upsertAttioPerson(
+      connection.access_token,
+      lead as any,
+      (connection.field_mapping as FieldMapping) ?? DEFAULT_FIELD_MAPPING
+    );
+
+    await supabase
+      .from("leads")
+      .update({
+        crm_contact_id: recordId,
+        crm_sync_status: "synced",
+        crm_sync_error: null,
+        crm_synced_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", leadId);
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : "Sync failed";
+    await supabase
+      .from("leads")
+      .update({
+        crm_sync_status: "error",
+        crm_sync_error: errMsg,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", leadId);
+  }
+}
 
 const router: IRouter = Router();
 
@@ -204,6 +244,11 @@ router.patch("/leads/:id/review", requireAuth, async (req: AuthenticatedRequest,
     return;
   }
 
+  // Fire-and-forget CRM sync when a lead is approved
+  if (parsed.data.review_status === "approved") {
+    syncLeadToCrmIfConnected(req.userId!, params.data.id, data).catch(() => {});
+  }
+
   res.json(ReviewLeadResponse.parse(data));
 });
 
@@ -230,6 +275,13 @@ router.post("/leads/bulk-review", requireAuth, async (req: AuthenticatedRequest,
     req.log.error({ error }, "Failed to bulk review leads");
     res.status(500).json({ error: "Bulk review failed" });
     return;
+  }
+
+  // Fire-and-forget CRM sync for all approved leads
+  if (parsed.data.review_status === "approved" && data?.length) {
+    for (const lead of data) {
+      syncLeadToCrmIfConnected(req.userId!, lead.id, lead).catch(() => {});
+    }
   }
 
   res.json(BulkReviewLeadsResponse.parse({ updated_count: data?.length ?? 0 }));

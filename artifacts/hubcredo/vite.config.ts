@@ -36,12 +36,14 @@ export default defineConfig({
       strict: true,
     },
     proxy: {
-      '/api': {
+      "/api": {
         target: `http://localhost:${apiPort}`,
         changeOrigin: true,
+        secure: false,
+        cookieDomainRewrite: "localhost",
         rewrite: (path) => path,
-      }
-    }
+      },
+    },
   },
   preview: {
     port,

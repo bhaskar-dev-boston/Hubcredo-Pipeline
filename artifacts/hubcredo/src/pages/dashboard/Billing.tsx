@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
-  Zap, TrendingUp, Crown, ShoppingCart, AlertTriangle, CheckCircle,
-  ArrowUpCircle, ArrowDownCircle, Loader2,
+  Zap, TrendingUp, Crown, Rocket, ShoppingCart, AlertTriangle, CheckCircle,
+  ArrowUpCircle, ArrowDownCircle, Loader2, Info,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getToken } from "@/lib/auth";
@@ -28,40 +28,101 @@ interface Transaction {
   created_at: string;
 }
 
-const TIER_ALLOWANCE: Record<string, number> = { free: 200, growth: 3000, scale: 12000 };
+// Monthly credit allowances per tier
+const TIER_ALLOWANCE: Record<string, number> = {
+  free: 100,
+  starter: 35,
+  growth: 500,
+  scale: 1000,
+};
 
+// 1 credit = $1 purchasing power
 const PLANS = [
   {
     id: "free",
-    name: "Free",
+    name: "Trial",
     priceINR: "₹0",
     priceUSD: "$0",
-    credits: 200,
-    features: ["200 credits/month", "Basic company analysis", "Up to 10 leads/month", "Community support"],
+    credits: 100,
+    creditsLabel: "100 trial credits",
+    note: "One-time, no renewal",
+    features: [
+      "100 free credits on signup",
+      "Company analysis (2 cr each)",
+      "Lead enrichment (1 cr/lead)",
+      "LinkedIn outreach (1 cr/send)",
+      "Domain finder (free)",
+    ],
+  },
+  {
+    id: "starter",
+    name: "Starter",
+    priceINR: "₹2,755/mo",
+    priceUSD: "$29/mo",
+    credits: 35,
+    creditsLabel: "35 credits/month",
+    note: "$0.83/credit — 17% off",
+    features: [
+      "35 credits every month",
+      "~17 company analyses",
+      "~35 leads enriched",
+      "~35 LinkedIn sends",
+      "Email support",
+    ],
+    highlight: false,
   },
   {
     id: "growth",
     name: "Growth",
-    priceINR: "₹380/mo",
-    priceUSD: "$4/mo",
-    credits: 3000,
-    features: ["3,000 credits/month", "Unlimited company analyses", "Up to 500 leads/month", "Domain finder", "Email support"],
+    priceINR: "₹37,905/mo",
+    priceUSD: "$399/mo",
+    credits: 500,
+    creditsLabel: "500 credits/month",
+    note: "$0.80/credit — 20% off",
+    features: [
+      "500 credits every month",
+      "~250 company analyses",
+      "~500 leads enriched",
+      "~500 LinkedIn sends",
+      "Domain finder (free)",
+      "Priority email support",
+    ],
     highlight: true,
   },
   {
     id: "scale",
     name: "Scale",
-    priceINR: "₹855/mo",
-    priceUSD: "$9/mo",
-    credits: 12000,
-    features: ["12,000 credits/month", "Everything in Growth", "Unlimited leads", "Priority support", "Custom integrations"],
+    priceINR: "₹75,905/mo",
+    priceUSD: "$799/mo",
+    credits: 1000,
+    creditsLabel: "1000 credits/month",
+    note: "$0.80/credit — 20% off",
+    features: [
+      "1000 credits every month",
+      "~500 company analyses",
+      "~1000 leads enriched",
+      "~1000 LinkedIn sends",
+      "Domain finder (free)",
+      "Dedicated support + onboarding",
+    ],
   },
 ];
 
+// Top-up packs — bonus credits for larger one-time purchases
 const TOPUP_PACKS = [
-  { id: "starter", name: "Starter",     credits: 1000,  priceINR: "₹380",   priceUSD: "$4",  description: "Perfect for occasional use" },
-  { id: "growth",  name: "Growth Pack", credits: 5000,  priceINR: "₹950",   priceUSD: "$10", description: "Most popular" },
-  { id: "scale",   name: "Scale Pack",  credits: 15000, priceINR: "₹2,375", priceUSD: "$25", description: "Best value per credit" },
+  { id: "small",  name: "$10 Pack",  credits: 10,  priceINR: "₹950",   priceUSD: "$10",  description: "10 credits — no frills",          bonus: "" },
+  { id: "medium", name: "$25 Pack",  credits: 28,  priceINR: "₹2,375", priceUSD: "$25",  description: "28 credits — 3 bonus credits",     bonus: "+12% bonus" },
+  { id: "large",  name: "$50 Pack",  credits: 60,  priceINR: "₹4,750", priceUSD: "$50",  description: "60 credits — 10 bonus credits",    bonus: "+20% bonus" },
+  { id: "xl",     name: "$100 Pack", credits: 130, priceINR: "₹9,500", priceUSD: "$100", description: "130 credits — 30 bonus credits",   bonus: "+30% bonus" },
+];
+
+// What each action costs (mirrors server-side constants)
+const ACTION_COSTS = [
+  { action: "Company Analysis",    credits: 2, note: "per analysis" },
+  { action: "Lead Generation",      credits: 1, note: "per 25 leads" },
+  { action: "LinkedIn Send",       credits: 1, note: "per invitation" },
+  { action: "Domain Finder",        credits: 0, note: "free" },
+  { action: "Research Blurb (AI)", credits: 1, note: "per generation" },
 ];
 
 async function apiFetch(path: string, opts?: RequestInit) {
@@ -149,11 +210,7 @@ export default function Billing() {
           try {
             const verifyRes = await apiFetch("/api/billing/verify-payment", {
               method: "POST",
-              body: JSON.stringify({
-                ...response,
-                type,
-                ...extra,
-              }),
+              body: JSON.stringify({ ...response, type, ...extra }),
             });
             const verifyData = await verifyRes.json();
             if (!verifyRes.ok) throw new Error(verifyData.error ?? "Verification failed");
@@ -195,9 +252,8 @@ export default function Billing() {
 
   const tier = status?.subscription_tier ?? "free";
   const balance = status?.credit_balance ?? 0;
-  const allowance = TIER_ALLOWANCE[tier] ?? 200;
-  const usedPercent = Math.min(100, Math.round(((allowance - balance) / allowance) * 100));
-  const lowBalance = balance < allowance * 0.2;
+  const monthlyAllowance = TIER_ALLOWANCE[tier] ?? 100;
+  const isTrial = tier === "free";
 
   if (loading) {
     return (
@@ -215,7 +271,7 @@ export default function Billing() {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-[#0A0A0A]">Billing & Credits</h1>
-            <p className="text-sm text-[#64748B] mt-1">Manage your subscription and credit balance.</p>
+            <p className="text-sm text-[#64748B] mt-1">1 credit = $1. Pay only for what you use.</p>
           </div>
           <CurrencyToggle currency={currency} onChange={setCurrency} />
         </div>
@@ -228,31 +284,38 @@ export default function Billing() {
             </div>
             <div>
               <h2 className="font-semibold text-[#0A0A0A]">Credit Balance</h2>
-              <p className="text-xs text-[#64748B]">{tier.charAt(0).toUpperCase() + tier.slice(1)} plan · {allowance.toLocaleString()} credits/month</p>
+              <p className="text-xs text-[#64748B]">
+                {isTrial ? "Trial plan · 100 credits one-time" : `${tier.charAt(0).toUpperCase() + tier.slice(1)} plan · ${monthlyAllowance} credits/month`}
+              </p>
             </div>
             <div className="ml-auto text-right">
               <p className="text-3xl font-bold text-[#0A0A0A]">{balance.toLocaleString()}</p>
-              <p className="text-xs text-[#64748B]">credits remaining</p>
+              <p className="text-xs text-[#64748B]">credits remaining (~${balance})</p>
             </div>
           </div>
 
-          {lowBalance && (
+          {balance < 5 && (
             <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 mb-4 text-sm text-amber-800">
               <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>Low balance — less than 20% of your monthly allowance remaining.</span>
+              <span>Low balance — less than 5 credits remaining. Top up to keep working.</span>
             </div>
           )}
 
-          <div className="mb-5">
-            <div className="flex justify-between text-xs text-[#64748B] mb-1.5">
-              <span>{(allowance - balance).toLocaleString()} used</span>
-              <span>{balance.toLocaleString()} remaining</span>
+          {/* Action cost reference */}
+          <div className="mb-5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Info className="w-3.5 h-3.5 text-[#64748B]" />
+              <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Credit costs per action</span>
             </div>
-            <div className="h-2 bg-[#F1F5F9] rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${usedPercent > 80 ? "bg-red-500" : usedPercent > 50 ? "bg-amber-400" : "bg-[#2563EB]"}`}
-                style={{ width: `${usedPercent}%` }}
-              />
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {ACTION_COSTS.map((a) => (
+                <div key={a.action} className="flex items-center justify-between gap-2 text-xs">
+                  <span className="text-[#475569]">{a.action}</span>
+                  <span className="font-semibold text-[#0A0A0A] whitespace-nowrap">
+                    {a.credits} cr <span className="text-[#94A3B8] font-normal">({a.note})</span>
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -296,11 +359,12 @@ export default function Billing() {
 
         {/* ── Section 2: Subscription Plans ── */}
         <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-[#0A0A0A] text-lg">Subscription Plans</h2>
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="font-semibold text-[#0A0A0A] text-lg">Monthly Plans</h2>
             <span className="text-xs text-[#94A3B8]">Paying in {currency === "INR" ? "Indian Rupees (₹)" : "US Dollars ($)"}</span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <p className="text-sm text-[#64748B] mb-4">Subscribe to get bulk credits each month at a discounted rate.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {PLANS.map((plan) => {
               const isActive = tier === plan.id;
               const isCancelling = isActive && status?.subscription_status === "cancelled";
@@ -317,22 +381,24 @@ export default function Billing() {
                   {isActive && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                       <span className="bg-[#2563EB] text-white text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1">
-                        <CheckCircle className="w-3 h-3" /> CURRENT PLAN
+                        <CheckCircle className="w-3 h-3" /> CURRENT
                       </span>
                     </div>
                   )}
 
                   <div className="flex items-center gap-2 mb-3 mt-2">
-                    {plan.id === "free"   && <Zap       className="w-4 h-4 text-[#64748B]" />}
-                    {plan.id === "growth" && <TrendingUp className="w-4 h-4 text-[#7C3AED]" />}
-                    {plan.id === "scale"  && <Crown      className="w-4 h-4 text-[#F59E0B]" />}
+                    {plan.id === "free"    && <Zap        className="w-4 h-4 text-[#64748B]" />}
+                    {plan.id === "starter" && <Rocket     className="w-4 h-4 text-[#10B981]" />}
+                    {plan.id === "growth"  && <TrendingUp className="w-4 h-4 text-[#7C3AED]" />}
+                    {plan.id === "scale"   && <Crown      className="w-4 h-4 text-[#F59E0B]" />}
                     <span className="font-bold text-[#0A0A0A]">{plan.name}</span>
                   </div>
 
-                  <p className="text-2xl font-bold text-[#0A0A0A] mb-1 transition-all">
+                  <p className="text-2xl font-bold text-[#0A0A0A] mb-0.5 transition-all">
                     {currency === "INR" ? plan.priceINR : plan.priceUSD}
                   </p>
-                  <p className="text-xs text-[#64748B] mb-4">{plan.credits.toLocaleString()} credits/month</p>
+                  <p className="text-xs font-medium text-[#2563EB] mb-0.5">{plan.creditsLabel}</p>
+                  {plan.note && <p className="text-xs text-[#94A3B8] mb-3">{plan.note}</p>}
 
                   <ul className="space-y-2 flex-1 mb-5">
                     {plan.features.map((f) => (
@@ -361,7 +427,7 @@ export default function Billing() {
                         plan.highlight ? "bg-[#7C3AED] text-white hover:bg-[#6D28D9]" : "bg-[#2563EB] text-white hover:bg-[#1D4ED8]"
                       }`}
                     >
-                      {checkoutLoading === plan.id ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : `Upgrade · ${currency === "INR" ? plan.priceINR : plan.priceUSD}`}
+                      {checkoutLoading === plan.id ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : `Subscribe · ${currency === "INR" ? plan.priceINR : plan.priceUSD}`}
                     </button>
                   )}
 
@@ -377,18 +443,25 @@ export default function Billing() {
         {/* ── Section 3: Top-Up Packs ── */}
         <section>
           <h2 className="font-semibold text-[#0A0A0A] mb-1 text-lg">Buy More Credits</h2>
-          <p className="text-sm text-[#64748B] mb-4">One-time credit purchases — never expire.</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <p className="text-sm text-[#64748B] mb-4">One-time purchases. Bigger packs give bonus credits. Credits never expire.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {TOPUP_PACKS.map((pack) => (
               <div key={pack.id} className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-sm flex flex-col">
-                <div className="flex items-center gap-2 mb-2">
-                  <ShoppingCart className="w-4 h-4 text-[#2563EB]" />
-                  <span className="font-bold text-[#0A0A0A]">{pack.name}</span>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <ShoppingCart className="w-4 h-4 text-[#2563EB]" />
+                    <span className="font-bold text-[#0A0A0A]">{pack.name}</span>
+                  </div>
+                  {pack.bonus && (
+                    <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                      {pack.bonus}
+                    </span>
+                  )}
                 </div>
                 <p className="text-2xl font-bold text-[#0A0A0A] mb-0.5 transition-all">
                   {currency === "INR" ? pack.priceINR : pack.priceUSD}
                 </p>
-                <p className="text-sm text-[#64748B] mb-1">{pack.credits.toLocaleString()} credits</p>
+                <p className="text-sm font-medium text-[#2563EB] mb-1">{pack.credits} credits</p>
                 <p className="text-xs text-[#94A3B8] mb-5 flex-1">{pack.description}</p>
                 <button
                   onClick={() => startPayment(`topup_${pack.id}`, "topup", { pack_id: pack.id })}

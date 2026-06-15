@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { supabase } from "../lib/supabase";
 import { requireAuth, type AuthenticatedRequest } from "../lib/auth";
+import { spendCreditsFixed, getCreditBalance } from "../lib/credits";
 import {
   unipileAvailable,
   createUnipileHostedAuthLink,
@@ -8,23 +9,22 @@ import {
   sendLinkedInInvitation,
   sendLinkedInMessage,
   getUnipileAccount,
+  listChats,
+  getChatMessages,
+  sendMessage,
 } from "../lib/unipile";
 
+const LINKEDIN_SEND_COST = 1;
 const router: IRouter = Router();
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /*  HELPERS                                                                     */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
-/** Extract the slug from any LinkedIn URL format:
- *  https://www.linkedin.com/in/satyanadella/ → "satyanadella"
- *  satyanadella                              → "satyanadella"
- */
 function extractLinkedInSlug(linkedinUrl: string): string | null {
   try {
     const match = linkedinUrl.match(/linkedin\.com\/in\/([^/?#]+)/i);
     if (match) return match[1].replace(/\/$/, "");
-    // if it's already just the slug (no URL)
     if (!linkedinUrl.includes("/")) return linkedinUrl.trim();
     return null;
   } catch {
@@ -32,8 +32,10 @@ function extractLinkedInSlug(linkedinUrl: string): string | null {
   }
 }
 
-/** Personalise a message template with lead data */
-function personalise(template: string, lead: { first_name?: string | null; last_name?: string | null }) {
+function personalise(
+  template: string,
+  lead: { first_name?: string | null; last_name?: string | null }
+) {
   return template
     .replace(/\{\{firstName\}\}/gi, lead.first_name || "")
     .replace(/\{\{lastName\}\}/gi, lead.last_name || "")
@@ -42,16 +44,8 @@ function personalise(template: string, lead: { first_name?: string | null; last_
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /*  CONNECT LINKEDIN — Unipile Hosted Auth                                     */
-/*  GET  /api/linkedin/connect/start                                           */
-/*  POST /api/linkedin/connect/webhook   (called by Unipile, no auth)         */
-/*  GET  /api/linkedin/connect/status                                          */
-/*  DELETE /api/linkedin/account                                               */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
-/**
- * Step 1 — frontend calls this to get a redirect URL for the user.
- * Returns { url } — redirect the user there.
- */
 router.get(
   "/linkedin/connect/start",
   requireAuth,
@@ -75,7 +69,6 @@ router.get(
         failureRedirectUrl: `${appBase}/dashboard/linkedin?li_error=connection_failed`,
         notifyUrl: `${process.env.API_BASE_URL || "http://localhost:3000"}/api/linkedin/connect/webhook`,
       });
-
       res.json({ url: hostedUrl });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to start connection";
@@ -84,10 +77,6 @@ router.get(
   }
 );
 
-/**
- * Step 2 — Unipile calls this webhook after the user connects LinkedIn.
- * Payload: { status: "CREATION_SUCCESS", account_id: "...", name: "<userId>" }
- */
 router.post("/linkedin/connect/webhook", async (req, res): Promise<void> => {
   const { status, account_id, name: userId } = req.body as {
     status: string;
@@ -96,7 +85,7 @@ router.post("/linkedin/connect/webhook", async (req, res): Promise<void> => {
   };
 
   if (status !== "CREATION_SUCCESS" && status !== "RECONNECTED") {
-    res.json({ ok: true }); // ignore other events
+    res.json({ ok: true });
     return;
   }
 
@@ -106,7 +95,6 @@ router.post("/linkedin/connect/webhook", async (req, res): Promise<void> => {
   }
 
   try {
-    // Fetch the Unipile account to get profile info
     let profileName: string | null = null;
     try {
       const acct = await getUnipileAccount(account_id);
@@ -130,10 +118,7 @@ router.post("/linkedin/connect/webhook", async (req, res): Promise<void> => {
     };
 
     if (existing) {
-      await supabase
-        .from("linkedin_accounts")
-        .update(payload)
-        .eq("user_id", userId);
+      await supabase.from("linkedin_accounts").update(payload).eq("user_id", userId);
     } else {
       await supabase.from("linkedin_accounts").insert({
         user_id: userId,
@@ -150,30 +135,19 @@ router.post("/linkedin/connect/webhook", async (req, res): Promise<void> => {
   }
 });
 
-/**
- * Webhook for accepted invitations — Unipile fires this when a lead accepts.
- * Payload: { event: "new_relation", account_id, user_provider_id, user_public_identifier, ... }
- * Register this once via POST /api/linkedin/webhooks/register
- */
 router.post("/linkedin/relation/webhook", async (req, res): Promise<void> => {
-  const {
-    event,
-    account_id,
-    user_provider_id,
-    user_public_identifier,
-    user_full_name,
-  } = req.body as {
-    event: string;
-    account_id: string;
-    user_provider_id: string;
-    user_public_identifier: string;
-    user_full_name: string;
-  };
+  const { event, account_id, user_provider_id, user_public_identifier, user_full_name } =
+    req.body as {
+      event: string;
+      account_id: string;
+      user_provider_id: string;
+      user_public_identifier: string;
+      user_full_name: string;
+    };
 
   if (event !== "new_relation") { res.json({ ok: true }); return; }
 
   try {
-    // Find the linkedin_account row for this Unipile account
     const { data: liAccount } = await supabase
       .from("linkedin_accounts")
       .select("user_id")
@@ -184,7 +158,6 @@ router.post("/linkedin/relation/webhook", async (req, res): Promise<void> => {
 
     const userId = liAccount.user_id;
 
-    // Find the lead by linkedin_url slug
     const { data: leads } = await supabase
       .from("leads")
       .select("id, sequence_id, followup_message_scheduled_at")
@@ -196,13 +169,11 @@ router.post("/linkedin/relation/webhook", async (req, res): Promise<void> => {
 
     const lead = leads[0];
 
-    // Update lead status to "connected"
     await supabase
       .from("leads")
       .update({ linkedin_status: "connected", updated_at: new Date().toISOString() })
       .eq("id", lead.id);
 
-    // Log the connection
     await supabase.from("linkedin_outreach_log").insert({
       user_id: userId,
       lead_id: lead.id,
@@ -210,7 +181,6 @@ router.post("/linkedin/relation/webhook", async (req, res): Promise<void> => {
       notes: `${user_full_name} accepted the connection request`,
     });
 
-    // If this lead's sequence has a follow-up message, schedule it
     if (lead.sequence_id) {
       const { data: seq } = await supabase
         .from("linkedin_sequences")
@@ -244,7 +214,7 @@ router.post("/linkedin/relation/webhook", async (req, res): Promise<void> => {
 });
 
 /* ─────────────────────────────────────────────────────────────────────────── */
-/*  ACCOUNT — get / update limit / disconnect                                  */
+/*  ACCOUNT                                                                    */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 router.get(
@@ -265,7 +235,11 @@ router.get(
       return;
     }
 
-    res.json(data ?? null);
+    if (!data) { res.json(null); return; }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const sends_today = data.sends_reset_at === today ? data.sends_today : 0;
+    res.json({ ...data, sends_today });
   }
 );
 
@@ -283,10 +257,7 @@ router.patch(
       .select("id, status, daily_limit, connected_at, sends_today")
       .single();
 
-    if (error || !data) {
-      res.status(404).json({ error: "No LinkedIn account found" });
-      return;
-    }
+    if (error || !data) { res.status(404).json({ error: "No LinkedIn account found" }); return; }
     res.json(data);
   }
 );
@@ -297,17 +268,10 @@ router.delete(
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { error } = await supabase
       .from("linkedin_accounts")
-      .update({
-        status: "disconnected",
-        unipile_account_id: null,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ status: "disconnected", unipile_account_id: null, updated_at: new Date().toISOString() })
       .eq("user_id", req.userId!);
 
-    if (error) {
-      res.status(500).json({ error: "Failed to disconnect" });
-      return;
-    }
+    if (error) { res.status(500).json({ error: "Failed to disconnect" }); return; }
     res.json({ success: true });
   }
 );
@@ -326,10 +290,7 @@ router.get(
       .eq("user_id", req.userId!)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      res.status(500).json({ error: "Failed to fetch sequences" });
-      return;
-    }
+    if (error) { res.status(500).json({ error: "Failed to fetch sequences" }); return; }
     res.json(data || []);
   }
 );
@@ -338,29 +299,21 @@ router.post(
   "/linkedin/sequences",
   requireAuth,
   async (req: AuthenticatedRequest, res): Promise<void> => {
-    const {
-      name,
-      connection_message,
-      followup_message,
-      followup_delay_days,
-      lead_list_id,
-      daily_limit,
-    } = req.body as {
-      name?: string;
-      connection_message: string;
-      followup_message?: string;
-      followup_delay_days?: number;
-      lead_list_id?: string;
-      daily_limit?: number;
-    };
+    const { name, connection_message, followup_message, followup_delay_days, lead_list_id, daily_limit } =
+      req.body as {
+        name?: string;
+        connection_message: string;
+        followup_message?: string;
+        followup_delay_days?: number;
+        lead_list_id?: string;
+        daily_limit?: number;
+      };
 
     if (!connection_message || connection_message.trim().length < 10) {
-      res.status(400).json({ error: "Connection message is required (min 10 characters)" });
-      return;
+      res.status(400).json({ error: "Connection message is required (min 10 characters)" }); return;
     }
     if (connection_message.length > 300) {
-      res.status(400).json({ error: "Connection message must be 300 characters or less" });
-      return;
+      res.status(400).json({ error: "Connection message must be 300 characters or less" }); return;
     }
 
     const limit = Math.min(Math.max(1, Number(daily_limit) || 15), 30);
@@ -380,10 +333,7 @@ router.post(
       .select("*, lead_lists(id, label)")
       .single();
 
-    if (error) {
-      res.status(500).json({ error: "Failed to create sequence" });
-      return;
-    }
+    if (error) { res.status(500).json({ error: "Failed to create sequence" }); return; }
     res.status(201).json(data);
   }
 );
@@ -393,25 +343,18 @@ router.put(
   requireAuth,
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id } = req.params;
-    const {
-      name,
-      connection_message,
-      followup_message,
-      followup_delay_days,
-      lead_list_id,
-      daily_limit,
-    } = req.body as {
-      name?: string;
-      connection_message?: string;
-      followup_message?: string;
-      followup_delay_days?: number;
-      lead_list_id?: string | null;
-      daily_limit?: number;
-    };
+    const { name, connection_message, followup_message, followup_delay_days, lead_list_id, daily_limit } =
+      req.body as {
+        name?: string;
+        connection_message?: string;
+        followup_message?: string;
+        followup_delay_days?: number;
+        lead_list_id?: string | null;
+        daily_limit?: number;
+      };
 
     if (connection_message && connection_message.length > 300) {
-      res.status(400).json({ error: "Connection message must be 300 characters or less" });
-      return;
+      res.status(400).json({ error: "Connection message must be 300 characters or less" }); return;
     }
 
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -420,8 +363,7 @@ router.put(
     if (followup_message !== undefined) updates.followup_message = followup_message?.trim() ?? null;
     if (followup_delay_days !== undefined) updates.followup_delay_days = followup_delay_days;
     if (lead_list_id !== undefined) updates.lead_list_id = lead_list_id;
-    if (daily_limit !== undefined)
-      updates.daily_limit = Math.min(Math.max(1, Number(daily_limit)), 30);
+    if (daily_limit !== undefined) updates.daily_limit = Math.min(Math.max(1, Number(daily_limit)), 30);
 
     const { data, error } = await supabase
       .from("linkedin_sequences")
@@ -431,10 +373,7 @@ router.put(
       .select("*, lead_lists(id, label)")
       .single();
 
-    if (error || !data) {
-      res.status(404).json({ error: "Sequence not found" });
-      return;
-    }
+    if (error || !data) { res.status(404).json({ error: "Sequence not found" }); return; }
     res.json(data);
   }
 );
@@ -449,10 +388,7 @@ router.delete(
       .eq("id", req.params.id)
       .eq("user_id", req.userId!);
 
-    if (error) {
-      res.status(500).json({ error: "Failed to delete sequence" });
-      return;
-    }
+    if (error) { res.status(500).json({ error: "Failed to delete sequence" }); return; }
     res.json({ success: true });
   }
 );
@@ -467,7 +403,6 @@ router.post(
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id } = req.params;
 
-    // ── Load sequence ──────────────────────────────────────────────────────
     const { data: seq, error: seqErr } = await supabase
       .from("linkedin_sequences")
       .select("*")
@@ -475,16 +410,9 @@ router.post(
       .eq("user_id", req.userId!)
       .single();
 
-    if (seqErr || !seq) {
-      res.status(404).json({ error: "Sequence not found" });
-      return;
-    }
-    if (!seq.lead_list_id) {
-      res.status(400).json({ error: "Assign a lead list to this sequence first" });
-      return;
-    }
+    if (seqErr || !seq) { res.status(404).json({ error: "Sequence not found" }); return; }
+    if (!seq.lead_list_id) { res.status(400).json({ error: "Assign a lead list to this sequence first" }); return; }
 
-    // ── Load LinkedIn account ──────────────────────────────────────────────
     const { data: account, error: accErr } = await supabase
       .from("linkedin_accounts")
       .select("*")
@@ -492,31 +420,20 @@ router.post(
       .eq("status", "connected")
       .maybeSingle();
 
-    if (accErr || !account) {
-      res.status(400).json({ error: "Connect your LinkedIn account first" });
-      return;
-    }
+    if (accErr || !account) { res.status(400).json({ error: "Connect your LinkedIn account first" }); return; }
 
     if (!account.unipile_account_id && unipileAvailable) {
-      res.status(400).json({
-        error: "LinkedIn account not linked to Unipile — please reconnect.",
-      });
-      return;
+      res.status(400).json({ error: "LinkedIn account not linked to Unipile — please reconnect." }); return;
     }
 
-    // ── Daily limit check ──────────────────────────────────────────────────
     const today = new Date().toISOString().slice(0, 10);
     const sendsToday = account.sends_reset_at === today ? account.sends_today : 0;
     if (sendsToday >= account.daily_limit) {
-      res.status(429).json({
-        error: `Daily limit reached (${account.daily_limit} sends). Resets tomorrow.`,
-      });
-      return;
+      res.status(429).json({ error: `Daily limit reached (${account.daily_limit} sends). Resets tomorrow.` }); return;
     }
 
     const remaining = account.daily_limit - sendsToday;
 
-    // ── Load eligible leads ────────────────────────────────────────────────
     const { data: leads, error: leadsErr } = await supabase
       .from("leads")
       .select("id, first_name, last_name, linkedin_url, linkedin_status")
@@ -526,52 +443,46 @@ router.post(
       .not("linkedin_url", "is", null)
       .limit(remaining);
 
-    if (leadsErr) {
-      res.status(500).json({ error: "Failed to fetch leads" });
-      return;
-    }
+    if (leadsErr) { res.status(500).json({ error: "Failed to fetch leads" }); return; }
     if (!leads || leads.length === 0) {
-      res.status(400).json({
-        error: "No eligible leads found (all contacted or no LinkedIn URLs)",
+      res.status(400).json({ error: "No eligible leads found (all contacted or no LinkedIn URLs)" }); return;
+    }
+
+    const totalCreditCost = leads.length * LINKEDIN_SEND_COST;
+    const creditSpend = await spendCreditsFixed(req.userId!, totalCreditCost, `linkedin_sequence ×${leads.length}`);
+    if (!creditSpend.success) {
+      const balance = await getCreditBalance(req.userId!);
+      res.status(402).json({
+        error: "Insufficient credits",
+        required: totalCreditCost,
+        balance,
+        message: `This sequence will send ${leads.length} invitations (${totalCreditCost} credits). You have ${balance} credits.`,
       });
       return;
     }
 
-    // ── Send invitations via Unipile ───────────────────────────────────────
     const results = { sent: 0, skipped: 0, errors: 0 };
     const sentLeadIds: string[] = [];
 
     for (const lead of leads) {
       const slug = extractLinkedInSlug(lead.linkedin_url);
-      if (!slug) {
-        results.skipped++;
-        continue;
-      }
+      if (!slug) { results.skipped++; continue; }
 
       try {
-        let providerId: string | null = null;
-
         if (unipileAvailable && account.unipile_account_id) {
-          // Step 1 — resolve public slug → provider_id
           const profile = await resolveLinkedInProfile({
             accountId: account.unipile_account_id,
             publicIdentifier: slug,
           });
-          providerId = profile.provider_id;
-
-          // Step 2 — send the invitation
           const message = personalise(seq.connection_message, lead);
           await sendLinkedInInvitation({
             accountId: account.unipile_account_id,
-            providerId,
+            providerId: profile.provider_id,
             message,
           });
         }
-
         sentLeadIds.push(lead.id);
         results.sent++;
-
-        // Small random delay between invites to stay human-like (1-3s)
         await new Promise((r) => setTimeout(r, 1000 + Math.random() * 2000));
       } catch (err) {
         req.log.warn({ err, leadId: lead.id }, "Failed to invite lead, skipping");
@@ -580,37 +491,30 @@ router.post(
     }
 
     if (sentLeadIds.length === 0) {
-      res.status(400).json({
-        error: "Could not send any invitations. Check LinkedIn URLs.",
-        details: results,
-      });
-      return;
+      res.status(400).json({ error: "Could not send any invitations. Check LinkedIn URLs.", details: results }); return;
     }
 
-    // ── Update lead statuses ───────────────────────────────────────────────
     await supabase
       .from("leads")
       .update({ linkedin_status: "request_sent", updated_at: new Date().toISOString() })
       .in("id", sentLeadIds)
       .eq("user_id", req.userId!);
 
-    // ── Log outreach ───────────────────────────────────────────────────────
-    const logRows = sentLeadIds.map((leadId) => ({
-      user_id: req.userId!,
-      lead_id: leadId,
-      sequence_id: id,
-      action: "connection_request",
-      notes: unipileAvailable ? "via Unipile" : "simulated",
-    }));
-    await supabase.from("linkedin_outreach_log").insert(logRows);
+    await supabase.from("linkedin_outreach_log").insert(
+      sentLeadIds.map((leadId) => ({
+        user_id: req.userId!,
+        lead_id: leadId,
+        sequence_id: id,
+        action: "connection_request",
+        notes: unipileAvailable ? "via Unipile" : "simulated",
+      }))
+    );
 
-    // ── Mark sequence active ───────────────────────────────────────────────
     await supabase
       .from("linkedin_sequences")
       .update({ is_active: true, updated_at: new Date().toISOString() })
       .eq("id", id);
 
-    // ── Update daily send counter ──────────────────────────────────────────
     const newSendsToday = sendsToday + sentLeadIds.length;
     await supabase
       .from("linkedin_accounts")
@@ -643,27 +547,26 @@ router.post(
   requireAuth,
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id } = req.params;
-
     await supabase
       .from("linkedin_sequences")
       .update({ is_active: false, updated_at: new Date().toISOString() })
       .eq("id", id)
       .eq("user_id", req.userId!);
-
-    // Also mark any pending follow-ups as paused
     await supabase
       .from("linkedin_followup_queue")
       .update({ status: "paused" })
       .eq("sequence_id", id)
       .eq("user_id", req.userId!)
       .eq("status", "pending");
-
     res.json({ success: true });
   }
 );
 
 /* ─────────────────────────────────────────────────────────────────────────── */
-/*  ANALYTICS                                                                  */
+/*  ANALYTICS — GET                                                            */
+/*                                                                             */
+/*  Fix: Add no-cache headers so the browser never returns 304.               */
+/*  Reads from our own DB (linkedin_outreach_log) — always fresh.             */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 router.get(
@@ -672,28 +575,336 @@ router.get(
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id } = req.params;
 
-    const { data: logs } = await supabase
-      .from("linkedin_outreach_log")
-      .select("action, created_at")
-      .eq("sequence_id", id)
-      .eq("user_id", req.userId!);
+    // Prevent browser/proxy caching — this is the root cause of 304 responses
+    res.set({
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0",
+      "Surrogate-Control": "no-store",
+    });
 
-    const { data: followups } = await supabase
-      .from("linkedin_followup_queue")
-      .select("status")
-      .eq("sequence_id", id)
-      .eq("user_id", req.userId!);
+    const [{ data: logs }, { data: followups }, { data: leads }] = await Promise.all([
+      supabase
+        .from("linkedin_outreach_log")
+        .select("action, created_at")
+        .eq("sequence_id", id)
+        .eq("user_id", req.userId!),
+      supabase
+        .from("linkedin_followup_queue")
+        .select("status")
+        .eq("sequence_id", id)
+        .eq("user_id", req.userId!),
+      // Count leads by status for a more accurate "contacted" number
+      supabase
+        .from("leads")
+        .select("id, linkedin_status")
+        .eq("user_id", req.userId!)
+        .in("linkedin_status", ["request_sent", "connected", "replied"]),
+    ]);
 
     const actions = logs || [];
     const fups = followups || [];
 
+    const contacted = actions.filter((l) => l.action === "connection_request").length;
+    const connected = actions.filter((l) => l.action === "connected").length;
+    const replied   = actions.filter((l) => l.action === "replied").length;
+    const followups_pending = fups.filter((f) => f.status === "pending").length;
+    const followups_sent    = fups.filter((f) => f.status === "sent").length;
+
+    const connected_rate = contacted > 0 ? Math.round((connected / contacted) * 100) : 0;
+    const replied_rate   = connected > 0 ? Math.round((replied   / connected) * 100) : 0;
+
     res.json({
-      total_contacted: actions.filter((l) => l.action === "connection_request").length,
-      connected: actions.filter((l) => l.action === "connected").length,
-      replied: actions.filter((l) => l.action === "replied").length,
-      followups_pending: fups.filter((f) => f.status === "pending").length,
-      followups_sent: fups.filter((f) => f.status === "sent").length,
+      contacted,
+      connected,
+      replied,
+      follow_ups: followups_pending,
+      followups_pending,
+      followups_sent,
+      connected_rate,
+      replied_rate,
+      // Legacy field names in case frontend uses them
+      total_contacted: contacted,
     });
+  }
+);
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  ANALYTICS REFRESH — "Sync from LinkedIn"                                  */
+/*                                                                             */
+/*  Improved matching: uses BOTH slug-based and name-based matching.          */
+/*  Also saves provider_id on leads when found in chat attendees.             */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+router.post(
+  "/linkedin/analytics/:id/refresh",
+  requireAuth,
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { id } = req.params;
+
+    res.set({
+      "Cache-Control": "no-store, no-cache, must-revalidate",
+      "Pragma": "no-cache",
+    });
+
+    const [{ data: seq }, { data: account }] = await Promise.all([
+      supabase
+        .from("linkedin_sequences")
+        .select("id, lead_list_id")
+        .eq("id", id)
+        .eq("user_id", req.userId!)
+        .single(),
+      supabase
+        .from("linkedin_accounts")
+        .select("unipile_account_id")
+        .eq("user_id", req.userId!)
+        .maybeSingle(),
+    ]);
+
+    if (!seq) { res.status(404).json({ error: "Sequence not found" }); return; }
+    if (!account?.unipile_account_id || !unipileAvailable) {
+      res.json({ synced: 0, note: "LinkedIn not connected via Unipile" }); return;
+    }
+
+    try {
+      // Load all leads that were contacted in this sequence
+      const { data: leads } = await supabase
+        .from("leads")
+        .select("id, first_name, last_name, linkedin_url, linkedin_status")
+        .eq("lead_list_id", seq.lead_list_id)
+        .eq("user_id", req.userId!)
+        .in("linkedin_status", ["request_sent", "connected"]);
+
+      if (!leads || leads.length === 0) {
+        res.json({ synced: 0, note: "No contacted leads to check" }); return;
+      }
+
+      // Build lookup maps
+      // Map 1: slug → lead  (from linkedin_url)
+      const slugMap = new Map<string, typeof leads[0]>();
+      // Map 2: "firstname lastname" lowercase → lead  (name fallback)
+      const nameMap = new Map<string, typeof leads[0]>();
+
+      for (const lead of leads) {
+        const slug = extractLinkedInSlug(lead.linkedin_url || "");
+        if (slug) slugMap.set(slug.toLowerCase(), lead);
+
+        const fullName = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim().toLowerCase();
+        if (fullName) nameMap.set(fullName, lead);
+      }
+
+      // Fetch chats from Unipile (enriched with display_name + last message)
+      const chatResult = await listChats(account.unipile_account_id, 100);
+      const chats = chatResult.items || [];
+
+      let synced = 0;
+      const now = new Date().toISOString();
+
+      for (const chat of chats) {
+        // Try to match the chat to one of our leads
+        let matchedLead: typeof leads[0] | undefined;
+
+        // Strategy 1: match by public_identifier in chat attendees
+        // attendee_provider_id is sometimes a slug-like identifier
+        const attendeeId = (chat.attendee_provider_id ?? "").toLowerCase();
+        if (attendeeId) matchedLead = slugMap.get(attendeeId);
+
+        // Strategy 2: match by display_name vs lead full name
+        if (!matchedLead) {
+          const chatName = (chat.display_name ?? "").trim().toLowerCase();
+          if (chatName) matchedLead = nameMap.get(chatName);
+        }
+
+        if (!matchedLead) continue;
+
+        const theyReplied = chat.last_message_sender_is_me === false;
+
+        if (theyReplied && matchedLead.linkedin_status !== "replied") {
+          // Update lead status → replied
+          await supabase
+            .from("leads")
+            .update({ linkedin_status: "replied", updated_at: now })
+            .eq("id", matchedLead.id)
+            .eq("user_id", req.userId!);
+
+          // Avoid duplicate log entries
+          const { data: existingLog } = await supabase
+            .from("linkedin_outreach_log")
+            .select("id")
+            .eq("lead_id", matchedLead.id)
+            .eq("action", "replied")
+            .maybeSingle();
+
+          if (!existingLog) {
+            await supabase.from("linkedin_outreach_log").insert({
+              user_id: req.userId!,
+              lead_id: matchedLead.id,
+              sequence_id: id,
+              action: "replied",
+              notes: "Detected via Unipile chat sync",
+            });
+          }
+          synced++;
+        } else if (!theyReplied && matchedLead.linkedin_status === "request_sent") {
+          // Chat exists → they accepted → mark connected
+          await supabase
+            .from("leads")
+            .update({ linkedin_status: "connected", updated_at: now })
+            .eq("id", matchedLead.id)
+            .eq("user_id", req.userId!);
+
+          const { data: existingLog } = await supabase
+            .from("linkedin_outreach_log")
+            .select("id")
+            .eq("lead_id", matchedLead.id)
+            .eq("action", "connected")
+            .maybeSingle();
+
+          if (!existingLog) {
+            await supabase.from("linkedin_outreach_log").insert({
+              user_id: req.userId!,
+              lead_id: matchedLead.id,
+              sequence_id: id,
+              action: "connected",
+              notes: "Detected via Unipile chat sync",
+            });
+          }
+          synced++;
+        }
+      }
+
+      // Return fresh analytics from DB after sync
+      const { data: logs } = await supabase
+        .from("linkedin_outreach_log")
+        .select("action")
+        .eq("sequence_id", id)
+        .eq("user_id", req.userId!);
+
+      const actions = logs || [];
+      const contacted      = actions.filter((l) => l.action === "connection_request").length;
+      const connected      = actions.filter((l) => l.action === "connected").length;
+      const replied        = actions.filter((l) => l.action === "replied").length;
+      const connected_rate = contacted > 0 ? Math.round((connected / contacted) * 100) : 0;
+      const replied_rate   = connected > 0 ? Math.round((replied   / connected) * 100) : 0;
+
+      res.json({
+        synced,
+        analytics: {
+          contacted,
+          connected,
+          replied,
+          connected_rate,
+          replied_rate,
+          total_contacted: contacted,
+        },
+      });
+    } catch (err: any) {
+      req.log.warn({ err }, "Analytics refresh error");
+      res.status(500).json({ error: "Analytics refresh failed", details: err.message });
+    }
+  }
+);
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  LINKEDIN INBOX — list chats                                                */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+router.get(
+  "/linkedin/inbox",
+  requireAuth,
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { data: account } = await supabase
+      .from("linkedin_accounts")
+      .select("unipile_account_id, status")
+      .eq("user_id", req.userId!)
+      .maybeSingle();
+
+    if (!account?.unipile_account_id || !unipileAvailable) {
+      res.json({ chats: [], note: "LinkedIn not connected via Unipile" });
+      return;
+    }
+
+    try {
+      const result = await listChats(account.unipile_account_id, 50);
+      res.json({ chats: result.items || [] });
+    } catch (err: any) {
+      req.log.warn({ err }, "Failed to fetch LinkedIn chats");
+      res.json({ chats: [], error: err.message });
+    }
+  }
+);
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  CHAT MESSAGES — GET                                                        */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+router.get(
+  "/linkedin/inbox/:chatId/messages",
+  requireAuth,
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { chatId } = req.params;
+
+    const { data: account } = await supabase
+      .from("linkedin_accounts")
+      .select("unipile_account_id, status")
+      .eq("user_id", req.userId!)
+      .maybeSingle();
+
+    if (!account?.unipile_account_id || !unipileAvailable) {
+      res.status(400).json({ error: "LinkedIn not connected via Unipile" });
+      return;
+    }
+
+    try {
+      const result = await getChatMessages(chatId, 50);
+      // Reverse so oldest message is first (chronological order for chat UI)
+      const messages = (result.items ?? []).reverse();
+      res.json({ messages });
+    } catch (err: any) {
+      req.log.warn({ err }, "Failed to fetch chat messages");
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  CHAT MESSAGES — POST (send)                                                */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+router.post(
+  "/linkedin/inbox/:chatId/messages",
+  requireAuth,
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { chatId } = req.params;
+    const { text } = req.body as { text: string };
+
+    if (!text || !text.trim()) {
+      res.status(400).json({ error: "Message text is required" });
+      return;
+    }
+
+    const { data: account } = await supabase
+      .from("linkedin_accounts")
+      .select("unipile_account_id, status")
+      .eq("user_id", req.userId!)
+      .maybeSingle();
+
+    if (!account?.unipile_account_id || !unipileAvailable) {
+      res.status(400).json({ error: "LinkedIn not connected via Unipile" });
+      return;
+    }
+    if (account.status !== "connected") {
+      res.status(400).json({ error: "LinkedIn account is not connected" });
+      return;
+    }
+
+    try {
+      const result = await sendMessage({ chatId, text: text.trim() });
+      res.json({ success: true, message_id: result.id });
+    } catch (err: any) {
+      req.log.warn({ err }, "Failed to send LinkedIn message");
+      res.status(500).json({ error: err.message });
+    }
   }
 );
 
@@ -714,21 +925,16 @@ router.get(
       .order("created_at", { ascending: false })
       .limit(100);
 
-    if (lead_list_id) {
-      query = query.eq("leads.lead_list_id", lead_list_id);
-    }
+    if (lead_list_id) query = query.eq("leads.lead_list_id", lead_list_id);
 
     const { data, error } = await query;
-    if (error) {
-      res.status(500).json({ error: "Failed to fetch outreach log" });
-      return;
-    }
+    if (error) { res.status(500).json({ error: "Failed to fetch outreach log" }); return; }
     res.json(data || []);
   }
 );
 
 /* ─────────────────────────────────────────────────────────────────────────── */
-/*  UPDATE LEAD STATUS manually (or from webhook)                              */
+/*  UPDATE LEAD STATUS                                                         */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 router.patch(
@@ -742,8 +948,7 @@ router.patch(
 
     const valid = ["not_contacted", "request_sent", "connected", "replied", "paused"];
     if (!valid.includes(linkedin_status)) {
-      res.status(400).json({ error: "Invalid linkedin_status value" });
-      return;
+      res.status(400).json({ error: "Invalid linkedin_status value" }); return;
     }
 
     const { data, error } = await supabase
@@ -754,10 +959,7 @@ router.patch(
       .select("id, linkedin_status")
       .single();
 
-    if (error || !data) {
-      res.status(404).json({ error: "Lead not found" });
-      return;
-    }
+    if (error || !data) { res.status(404).json({ error: "Lead not found" }); return; }
 
     if (linkedin_status === "replied") {
       await supabase.from("linkedin_outreach_log").insert({
@@ -766,7 +968,6 @@ router.patch(
         action: "paused",
         notes: "multichannel guard: lead replied",
       });
-      // Cancel any pending follow-up for this lead
       await supabase
         .from("linkedin_followup_queue")
         .update({ status: "cancelled" })
@@ -779,7 +980,7 @@ router.patch(
 );
 
 /* ─────────────────────────────────────────────────────────────────────────── */
-/*  AI PREFILL FOR SEQUENCE                                                    */
+/*  AI PREFILL                                                                 */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 router.get(

@@ -1,6 +1,19 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Inbox as InboxIcon, Loader2, Mail, MailOpen, RefreshCw, Circle, Tag } from "lucide-react";
+import {
+  Inbox as InboxIcon,
+  Loader2,
+  Mail,
+  MailOpen,
+  RefreshCw,
+  Tag,
+  Send,
+  ChevronDown,
+  X,
+  CornerDownLeft,
+  ArrowUpRight,
+  ArrowDownLeft,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getToken } from "@/lib/auth";
 
@@ -17,6 +30,7 @@ async function apiFetch(path: string, opts?: RequestInit) {
 
 interface InboxReply {
   id: string;
+  thread_id?: string | null;
   campaign_id?: string | null;
   from_email: string;
   from_name?: string | null;
@@ -24,7 +38,21 @@ interface InboxReply {
   body?: string | null;
   received_at: string;
   is_read: boolean;
+  eaccount?: string | null;
   email_campaigns?: { name: string; sending_domain: string } | null;
+}
+
+interface ThreadMessage {
+  id: string;
+  direction: "sent" | "received";
+  from_email: string;
+  from_name?: string | null;
+  to_email?: string | null;
+  subject?: string | null;
+  body?: string | null;
+  timestamp: string;
+  eaccount?: string | null;
+  is_unread: boolean;
 }
 
 function timeAgo(iso: string): string {
@@ -38,20 +66,237 @@ function timeAgo(iso: string): string {
   return `${days}d ago`;
 }
 
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+// ── Single message bubble in the thread
+function MessageBubble({ msg, myEmail }: { msg: ThreadMessage; myEmail: string }) {
+  const isSent = msg.direction === "sent";
+  const initial = (msg.from_name || msg.from_email)[0]?.toUpperCase() ?? "?";
+
+  return (
+    <div className={`flex gap-3 ${isSent ? "flex-row-reverse" : "flex-row"}`}>
+      {/* Avatar */}
+      <div
+        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+          isSent
+            ? "bg-gradient-to-br from-[#2563EB] to-[#7C3AED] text-white"
+            : "bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]"
+        }`}
+      >
+        {isSent ? (myEmail[0]?.toUpperCase() ?? "Y") : initial}
+      </div>
+
+      {/* Bubble */}
+      <div className={`max-w-[80%] ${isSent ? "items-end" : "items-start"} flex flex-col gap-1`}>
+        <div className="flex items-center gap-2 mb-0.5">
+          {isSent ? (
+            <>
+              <span className="text-xs text-[#94A3B8]">{formatDateTime(msg.timestamp)}</span>
+              <span className="text-xs font-medium text-[#64748B]">You</span>
+              <ArrowUpRight className="w-3 h-3 text-[#2563EB]" />
+            </>
+          ) : (
+            <>
+              <ArrowDownLeft className="w-3 h-3 text-[#10B981]" />
+              <span className="text-xs font-medium text-[#64748B]">
+                {msg.from_name || msg.from_email}
+              </span>
+              <span className="text-xs text-[#94A3B8]">{formatDateTime(msg.timestamp)}</span>
+            </>
+          )}
+        </div>
+        <div
+          className={`px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+            isSent
+              ? "bg-[#2563EB] text-white rounded-tr-sm"
+              : "bg-[#F8FAFC] border border-[#E2E8F0] text-[#0A0A0A] rounded-tl-sm"
+          }`}
+        >
+          {msg.body || <span className="opacity-50 italic">No content</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Reply composer
+function ReplyComposer({
+  selected,
+  myEmail,
+  onSent,
+}: {
+  selected: InboxReply;
+  myEmail: string;
+  onSent: () => void;
+}) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(true);
+  const [body, setBody] = useState("");
+  const [sending, setSending] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const replySubject = selected.subject
+    ? selected.subject.startsWith("Re:")
+      ? selected.subject
+      : `Re: ${selected.subject}`
+    : "Re: (no subject)";
+
+  async function handleSend() {
+    if (!body.trim()) return;
+    setSending(true);
+    try {
+      const res = await apiFetch(`/api/inbox/${selected.id}/reply`, {
+        method: "POST",
+        body: JSON.stringify({ subject: replySubject, body: body.trim() }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        toast({ title: `Reply sent from ${json.eaccount ?? myEmail}!` });
+        setBody("");
+        setOpen(false);
+        onSent();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast({
+          title: "Failed to send reply",
+          description: err?.details ?? err?.error ?? "Unknown error",
+          variant: "destructive",
+        });
+      }
+    } catch {
+      toast({ title: "Network error sending reply", variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault();
+      handleSend();
+    }
+  }
+
+  function handleInput() {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }
+
+  return (
+    <div className="border-t border-[#E2E8F0]">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-5 py-3 hover:bg-[#F5F7FA] transition-colors"
+      >
+        <div className="flex items-center gap-2 text-sm font-semibold text-[#0A0A0A]">
+          <CornerDownLeft className="w-4 h-4 text-[#2563EB]" />
+          Reply to {selected.from_name || selected.from_email}
+        </div>
+        <ChevronDown
+          className={`w-4 h-4 text-[#94A3B8] transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <div className="px-5 pb-4">
+          {/* Meta row */}
+          <div className="flex flex-col gap-1 mb-3 text-xs text-[#64748B] bg-[#F5F7FA] rounded-lg px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="w-8 font-medium text-[#94A3B8]">From</span>
+              <span className="text-[#0A0A0A] font-medium">{myEmail}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-8 font-medium text-[#94A3B8]">To</span>
+              <span>{selected.from_email}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-8 font-medium text-[#94A3B8]">Sub</span>
+              <span className="truncate">{replySubject}</span>
+            </div>
+          </div>
+
+          <textarea
+            ref={textareaRef}
+            value={body}
+            onChange={(e) => { setBody(e.target.value); handleInput(); }}
+            onKeyDown={handleKeyDown}
+            placeholder="Write your reply…"
+            rows={3}
+            className="w-full resize-none rounded-lg border border-[#E2E8F0] px-4 py-3 text-sm text-[#0A0A0A] placeholder:text-[#CBD5E1] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all leading-relaxed"
+            style={{ minHeight: 80 }}
+          />
+
+          <div className="flex items-center justify-between mt-3">
+            <span className="text-xs text-[#94A3B8]">
+              <kbd className="px-1.5 py-0.5 bg-[#F1F5F9] border border-[#E2E8F0] rounded text-[10px] font-mono">⌘ Enter</kbd>{" "}
+              to send
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setBody(""); setOpen(false); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#64748B] hover:text-[#0A0A0A] rounded-lg hover:bg-[#F1F5F9] transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+                Discard
+              </button>
+              <button
+                onClick={handleSend}
+                disabled={sending || !body.trim()}
+                className="flex items-center gap-2 px-4 py-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                {sending ? "Sending…" : "Send Reply"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main page
 export default function Inbox() {
   const { toast } = useToast();
   const [replies, setReplies] = useState<InboxReply[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<InboxReply | null>(null);
+  const [thread, setThread] = useState<ThreadMessage[]>([]);
+  const [threadLoading, setThreadLoading] = useState(false);
+  const [myEmail, setMyEmail] = useState("");
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [refreshing, setRefreshing] = useState(false);
+  const threadEndRef = useRef<HTMLDivElement>(null);
 
   const fetchReplies = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
       const res = await apiFetch("/api/inbox");
-      if (res.ok) setReplies(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        const arr: InboxReply[] = Array.isArray(data) ? data : [];
+        setReplies(arr);
+        // Derive myEmail from the first known eaccount
+        const first = arr.find((r) => r.eaccount);
+        if (first?.eaccount) setMyEmail(first.eaccount);
+      } else {
+        setReplies([]);
+        toast({ title: "Failed to load inbox", variant: "destructive" });
+      }
+    } catch {
+      setReplies([]);
+      toast({ title: "Error loading inbox", variant: "destructive" });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -60,8 +305,48 @@ export default function Inbox() {
 
   useEffect(() => { fetchReplies(); }, [fetchReplies]);
 
+  // Scroll to bottom of thread when it updates
+  useEffect(() => {
+    threadEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [thread]);
+
+  async function fetchThread(reply: InboxReply) {
+    setThreadLoading(true);
+    setThread([]);
+    try {
+      const res = await apiFetch(`/api/inbox/${reply.id}/thread`);
+      if (res.ok) {
+        const data = await res.json();
+        setThread(data.messages ?? []);
+        // Update myEmail from thread if we can
+        const sentMsg = (data.messages ?? []).find((m: ThreadMessage) => m.direction === "sent");
+        if (sentMsg?.eaccount) setMyEmail(sentMsg.eaccount);
+        else if (sentMsg?.from_email) setMyEmail(sentMsg.from_email);
+      } else {
+        // Fallback: show just the received email
+        setThread([{
+          id: reply.id,
+          direction: "received",
+          from_email: reply.from_email,
+          from_name: reply.from_name ?? null,
+          subject: reply.subject ?? null,
+          body: reply.body ?? null,
+          timestamp: reply.received_at,
+          eaccount: reply.eaccount ?? null,
+          is_unread: !reply.is_read,
+        }]);
+      }
+    } catch {
+      setThread([]);
+    } finally {
+      setThreadLoading(false);
+    }
+  }
+
   async function handleOpen(reply: InboxReply) {
     setSelected(reply);
+    fetchThread(reply);
+
     if (!reply.is_read) {
       const res = await apiFetch(`/api/inbox/${reply.id}/read`, { method: "PATCH" });
       if (res.ok) {
@@ -76,19 +361,25 @@ export default function Inbox() {
 
   return (
     <DashboardLayout>
-      <div className="p-4 sm:p-8 max-w-5xl mx-auto">
+      <div className="p-4 sm:p-8 max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-start justify-between mb-6 pt-2">
           <div>
-            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "2rem", letterSpacing: "0.04em" }} className="text-[#0A0A0A] mb-1 flex items-center gap-3">
+            <h1
+              style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "2rem", letterSpacing: "0.04em" }}
+              className="text-[#0A0A0A] mb-1 flex items-center gap-3"
+            >
               Reply Inbox
               {unreadCount > 0 && (
-                <span className="text-base font-normal bg-[#2563EB] text-white px-2.5 py-0.5 rounded-full" style={{ fontFamily: "inherit" }}>
+                <span
+                  className="text-base font-normal bg-[#2563EB] text-white px-2.5 py-0.5 rounded-full"
+                  style={{ fontFamily: "inherit" }}
+                >
                   {unreadCount}
                 </span>
               )}
             </h1>
-            <p className="text-[#64748B] text-sm">Replies from your email campaigns, all in one place</p>
+            <p className="text-[#64748B] text-sm">Full conversation history — sent & received</p>
           </div>
           <button
             onClick={() => fetchReplies(true)}
@@ -103,13 +394,12 @@ export default function Inbox() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
           {/* Left: Reply list */}
           <div className="lg:col-span-2">
-            {/* Filter tabs */}
             <div className="flex items-center gap-1 mb-3 bg-[#F5F7FA] rounded-lg p-1">
               {(["all", "unread"] as const).map((f) => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors capitalize ${
+                  className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${
                     filter === f ? "bg-white text-[#0A0A0A] shadow-sm" : "text-[#64748B] hover:text-[#0A0A0A]"
                   }`}
                 >
@@ -150,8 +440,7 @@ export default function Inbox() {
                       <div className="shrink-0 mt-0.5">
                         {reply.is_read
                           ? <MailOpen className="w-4 h-4 text-[#94A3B8]" />
-                          : <Mail className="w-4 h-4 text-[#2563EB]" />
-                        }
+                          : <Mail className="w-4 h-4 text-[#2563EB]" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
@@ -179,62 +468,66 @@ export default function Inbox() {
             )}
           </div>
 
-          {/* Right: Reply detail */}
-          <div className="lg:col-span-3">
+          {/* Right: Thread + composer */}
+          <div className="lg:col-span-3 flex flex-col">
             {selected ? (
-              <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden">
-                {/* Email header */}
-                <div className="px-6 py-4 border-b border-[#E2E8F0]">
-                  <h2 className="text-base font-semibold text-[#0A0A0A] mb-2 leading-tight">
-                    {selected.subject || "(no subject)"}
-                  </h2>
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#2563EB] to-[#7C3AED] flex items-center justify-center text-white text-sm font-bold shrink-0">
-                      {(selected.from_name || selected.from_email)[0]?.toUpperCase() ?? "?"}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-[#0A0A0A]">
+              <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden flex flex-col" style={{ minHeight: 500 }}>
+                {/* Thread header */}
+                <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-start justify-between">
+                  <div>
+                    <h2 className="text-base font-semibold text-[#0A0A0A] leading-tight">
+                      {selected.subject || "(no subject)"}
+                    </h2>
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="text-xs text-[#64748B]">
                         {selected.from_name || selected.from_email}
-                      </p>
-                      <p className="text-xs text-[#64748B]">{selected.from_email}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs text-[#94A3B8]">{new Date(selected.received_at).toLocaleString()}</p>
-                      {selected.email_campaigns && (
-                        <p className="text-xs text-[#2563EB] mt-0.5">
-                          via {selected.email_campaigns.name}
-                        </p>
-                      )}
+                        <span className="text-[#94A3B8]"> · {selected.from_email}</span>
+                      </span>
                     </div>
                   </div>
-                </div>
-
-                {/* Email body */}
-                <div className="px-6 py-5">
-                  {selected.body ? (
-                    <pre className="text-sm text-[#0A0A0A] whitespace-pre-wrap leading-relaxed font-sans">
-                      {selected.body}
-                    </pre>
-                  ) : (
-                    <p className="text-sm text-[#94A3B8] italic">No message body</p>
+                  {selected.email_campaigns && (
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg text-xs text-[#2563EB] font-medium shrink-0">
+                      <Tag className="w-3 h-3" />
+                      {selected.email_campaigns.name}
+                    </div>
                   )}
                 </div>
 
-                {/* Campaign tag */}
-                {selected.email_campaigns && (
-                  <div className="px-6 pb-4">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg text-xs text-[#2563EB] font-medium">
-                      <Tag className="w-3 h-3" />
-                      {selected.email_campaigns.name} · {selected.email_campaigns.sending_domain}
+                {/* Thread messages */}
+                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5" style={{ maxHeight: 420 }}>
+                  {threadLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-5 h-5 text-[#64748B] animate-spin" />
+                      <span className="ml-2 text-sm text-[#64748B]">Loading conversation…</span>
                     </div>
-                  </div>
-                )}
+                  ) : thread.length === 0 ? (
+                    <p className="text-sm text-[#94A3B8] text-center py-8 italic">No messages found</p>
+                  ) : (
+                    <>
+                      {thread.map((msg) => (
+                        <MessageBubble key={msg.id} msg={msg} myEmail={myEmail} />
+                      ))}
+                      <div ref={threadEndRef} />
+                    </>
+                  )}
+                </div>
+
+                {/* Reply composer */}
+                <ReplyComposer
+                  key={selected.id}
+                  selected={selected}
+                  myEmail={myEmail}
+                  onSent={() => {
+                    fetchThread(selected);
+                    fetchReplies(true);
+                  }}
+                />
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-64 text-center border border-dashed border-[#E2E8F0] rounded-xl bg-white">
                 <InboxIcon className="w-10 h-10 text-[#CBD5E1] mb-3" />
-                <p className="text-[#64748B] font-medium">Select a reply to read it</p>
-                <p className="text-sm text-[#94A3B8] mt-1">Replies from your active campaigns show here</p>
+                <p className="text-[#64748B] font-medium">Select a conversation</p>
+                <p className="text-sm text-[#94A3B8] mt-1">Full sent & received history will appear here</p>
               </div>
             )}
           </div>

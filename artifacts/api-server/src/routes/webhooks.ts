@@ -12,9 +12,12 @@ import { supabase } from "../lib/supabase";
 const N8N_ANALYSIS_WEBHOOK = "https://shreyahubcredo.app.n8n.cloud/webhook/lead-scrapping";
 const N8N_LEAD_SCRAPING_WEBHOOK = "https://shreyahubcredo.app.n8n.cloud/webhook/lead-scrapping-list";
 
-const ANALYSIS_COST = 50;
-const COST_PER_LEAD = 15;
-const MIN_LEADS = 5;
+// 1 credit = $1. Costs set to ensure no loss vs tool subscriptions:
+// - Groq (analysis): ~$0.01/call → charge 2 credits = ~200x margin
+// - Instantly (lead enrichment): ~$0.03/lead → charge 1 credit = ~33x margin
+const ANALYSIS_COST = 2;
+const COST_PER_LEAD = 1;
+const MIN_LEADS = 1;
 const MAX_LEADS = 500;
 
 const router: IRouter = Router();

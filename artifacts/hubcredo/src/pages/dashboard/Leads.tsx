@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getToken } from "@/lib/auth";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   useListLeadLists,
@@ -48,6 +49,30 @@ export default function Leads() {
   const { data: crmConnection } = useGetCrmConnection({ query: { retry: false } as any });
   const hasCrm = !!crmConnection;
   const [syncingLeadId, setSyncingLeadId] = useState<string | null>(null);
+  const [syncingAll, setSyncingAll] = useState(false);
+
+  async function handleSyncAllApproved() {
+    if (!activeListId) return;
+    setSyncingAll(true);
+    try {
+      const token = getToken();
+      const res = await fetch(
+        `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/crm/sync-list/${activeListId}`,
+        { method: "POST", headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        toast({ title: "CRM sync complete", description: `${data.succeeded} of ${data.total} approved leads synced to Attio.` });
+        await refetchLeads();
+      } else {
+        toast({ title: "Sync failed", description: "Could not sync leads to CRM.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Sync error", description: "An error occurred.", variant: "destructive" });
+    } finally {
+      setSyncingAll(false);
+    }
+  }
 
   async function handleSyncLeadToCrm(leadId: string, e: React.MouseEvent) {
     e.stopPropagation();
@@ -109,13 +134,13 @@ export default function Leads() {
     }
 
     const safeCount = Math.max(5, Math.floor(leadCount));
-    const totalCost = safeCount * 15;
+    const totalCost = Math.max(1, Math.ceil(safeCount / 25));
 
     // Check balance upfront
     if (balance !== null && balance < totalCost) {
       toast({
         title: "Not enough credits",
-        description: `${safeCount} leads costs ${totalCost} credits but you only have ${balance}. Top up in Billing.`,
+        description: `${safeCount} leads costs ${totalCost} credit${totalCost !== 1 ? "s" : ""} but you only have ${balance}. Top up in Billing.`,
         variant: "destructive",
       });
       return;
@@ -140,7 +165,7 @@ export default function Leads() {
 
       toast({
         title: "Lead generation started!",
-        description: `Generating ${safeCount} unique leads in "Lead List ${listNumber}" (${totalCost} credits deducted). Check back in a few minutes.`,
+        description: `Generating ${safeCount} unique leads in "Lead List ${listNumber}" (${totalCost} credit${totalCost !== 1 ? "s" : ""} deducted). Check back in a few minutes.`,
       });
       setTimeout(() => refetchLeads(), 8000);
     } catch (err: unknown) {
@@ -277,7 +302,8 @@ export default function Leads() {
                 </div>
               </div>
               <span className="text-white/70 text-xs ml-auto">
-                Cost: <span className="text-white font-semibold">{leadCount * 15} credits</span>
+                Cost: <span className="text-white font-semibold">{Math.max(1, Math.ceil(leadCount / 25))} credit{Math.max(1, Math.ceil(leadCount / 25)) !== 1 ? "s" : ""}</span>
+                <span className="text-blue-200/70"> (25 leads/$1)</span>
                 {balance !== null && <span className="text-blue-200"> · you have {balance.toLocaleString()}</span>}
               </span>
             </div>
@@ -386,18 +412,31 @@ export default function Leads() {
                 <p className="text-xs text-[#64748B] uppercase tracking-widest font-medium">
                   {leadsLoading ? "Loading…" : `${(leads as Lead[]).length} leads in "${selectedList.label}"`}
                 </p>
-                {lists.length > 1 && (
-                  <div className="relative">
-                    <select
-                      value={activeListId}
-                      onChange={(e) => setSelectedListId(e.target.value)}
-                      className="appearance-none text-xs text-[#2563EB] bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg pl-3 pr-7 py-1.5 focus:outline-none cursor-pointer"
+                <div className="flex items-center gap-2">
+                  {hasCrm && (leads as Lead[]).some((l) => l.review_status === "approved") && (
+                    <button
+                      onClick={handleSyncAllApproved}
+                      disabled={syncingAll}
+                      title="Sync all approved leads to Attio CRM"
+                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-[#EFF6FF] border border-[#BFDBFE] text-[#2563EB] rounded-lg hover:bg-[#DBEAFE] transition-colors disabled:opacity-50"
                     >
-                      {lists.map((l) => <option key={l.id} value={l.id}>{l.label || "Untitled list"}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#2563EB] pointer-events-none" />
-                  </div>
-                )}
+                      {syncingAll ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      Sync approved
+                    </button>
+                  )}
+                  {lists.length > 1 && (
+                    <div className="relative">
+                      <select
+                        value={activeListId}
+                        onChange={(e) => setSelectedListId(e.target.value)}
+                        className="appearance-none text-xs text-[#2563EB] bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg pl-3 pr-7 py-1.5 focus:outline-none cursor-pointer"
+                      >
+                        {lists.map((l) => <option key={l.id} value={l.id}>{l.label || "Untitled list"}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#2563EB] pointer-events-none" />
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

@@ -127,6 +127,21 @@ router.get("/crm/people", requireAuth, async (req: AuthenticatedRequest, res) =>
     const parsedLimit = Math.min(parseInt(limit) || 25, 100);
     const parsedOffset = parseInt(offset) || 0;
 
+    // ── User-scoping: only show contacts synced by this user ───────────────
+    const { data: userLeads } = await supabase
+      .from("leads")
+      .select("email")
+      .eq("user_id", req.userId!)
+      .not("crm_contact_id", "is", null);
+
+    const userEmails = (userLeads || []).map((l: any) => l.email?.toLowerCase()).filter(Boolean) as string[];
+
+    if (userEmails.length === 0) {
+      // User has no synced leads — return empty
+      res.json({ data: [], next_page_offset: null });
+      return;
+    }
+
     // ✅ Correct Attio v2 sorts format — attribute is a plain string slug
     const sorts = [{ attribute: "created_at", direction: "desc" as const }];
 
@@ -135,12 +150,10 @@ router.get("/crm/people", requireAuth, async (req: AuthenticatedRequest, res) =>
     if (q?.trim()) {
       const search = q.trim();
       if (search.includes("@")) {
-        // ✅ Email search: exact attribute path format
         filter = {
           email_addresses: { email_address: { "$contains": search } },
         };
       } else {
-        // ✅ Name search: $or combinator
         filter = {
           "$or": [
             { name: { first_name: { "$contains": search } } },
@@ -149,9 +162,19 @@ router.get("/crm/people", requireAuth, async (req: AuthenticatedRequest, res) =>
         };
       }
     }
-    // No q → filter is undefined → People.query sends only { limit, offset, sorts } → returns all records ✅
 
     const result = await People.query(key, { limit: parsedLimit, offset: parsedOffset, sorts, filter });
+
+    // Filter to only include people whose email is in the user's synced leads
+    if (result?.data) {
+      result.data = result.data.filter((person: any) => {
+        const emails: string[] = (person.values?.email_addresses || [])
+          .map((e: any) => (e.email_address || "").toLowerCase())
+          .filter(Boolean);
+        return emails.some((email) => userEmails.includes(email));
+      });
+    }
+
     res.json(result);
   } catch (err) {
     console.error("CRM PEOPLE ERROR:", err);
@@ -415,6 +438,57 @@ router.post("/crm/sync/lead/:id", requireAuth, async (req: AuthenticatedRequest,
     }).eq("id", req.params.id);
     handleAttioError(err, res);
   }
+});
+
+// ─── SYNC ALL APPROVED LEADS IN A LEAD LIST ───────────────────────────────────
+
+router.post("/crm/sync-list/:listId", requireAuth, async (req: AuthenticatedRequest, res) => {
+  const key = requireApiKey(res); if (!key) return;
+  const mapping = await getFieldMapping(req.userId!);
+  const attioListId = await getAttioListId(req.userId!);
+
+  const { data: leads } = await supabase
+    .from("leads").select("*")
+    .eq("user_id", req.userId!)
+    .eq("lead_list_id", req.params.listId)
+    .eq("review_status", "approved");
+
+  if (!leads?.length) { res.json({ total: 0, succeeded: 0, failed: 0 }); return; }
+
+  let succeeded = 0, failed = 0;
+  for (const lead of leads) {
+    await new Promise(r => setTimeout(r, 50));
+    try {
+      let companyRecordId: string | undefined;
+      if (mapping.company_name && lead.company_domain) {
+        try {
+          const { record_id } = await Companies.upsert(key, { name: lead.company_name, domain: lead.company_domain });
+          companyRecordId = record_id;
+        } catch { /* skip company */ }
+      }
+      const { record_id: personRecordId } = await People.upsert(key, {
+        first_name: mapping.first_name ? lead.first_name : undefined,
+        last_name: mapping.last_name ? lead.last_name : undefined,
+        email: mapping.email ? lead.email : undefined,
+        job_title: mapping.job_title ? lead.job_title : undefined,
+        linkedin: mapping.linkedin_url ? lead.linkedin_url : undefined,
+        company_record_id: companyRecordId,
+      });
+      if (attioListId && personRecordId) {
+        try { await Lists.addEntry(key, attioListId, "people", personRecordId); } catch { /* already in list */ }
+      }
+      await supabase.from("leads").update({
+        crm_contact_id: personRecordId, crm_sync_status: "synced",
+        crm_sync_error: null, crm_synced_at: new Date().toISOString(),
+        attio_company_id: companyRecordId ?? null, updated_at: new Date().toISOString(),
+      }).eq("id", lead.id);
+      succeeded++;
+    } catch (err: any) {
+      await supabase.from("leads").update({ crm_sync_status: "error", crm_sync_error: err.message }).eq("id", lead.id);
+      failed++;
+    }
+  }
+  res.json({ total: leads.length, succeeded, failed });
 });
 
 router.post("/crm/sync/bulk", requireAuth, async (req: AuthenticatedRequest, res) => {

@@ -16,15 +16,14 @@ import {
   CheckCircle2, Circle, Trash2, ExternalLink, AlertCircle,
   Mail, Calendar,
 } from "lucide-react";
+import { getToken } from "@/lib/auth";
 
 // ─── API helper ───────────────────────────────────────────────────────────────
 
 const API = "/api";
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = localStorage.getItem("token");
-
-  console.log("JWT TOKEN:", token);
+  const token = getToken();
 
   const res = await fetch(`${API}${path}`, {
     ...options,

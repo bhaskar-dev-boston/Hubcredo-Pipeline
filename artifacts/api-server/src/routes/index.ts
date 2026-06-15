@@ -16,6 +16,7 @@ import billingRouter from "./billing";
 import campaignsRouter from "./campaigns";
 import linkedinRouter from "./linkedin";
 import crmRouter from "./crm";
+import inboxRouter from "./inbox";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use(billingRouter);
 router.use(campaignsRouter);
 router.use(linkedinRouter);
 router.use(crmRouter);
+router.use(inboxRouter);
 
 export default router;

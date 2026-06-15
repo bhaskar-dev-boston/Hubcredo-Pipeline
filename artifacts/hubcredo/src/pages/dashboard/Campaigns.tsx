@@ -1,11 +1,29 @@
 import { useState, useEffect, useCallback } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
-  Mail, Plus, Loader2, Send, Play, Pause,
-  CheckCircle2, AlertCircle, Sparkles, X,
-  Edit3, Globe, ArrowRight, Trash2, RefreshCw,
-  TrendingUp, Eye, MessageSquare, MousePointerClick,
-  Users, ChevronLeft, ChevronRight,
+  Mail,
+  Plus,
+  Loader2,
+  Send,
+  Play,
+  Pause,
+  CheckCircle2,
+  AlertCircle,
+  Sparkles,
+  X,
+  Edit3,
+  Globe,
+  ArrowRight,
+  Trash2,
+  RefreshCw,
+  TrendingUp,
+  Eye,
+  MessageSquare,
+  MousePointerClick,
+  Users,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getToken } from "@/lib/auth";
@@ -59,7 +77,6 @@ interface DomainWarmup {
   provider: string;
 }
 
-// ── NEW: lead types ──
 interface InstantlyLead {
   id: string;
   email: string;
@@ -67,43 +84,171 @@ interface InstantlyLead {
   last_name?: string;
   company_name?: string;
   status?: number;
+  email_open_count?: number;
   timestamp_created?: string;
 }
 
 const LEAD_STATUS_MAP: Record<number, { label: string; color: string }> = {
-  1:  { label: "Interested",      color: "text-green-700 bg-green-50 border-green-200" },
-  2:  { label: "Meeting Booked",  color: "text-blue-700 bg-blue-50 border-blue-200" },
-  3:  { label: "Meeting Done",    color: "text-purple-700 bg-purple-50 border-purple-200" },
-  4:  { label: "Won",             color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-  0:  { label: "Out of Office",   color: "text-amber-700 bg-amber-50 border-amber-200" },
-  [-1]: { label: "Not Interested", color: "text-red-700 bg-red-50 border-red-200" },
-  [-2]: { label: "Wrong Person",   color: "text-orange-700 bg-orange-50 border-orange-200" },
-  [-3]: { label: "Lost",           color: "text-gray-700 bg-gray-50 border-gray-200" },
-  [-4]: { label: "No Show",        color: "text-slate-700 bg-slate-50 border-slate-200" },
+  1: { label: "Active", color: "text-blue-700 bg-blue-50 border-blue-200" },
+  2: { label: "Paused", color: "text-amber-700 bg-amber-50 border-amber-200" },
+  3: {
+    label: "Completed",
+    color: "text-green-700 bg-green-50 border-green-200",
+  },
+  [-1]: { label: "Bounced", color: "text-red-700 bg-red-50 border-red-200" },
+  [-2]: {
+    label: "Unsubscribed",
+    color: "text-orange-700 bg-orange-50 border-orange-200",
+  },
+  [-3]: { label: "Skipped", color: "text-gray-700 bg-gray-50 border-gray-200" },
 };
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  draft:     { label: "Draft",     color: "bg-[#F5F7FA] border-[#E2E8F0] text-[#64748B]",   icon: <Edit3 className="w-3 h-3" /> },
-  active:    { label: "Active",    color: "bg-green-50 border-green-200 text-green-700",      icon: <Play className="w-3 h-3" /> },
-  paused:    { label: "Paused",    color: "bg-amber-50 border-amber-200 text-amber-700",      icon: <Pause className="w-3 h-3" /> },
-  completed: { label: "Done",      color: "bg-blue-50 border-blue-200 text-blue-700",         icon: <CheckCircle2 className="w-3 h-3" /> },
-  error:     { label: "Error",     color: "bg-red-50 border-red-200 text-red-600",            icon: <AlertCircle className="w-3 h-3" /> },
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; color: string; icon: React.ReactNode }
+> = {
+  draft: {
+    label: "Draft",
+    color: "bg-[#F5F7FA] border-[#E2E8F0] text-[#64748B]",
+    icon: <Edit3 className="w-3 h-3" />,
+  },
+  active: {
+    label: "Active",
+    color: "bg-green-50 border-green-200 text-green-700",
+    icon: <Play className="w-3 h-3" />,
+  },
+  paused: {
+    label: "Paused",
+    color: "bg-amber-50 border-amber-200 text-amber-700",
+    icon: <Pause className="w-3 h-3" />,
+  },
+  completed: {
+    label: "Done",
+    color: "bg-blue-50 border-blue-200 text-blue-700",
+    icon: <CheckCircle2 className="w-3 h-3" />,
+  },
+  error: {
+    label: "Error",
+    color: "bg-red-50 border-red-200 text-red-600",
+    icon: <AlertCircle className="w-3 h-3" />,
+  },
 };
+
+// ── Email Templates ──────────────────────────────────────────────────────────
+
+interface EmailTemplate {
+  id: string;
+  name: string;
+  sequences: CampaignSequence[];
+}
+
+const EMAIL_TEMPLATES: EmailTemplate[] = [
+  {
+    id: "smykm",
+    name: "Template 1 — SMYKM (Curiosity Hook)",
+    sequences: [
+      {
+        step_number: 1,
+        delay_days: 0,
+        subject: "Benji the Bengal's Favorite Pilot/Flying J",
+        body: `Hi [First Name],
+
+We haven't met yet, but I run the growth team at [Your Company]. I was doing some research and came across your profile — noticed you've built something pretty impressive at [Prospect Company].
+
+Quick trivia while I have you: what's the closest major logistics hub to your headquarters?
+
+The real reason I'm reaching out — at [Your Company], we help businesses like yours increase per-transaction revenue by 20% or more without adding headcount. My guess is, if you could pull that off at your scale, you'd do it. But it's hard to know where to start.
+
+That's exactly what we do. We recently helped [Similar Company] break their quarterly sales targets — using the same approach we'd tailor for you.
+
+If you're up for a 10-minute chat, I'd be thrilled to find a time that works.
+
+Cheers,
+[Your Name]`,
+      },
+    ],
+  },
+  {
+    id: "pas",
+    name: "Template 2 — PAS (Pain-Agitate-Solution)",
+    sequences: [
+      {
+        step_number: 1,
+        delay_days: 0,
+        subject:
+          "Are you still dealing with scattered data and missed follow-ups?",
+        body: `Hi [First Name],
+
+I was doing some research on your company and came across your profile. I also noticed your team has been expanding rapidly this year — exciting stuff.
+
+I'm writing specifically because I suspect you've spent countless late nights digging through several different folders, platforms, and emails to find client segments, pipeline data, and campaign updates — with no end in sight. Depending on how large your team is, this may just be the norm.
+
+Without the right system, you end up losing hours every week, missing follow-ups on warm leads, and watching revenue slip through the cracks — which can quietly cost six figures over a year.
+
+[Your Company] gets you to a better place faster. Unlike typical platforms, we don't require a long drawn-out implementation — we're agile, user-friendly, and don't need an enterprise plan to get started. We recently helped [Similar Company] cut their response time by 40% and close 2x more deals in the same pipeline.
+
+And all of that can be addressed using one resource.
+
+Interested in learning more?
+
+Cheers,
+[Your Name]`,
+      },
+    ],
+  },
+  {
+    id: "value-first",
+    name: "Template 3 — Value-First (Soft Opener)",
+    sequences: [
+      {
+        step_number: 1,
+        delay_days: 0,
+        subject: "[Prospect Company] + [Your Company] — quick thought",
+        body: `Hi [First Name],
+
+I came across [Prospect Company] while researching your space and noticed you've been pushing hard into new markets this quarter — really solid momentum.
+
+Given where you're headed, I thought it'd be worth a quick note. At [Your Company], we help teams in your position generate more qualified pipeline without increasing ad spend or headcount. No long onboarding. No switching your existing stack.
+
+We recently worked with [Similar Company] to do exactly that — they went from inconsistent outreach to a repeatable system that brought in 3x more booked calls within 60 days.
+
+Would a quick 10-minute call this week make sense?
+
+Best,
+[Your Name]`,
+      },
+    ],
+  },
+];
+
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 function WarmupProgress({ score }: { score: number }) {
   const pct = Math.min(100, Math.max(0, score));
-  const color = pct >= 80 ? "bg-green-500" : pct >= 40 ? "bg-amber-400" : "bg-[#2563EB]";
+  const color =
+    pct >= 80 ? "bg-green-500" : pct >= 40 ? "bg-amber-400" : "bg-[#2563EB]";
   return (
     <div className="flex items-center gap-2 flex-1 min-w-0">
       <div className="flex-1 bg-[#E2E8F0] rounded-full h-1.5 overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+        <div
+          className={`h-full rounded-full transition-all ${color}`}
+          style={{ width: `${pct}%` }}
+        />
       </div>
-      <span className="text-xs font-semibold text-[#0A0A0A] shrink-0">{pct}%</span>
+      <span className="text-xs font-semibold text-[#0A0A0A] shrink-0">
+        {pct}%
+      </span>
     </div>
   );
 }
 
-function StatCard({ icon, label, value, rate, color }: {
+function StatCard({
+  icon,
+  label,
+  value,
+  rate,
+  color,
+}: {
   icon: React.ReactNode;
   label: string;
   value: number;
@@ -112,15 +257,78 @@ function StatCard({ icon, label, value, rate, color }: {
 }) {
   return (
     <div className="bg-white border border-[#E2E8F0] rounded-xl p-4">
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-3 ${color}`}>
+      <div
+        className={`w-8 h-8 rounded-lg flex items-center justify-center mb-3 ${color}`}
+      >
         {icon}
       </div>
-      <p className="text-2xl font-bold text-[#0A0A0A]">{value.toLocaleString()}</p>
+      <p className="text-2xl font-bold text-[#0A0A0A]">
+        {value.toLocaleString()}
+      </p>
       <p className="text-xs text-[#64748B] mt-0.5">{label}</p>
-      {rate && <p className="text-xs font-semibold text-[#2563EB] mt-1">{rate}</p>}
+      {rate && (
+        <p className="text-xs font-semibold text-[#2563EB] mt-1">{rate}</p>
+      )}
     </div>
   );
 }
+
+// ── Template Dropdown ─────────────────────────────────────────────────────────
+
+function TemplateDropdown({
+  onSelect,
+}: {
+  onSelect: (t: EmailTemplate) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#E2E8F0] text-[#475569] text-xs font-semibold rounded-lg hover:bg-[#F5F7FA] hover:border-[#CBD5E1] transition-colors"
+      >
+        Use Template
+        <ChevronDown
+          className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <>
+          {/* backdrop */}
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-1.5 z-20 w-72 bg-white border border-[#E2E8F0] rounded-xl shadow-lg overflow-hidden">
+            <p className="text-[10px] font-semibold text-[#94A3B8] uppercase tracking-widest px-3 pt-2.5 pb-1.5">
+              Choose a starting template — fully editable after
+            </p>
+            {EMAIL_TEMPLATES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => {
+                  onSelect(t);
+                  setOpen(false);
+                }}
+                className="w-full text-left px-3 py-2.5 hover:bg-[#F5F7FA] transition-colors border-t border-[#F1F5F9] first:border-t-0"
+              >
+                <p className="text-xs font-semibold text-[#0A0A0A] leading-tight">
+                  {t.name}
+                </p>
+                <p className="text-[11px] text-[#64748B] mt-0.5 truncate">
+                  {t.sequences[0]?.subject}
+                </p>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function Campaigns() {
   const { toast } = useToast();
@@ -148,12 +356,11 @@ export default function Campaigns() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // ── NEW: leads state ──
   const [leads, setLeads] = useState<InstantlyLead[]>([]);
   const [leadsLoading, setLeadsLoading] = useState(false);
   const [leadsCursor, setLeadsCursor] = useState<string | undefined>(undefined);
   const [leadsHasMore, setLeadsHasMore] = useState(false);
-  const [leadsCursorStack, setLeadsCursorStack] = useState<string[]>([]); // for prev pages
+  const [leadsCursorStack, setLeadsCursorStack] = useState<string[]>([]);
 
   const { data: leadLists = [] } = useListLeadLists();
   const { data: icps = [] } = useListIcps();
@@ -173,14 +380,14 @@ export default function Campaigns() {
     }
   }, []);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
 
-  // ✅ Cache-busting: append timestamp so browser never serves a 304
   async function loadDetail(id: string) {
     setSelectedId(id);
     setWizard(false);
     setDetailLoading(true);
-    // reset leads when switching campaigns
     setLeads([]);
     setLeadsCursor(undefined);
     setLeadsCursorStack([]);
@@ -190,7 +397,6 @@ export default function Campaigns() {
       if (res.ok) {
         const data = await res.json();
         setDetail(data);
-        // auto-load leads if campaign is linked to Instantly
         if (data.external_campaign_id) {
           fetchLeads(id, undefined);
         }
@@ -200,7 +406,6 @@ export default function Campaigns() {
     }
   }
 
-  // ── NEW: fetch leads from Instantly via our backend ──
   async function fetchLeads(campaignId: string, cursor: string | undefined) {
     setLeadsLoading(true);
     try {
@@ -237,35 +442,32 @@ export default function Campaigns() {
     fetchLeads(selectedId, prevCursor);
   }
 
-  // ── Sync analytics from Instantly ──
   async function handleSync(id: string) {
     setSyncing(true);
     try {
-      const res = await apiFetch(`/api/campaigns/${id}/sync`, { method: "POST" });
+      const res = await apiFetch(`/api/campaigns/${id}/sync`, {
+        method: "POST",
+      });
       const data = await res.json();
       if (res.ok && data.success) {
         toast({
           title: "Analytics synced!",
           description: `Sent: ${data.analytics.sent} · Opened: ${data.analytics.opened} · Replied: ${data.analytics.replied}`,
         });
-
-        // ✅ Update analytics directly from sync response — no re-fetch needed
         const updatedAnalytics: CampaignAnalytics = {
-          sent_count:    data.analytics.sent,
-          opened_count:  data.analytics.opened,
+          sent_count: data.analytics.sent,
+          opened_count: data.analytics.opened,
           replied_count: data.analytics.replied,
           bounced_count: data.analytics.bounced,
           clicked_count: data.analytics.clicked,
         };
-
         setDetail((prev) =>
-          prev ? { ...prev, campaign_analytics: [updatedAnalytics] } : prev
+          prev ? { ...prev, campaign_analytics: [updatedAnalytics] } : prev,
         );
-
         setCampaigns((prev) =>
           prev.map((c) =>
-            c.id === id ? { ...c, campaign_analytics: [updatedAnalytics] } : c
-          )
+            c.id === id ? { ...c, campaign_analytics: [updatedAnalytics] } : c,
+          ),
         );
       } else {
         toast({
@@ -293,10 +495,17 @@ export default function Campaigns() {
         const newEntry = await res.json();
         setWarmupDomains((prev) => [newEntry, ...prev]);
         setWarmupInput("");
-        toast({ title: "Warmup started", description: `${warmupInput.trim()} is now warming up.` });
+        toast({
+          title: "Warmup started",
+          description: `${warmupInput.trim()} is now warming up.`,
+        });
       } else {
         const err = await res.json();
-        toast({ title: "Error", description: err.error || "Could not start warmup.", variant: "destructive" });
+        toast({
+          title: "Error",
+          description: err.error || "Could not start warmup.",
+          variant: "destructive",
+        });
       }
     } finally {
       setWarmupAdding(false);
@@ -310,7 +519,9 @@ export default function Campaigns() {
     });
     if (res.ok) {
       setWarmupDomains((prev) =>
-        prev.map((w) => w.id === warmup.id ? { ...w, status: "ready", score: 100 } : w)
+        prev.map((w) =>
+          w.id === warmup.id ? { ...w, status: "ready", score: 100 } : w,
+        ),
       );
       toast({ title: "Domain ready" });
     }
@@ -326,21 +537,33 @@ export default function Campaigns() {
     try {
       const tmpRes = await apiFetch("/api/campaigns", {
         method: "POST",
-        body: JSON.stringify({ name: "__tmp__", sending_domain: wizardDomain || "example.com", sequences: [] }),
+        body: JSON.stringify({
+          name: "__tmp__",
+          sending_domain: wizardDomain || "example.com",
+          sequences: [],
+        }),
       });
       if (!tmpRes.ok) throw new Error("Could not create temp campaign");
-      const tmp = await tmpRes.json() as Campaign;
+      const tmp = (await tmpRes.json()) as Campaign;
 
-      const aiRes = await apiFetch(`/api/campaigns/${tmp.id}/ai-copy`, { method: "POST" });
+      const aiRes = await apiFetch(`/api/campaigns/${tmp.id}/ai-copy`, {
+        method: "POST",
+      });
       await apiFetch(`/api/campaigns/${tmp.id}`, { method: "DELETE" });
 
       if (aiRes.ok) {
-        const { sequences: aiSeqs } = await aiRes.json() as { sequences: CampaignSequence[] };
+        const { sequences: aiSeqs } = (await aiRes.json()) as {
+          sequences: CampaignSequence[];
+        };
         setSequences(aiSeqs);
         toast({ title: "AI copy generated!" });
       }
     } catch {
-      toast({ title: "Error", description: "Could not generate AI copy.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Could not generate AI copy.",
+        variant: "destructive",
+      });
     } finally {
       setAiLoading(false);
     }
@@ -351,17 +574,30 @@ export default function Campaigns() {
     try {
       const res = await apiFetch("/api/campaigns", {
         method: "POST",
-        body: JSON.stringify({ name: wizardName, sending_domain: wizardDomain, lead_list_id: wizardListId || null, sequences }),
+        body: JSON.stringify({
+          name: wizardName,
+          sending_domain: wizardDomain,
+          lead_list_id: wizardListId || null,
+          sequences,
+        }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
-      const created = await res.json() as Campaign;
+      const created = (await res.json()) as Campaign;
       setCampaigns((prev) => [created, ...prev]);
       setWizard(false);
       resetWizard();
       await loadDetail(created.id);
-      toast({ title: "Campaign created!", description: `"${created.name}" is ready to launch.` });
+      toast({
+        title: "Campaign created!",
+        description: `"${created.name}" is ready to launch.`,
+      });
     } catch (err) {
-      toast({ title: "Error", description: err instanceof Error ? err.message : "Could not create campaign.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error ? err.message : "Could not create campaign.",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }
@@ -370,17 +606,37 @@ export default function Campaigns() {
   async function handleLaunch(id: string) {
     setLaunching(true);
     try {
-      const res = await apiFetch(`/api/campaigns/${id}/launch`, { method: "POST" });
-      const data = await res.json() as { success: boolean; message?: string; error?: string };
+      const res = await apiFetch(`/api/campaigns/${id}/launch`, {
+        method: "POST",
+      });
+      const data = (await res.json()) as {
+        success: boolean;
+        message?: string;
+        error?: string;
+      };
       if (data.success) {
-        toast({ title: "Campaign launched! 🚀", description: data.message || "Your campaign is now active." });
-        setCampaigns((prev) => prev.map((c) => c.id === id ? { ...c, status: "active" } : c));
-        if (detail?.id === id) setDetail((prev) => prev ? { ...prev, status: "active" } : prev);
+        toast({
+          title: "Campaign launched! 🚀",
+          description: data.message || "Your campaign is now active.",
+        });
+        setCampaigns((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, status: "active" } : c)),
+        );
+        if (detail?.id === id)
+          setDetail((prev) => (prev ? { ...prev, status: "active" } : prev));
       } else {
-        toast({ title: "Launch failed", description: data.error || "Something went wrong", variant: "destructive" });
+        toast({
+          title: "Launch failed",
+          description: data.error || "Something went wrong",
+          variant: "destructive",
+        });
       }
     } catch {
-      toast({ title: "Error", description: "Could not launch campaign.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Could not launch campaign.",
+        variant: "destructive",
+      });
     } finally {
       setLaunching(false);
     }
@@ -391,7 +647,10 @@ export default function Campaigns() {
     try {
       await apiFetch(`/api/campaigns/${id}`, { method: "DELETE" });
       setCampaigns((prev) => prev.filter((c) => c.id !== id));
-      if (selectedId === id) { setSelectedId(null); setDetail(null); }
+      if (selectedId === id) {
+        setSelectedId(null);
+        setDetail(null);
+      }
       setDeleteId(null);
       toast({ title: "Campaign deleted" });
     } finally {
@@ -409,27 +668,58 @@ export default function Campaigns() {
   }
 
   function resetWizard() {
-    setStep(1); setWizardName(""); setWizardDomain(""); setWizardListId(""); setSequences([]);
+    setStep(1);
+    setWizardName("");
+    setWizardDomain("");
+    setWizardListId("");
+    setSequences([]);
   }
 
   function addSequenceStep() {
     setSequences((prev) => [
       ...prev,
-      { step_number: prev.length + 1, subject: "", body: "", delay_days: prev.length === 0 ? 0 : 3 },
+      {
+        step_number: prev.length + 1,
+        subject: "",
+        body: "",
+        delay_days: prev.length === 0 ? 0 : 3,
+      },
     ]);
   }
 
+  // ── Apply template: loads sequences from chosen template (fully editable after) ──
+  function handleApplyTemplate(template: EmailTemplate) {
+    const seqs = template.sequences.map((s, i) => ({
+      ...s,
+      step_number: i + 1,
+    }));
+    setSequences(seqs);
+    toast({
+      title: `Template applied`,
+      description: `"${template.name}" loaded — edit it as needed.`,
+    });
+  }
+
   const analytics = detail
-    ? (Array.isArray(detail.campaign_analytics) ? detail.campaign_analytics[0] : detail.campaign_analytics)
+    ? Array.isArray(detail.campaign_analytics)
+      ? detail.campaign_analytics[0]
+      : detail.campaign_analytics
     : null;
 
   const readyDomains = warmupDomains.filter((w) => w.status === "ready");
 
-  const openRate  = analytics && analytics.sent_count > 0 ? `${Math.round((analytics.opened_count  / analytics.sent_count) * 100)}%` : null;
-  const replyRate = analytics && analytics.sent_count > 0 ? `${Math.round((analytics.replied_count / analytics.sent_count) * 100)}%` : null;
-  const clickRate = analytics && analytics.sent_count > 0 && analytics.clicked_count
-    ? `${Math.round((analytics.clicked_count / analytics.sent_count) * 100)}%`
-    : null;
+  const openRate =
+    analytics && analytics.sent_count > 0
+      ? `${Math.round((analytics.opened_count / analytics.sent_count) * 100)}%`
+      : null;
+  const replyRate =
+    analytics && analytics.sent_count > 0
+      ? `${Math.round((analytics.replied_count / analytics.sent_count) * 100)}%`
+      : null;
+  const clickRate =
+    analytics && analytics.sent_count > 0 && analytics.clicked_count
+      ? `${Math.round((analytics.clicked_count / analytics.sent_count) * 100)}%`
+      : null;
 
   return (
     <DashboardLayout>
@@ -437,13 +727,27 @@ export default function Campaigns() {
         {/* Header */}
         <div className="flex items-start justify-between mb-6 pt-2">
           <div>
-            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "2rem", letterSpacing: "0.04em" }} className="text-[#0A0A0A] mb-1">
+            <h1
+              style={{
+                fontFamily: "'Bebas Neue', sans-serif",
+                fontSize: "2rem",
+                letterSpacing: "0.04em",
+              }}
+              className="text-[#0A0A0A] mb-1"
+            >
               Campaigns
             </h1>
-            <p className="text-[#64748B] text-sm">Build and send email outreach from your warmed domains</p>
+            <p className="text-[#64748B] text-sm">
+              Build and send email outreach from your warmed domains
+            </p>
           </div>
           <button
-            onClick={() => { setWizard(true); setSelectedId(null); setDetail(null); resetWizard(); }}
+            onClick={() => {
+              setWizard(true);
+              setSelectedId(null);
+              setDetail(null);
+              resetWizard();
+            }}
             className="flex items-center gap-2 px-4 py-2.5 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] transition-colors"
           >
             <Plus className="w-4 h-4" /> New Campaign
@@ -458,8 +762,12 @@ export default function Campaigns() {
                 <Globe className="w-4 h-4 text-[#2563EB]" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#0A0A0A]">Domain Warmup</p>
-                <p className="text-xs text-[#64748B]">Warm your sending domains before launching campaigns</p>
+                <p className="text-sm font-semibold text-[#0A0A0A]">
+                  Domain Warmup
+                </p>
+                <p className="text-xs text-[#64748B]">
+                  Warm your sending domains before launching campaigns
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -475,7 +783,11 @@ export default function Campaigns() {
                 disabled={warmupAdding || !warmupInput.trim()}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] transition-colors disabled:opacity-50"
               >
-                {warmupAdding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                {warmupAdding ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Plus className="w-3.5 h-3.5" />
+                )}
                 Add
               </button>
             </div>
@@ -485,31 +797,56 @@ export default function Campaigns() {
             <div className="text-center py-6 border border-dashed border-[#E2E8F0] rounded-lg">
               <Globe className="w-8 h-8 text-[#CBD5E1] mx-auto mb-2" />
               <p className="text-sm text-[#64748B]">No domains warming yet</p>
-              <p className="text-xs text-[#94A3B8] mt-0.5">Add a domain you purchased to start the warmup process</p>
+              <p className="text-xs text-[#94A3B8] mt-0.5">
+                Add a domain you purchased to start the warmup process
+              </p>
             </div>
           ) : (
             <div className="space-y-2">
               {warmupDomains.map((w) => (
-                <div key={w.id} className="flex items-center gap-4 p-3 bg-[#F5F7FA] rounded-lg border border-[#E2E8F0]">
+                <div
+                  key={w.id}
+                  className="flex items-center gap-4 p-3 bg-[#F5F7FA] rounded-lg border border-[#E2E8F0]"
+                >
                   <div className="flex items-center gap-2 w-48 shrink-0">
-                    <div className={`w-2 h-2 rounded-full shrink-0 ${
-                      w.status === "ready" ? "bg-green-500" : w.status === "failed" ? "bg-red-500" : "bg-amber-400 animate-pulse"
-                    }`} />
-                    <span className="text-sm font-medium text-[#0A0A0A] truncate">{w.domain}</span>
+                    <div
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        w.status === "ready"
+                          ? "bg-green-500"
+                          : w.status === "failed"
+                            ? "bg-red-500"
+                            : "bg-amber-400 animate-pulse"
+                      }`}
+                    />
+                    <span className="text-sm font-medium text-[#0A0A0A] truncate">
+                      {w.domain}
+                    </span>
                   </div>
                   <WarmupProgress score={w.score ?? 0} />
-                  <span className={`text-xs px-2 py-0.5 rounded-full border shrink-0 capitalize ${
-                    w.status === "ready"  ? "bg-green-50 border-green-200 text-green-700" :
-                    w.status === "failed" ? "bg-red-50 border-red-200 text-red-600" :
-                    "bg-amber-50 border-amber-200 text-amber-700"
-                  }`}>{w.status}</span>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full border shrink-0 capitalize ${
+                      w.status === "ready"
+                        ? "bg-green-50 border-green-200 text-green-700"
+                        : w.status === "failed"
+                          ? "bg-red-50 border-red-200 text-red-600"
+                          : "bg-amber-50 border-amber-200 text-amber-700"
+                    }`}
+                  >
+                    {w.status}
+                  </span>
                   <div className="flex items-center gap-2 shrink-0 ml-auto">
                     {w.status === "warming" && (
-                      <button onClick={() => handleMarkReady(w)} className="text-xs text-[#2563EB] hover:underline font-medium">
+                      <button
+                        onClick={() => handleMarkReady(w)}
+                        className="text-xs text-[#2563EB] hover:underline font-medium"
+                      >
                         Mark ready
                       </button>
                     )}
-                    <button onClick={() => handleRemoveWarmup(w.id)} className="w-6 h-6 flex items-center justify-center rounded text-[#94A3B8] hover:text-red-500 hover:bg-red-50 transition-colors">
+                    <button
+                      onClick={() => handleRemoveWarmup(w.id)}
+                      className="w-6 h-6 flex items-center justify-center rounded text-[#94A3B8] hover:text-red-500 hover:bg-red-50 transition-colors"
+                    >
                       <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -523,7 +860,9 @@ export default function Campaigns() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Campaign list */}
           <div className="space-y-2">
-            <p className="text-xs text-[#64748B] uppercase tracking-widest font-medium px-1 mb-3">Your Campaigns</p>
+            <p className="text-xs text-[#64748B] uppercase tracking-widest font-medium px-1 mb-3">
+              Your Campaigns
+            </p>
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-5 h-5 text-[#64748B] animate-spin" />
@@ -533,7 +872,12 @@ export default function Campaigns() {
                 <Mail className="w-8 h-8 text-[#CBD5E1] mx-auto mb-2" />
                 <p className="text-sm text-[#64748B]">No campaigns yet</p>
                 <button
-                  onClick={() => { setWizard(true); setSelectedId(null); setDetail(null); resetWizard(); }}
+                  onClick={() => {
+                    setWizard(true);
+                    setSelectedId(null);
+                    setDetail(null);
+                    resetWizard();
+                  }}
                   className="mt-3 text-xs text-[#2563EB] font-medium hover:underline"
                 >
                   Create your first →
@@ -542,7 +886,9 @@ export default function Campaigns() {
             ) : (
               campaigns.map((c) => {
                 const cfg = STATUS_CONFIG[c.status] ?? STATUS_CONFIG.draft;
-                const a = Array.isArray(c.campaign_analytics) ? c.campaign_analytics[0] : c.campaign_analytics;
+                const a = Array.isArray(c.campaign_analytics)
+                  ? c.campaign_analytics[0]
+                  : c.campaign_analytics;
                 return (
                   <div
                     key={c.id}
@@ -554,12 +900,19 @@ export default function Campaigns() {
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-semibold text-[#0A0A0A] leading-tight flex-1 truncate">{c.name}</p>
-                      <span className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full border shrink-0 ${cfg.color}`}>
-                        {cfg.icon}{cfg.label}
+                      <p className="text-sm font-semibold text-[#0A0A0A] leading-tight flex-1 truncate">
+                        {c.name}
+                      </p>
+                      <span
+                        className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full border shrink-0 ${cfg.color}`}
+                      >
+                        {cfg.icon}
+                        {cfg.label}
                       </span>
                     </div>
-                    <p className="text-xs text-[#64748B] mt-1 truncate">{c.sending_domain}</p>
+                    <p className="text-xs text-[#64748B] mt-1 truncate">
+                      {c.sending_domain}
+                    </p>
                     {a && (
                       <div className="flex items-center gap-3 mt-2 text-xs text-[#94A3B8]">
                         <span>{a.sent_count} sent</span>
@@ -580,12 +933,24 @@ export default function Campaigns() {
               <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden">
                 <div className="flex border-b border-[#E2E8F0]">
                   {([1, 2, 3] as const).map((s) => (
-                    <div key={s} className={`flex-1 py-3 text-center text-xs font-semibold transition-colors ${
-                      step === s ? "text-[#2563EB] border-b-2 border-[#2563EB] bg-[#EFF6FF]" :
-                      step > s   ? "text-green-600 bg-green-50" : "text-[#94A3B8]"
-                    }`}>
-                      {step > s ? <CheckCircle2 className="w-3.5 h-3.5 inline mr-1" /> : null}
-                      {s === 1 ? "1. Setup" : s === 2 ? "2. Sequences" : "3. Review"}
+                    <div
+                      key={s}
+                      className={`flex-1 py-3 text-center text-xs font-semibold transition-colors ${
+                        step === s
+                          ? "text-[#2563EB] border-b-2 border-[#2563EB] bg-[#EFF6FF]"
+                          : step > s
+                            ? "text-green-600 bg-green-50"
+                            : "text-[#94A3B8]"
+                      }`}
+                    >
+                      {step > s ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 inline mr-1" />
+                      ) : null}
+                      {s === 1
+                        ? "1. Setup"
+                        : s === 2
+                          ? "2. Sequences"
+                          : "3. Review"}
                     </div>
                   ))}
                 </div>
@@ -593,7 +958,9 @@ export default function Campaigns() {
                   {step === 1 && (
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-1.5">Campaign Name</label>
+                        <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-1.5">
+                          Campaign Name
+                        </label>
                         <input
                           value={wizardName}
                           onChange={(e) => setWizardName(e.target.value)}
@@ -603,18 +970,34 @@ export default function Campaigns() {
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-1.5">
-                          Sending Domain {readyDomains.length > 0 && <span className="ml-2 text-green-600 normal-case font-normal">({readyDomains.length} ready)</span>}
+                          Sending Domain{" "}
+                          {readyDomains.length > 0 && (
+                            <span className="ml-2 text-green-600 normal-case font-normal">
+                              ({readyDomains.length} ready)
+                            </span>
+                          )}
                         </label>
                         {readyDomains.length > 0 ? (
-                          <select value={wizardDomain} onChange={(e) => setWizardDomain(e.target.value)} className="w-full px-3 py-2.5 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:border-[#2563EB] bg-white">
+                          <select
+                            value={wizardDomain}
+                            onChange={(e) => setWizardDomain(e.target.value)}
+                            className="w-full px-3 py-2.5 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:border-[#2563EB] bg-white"
+                          >
                             <option value="">Select a domain…</option>
-                            {readyDomains.map((d) => <option key={d.id} value={d.domain}>{d.domain}</option>)}
+                            {readyDomains.map((d) => (
+                              <option key={d.id} value={d.domain}>
+                                {d.domain}
+                              </option>
+                            ))}
                             <option value="__custom__">Enter manually…</option>
                           </select>
                         ) : null}
-                        {(wizardDomain === "__custom__" || readyDomains.length === 0) && (
+                        {(wizardDomain === "__custom__" ||
+                          readyDomains.length === 0) && (
                           <input
-                            value={wizardDomain === "__custom__" ? "" : wizardDomain}
+                            value={
+                              wizardDomain === "__custom__" ? "" : wizardDomain
+                            }
                             onChange={(e) => setWizardDomain(e.target.value)}
                             placeholder="yourdomain.com"
                             className="w-full mt-2 px-3 py-2.5 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20"
@@ -622,20 +1005,37 @@ export default function Campaigns() {
                         )}
                         {readyDomains.length === 0 && (
                           <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
-                            <AlertCircle className="w-3 h-3" /> No warmed domains yet
+                            <AlertCircle className="w-3 h-3" /> No warmed
+                            domains yet
                           </p>
                         )}
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-1.5">Lead List (optional)</label>
-                        <select value={wizardListId} onChange={(e) => setWizardListId(e.target.value)} className="w-full px-3 py-2.5 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:border-[#2563EB] bg-white">
+                        <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-1.5">
+                          Lead List (optional)
+                        </label>
+                        <select
+                          value={wizardListId}
+                          onChange={(e) => setWizardListId(e.target.value)}
+                          className="w-full px-3 py-2.5 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:border-[#2563EB] bg-white"
+                        >
                           <option value="">No list selected</option>
-                          {lists.map((l) => <option key={l.id} value={l.id}>{l.label || "Untitled list"}</option>)}
+                          {lists.map((l) => (
+                            <option key={l.id} value={l.id}>
+                              {l.label || "Untitled list"}
+                            </option>
+                          ))}
                         </select>
                       </div>
                       <button
-                        onClick={() => { if (wizardName && wizardDomain) setStep(2); }}
-                        disabled={!wizardName.trim() || !wizardDomain.trim() || wizardDomain === "__custom__"}
+                        onClick={() => {
+                          if (wizardName && wizardDomain) setStep(2);
+                        }}
+                        disabled={
+                          !wizardName.trim() ||
+                          !wizardDomain.trim() ||
+                          wizardDomain === "__custom__"
+                        }
                         className="w-full py-2.5 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                       >
                         Continue <ArrowRight className="w-4 h-4" />
@@ -645,57 +1045,135 @@ export default function Campaigns() {
 
                   {step === 2 && (
                     <div className="space-y-4">
+                      {/* ── Step 2 header with template dropdown + AI button ── */}
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold text-[#0A0A0A]">Email Sequences ({sequences.length} steps)</p>
-                        <button
-                          onClick={handleGenerateAI}
-                          disabled={aiLoading}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EFF6FF] border border-[#BFDBFE] text-[#2563EB] text-xs font-semibold rounded-lg hover:bg-[#DBEAFE] transition-colors disabled:opacity-50"
-                        >
-                          {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                          AI Generate
-                        </button>
+                        <p className="text-sm font-semibold text-[#0A0A0A]">
+                          Email Sequences ({sequences.length} step
+                          {sequences.length !== 1 ? "s" : ""})
+                        </p>
+                        <div className="flex items-center gap-2">
+                          {/* Template dropdown */}
+                          <TemplateDropdown onSelect={handleApplyTemplate} />
+                          {/* AI generate */}
+                          <button
+                            onClick={handleGenerateAI}
+                            disabled={aiLoading}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EFF6FF] border border-[#BFDBFE] text-[#2563EB] text-xs font-semibold rounded-lg hover:bg-[#DBEAFE] transition-colors disabled:opacity-50"
+                          >
+                            {aiLoading ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Sparkles className="w-3.5 h-3.5" />
+                            )}
+                            AI Generate
+                          </button>
+                        </div>
                       </div>
+
                       {sequences.length === 0 ? (
                         <div className="border border-dashed border-[#E2E8F0] rounded-lg p-8 text-center">
                           <Mail className="w-8 h-8 text-[#CBD5E1] mx-auto mb-2" />
-                          <p className="text-sm text-[#64748B] mb-3">No steps yet</p>
-                          <div className="flex items-center justify-center gap-2">
-                            <button onClick={handleGenerateAI} disabled={aiLoading} className="flex items-center gap-1.5 px-3 py-2 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] disabled:opacity-50">
-                              {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                          <p className="text-sm text-[#64748B] mb-3">
+                            No steps yet
+                          </p>
+                          <div className="flex items-center justify-center gap-2 flex-wrap">
+                            <button
+                              onClick={handleGenerateAI}
+                              disabled={aiLoading}
+                              className="flex items-center gap-1.5 px-3 py-2 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] disabled:opacity-50"
+                            >
+                              {aiLoading ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Sparkles className="w-3.5 h-3.5" />
+                              )}
                               Auto-generate
                             </button>
-                            <button onClick={addSequenceStep} className="px-3 py-2 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-lg hover:bg-[#F5F7FA]">
+                            <button
+                              onClick={addSequenceStep}
+                              className="px-3 py-2 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-lg hover:bg-[#F5F7FA]"
+                            >
                               Add blank step
                             </button>
                           </div>
+                          <p className="text-xs text-[#94A3B8] mt-3">
+                            or use the{" "}
+                            <span className="font-semibold text-[#475569]">
+                              Use Template
+                            </span>{" "}
+                            dropdown above
+                          </p>
                         </div>
                       ) : (
                         <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
                           {sequences.map((seq, i) => (
-                            <div key={i} className="border border-[#E2E8F0] rounded-lg overflow-hidden">
+                            <div
+                              key={i}
+                              className="border border-[#E2E8F0] rounded-lg overflow-hidden"
+                            >
                               <div className="flex items-center gap-3 px-3 py-2 bg-[#F5F7FA] border-b border-[#E2E8F0]">
-                                <span className="w-5 h-5 bg-[#2563EB] rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</span>
-                                <span className="text-xs text-[#64748B]">Day</span>
+                                <span className="w-5 h-5 bg-[#2563EB] rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0">
+                                  {i + 1}
+                                </span>
+                                <span className="text-xs text-[#64748B]">
+                                  Day
+                                </span>
                                 <input
-                                  type="number" min={0} value={seq.delay_days}
-                                  onChange={(e) => setSequences((prev) => prev.map((s, j) => j === i ? { ...s, delay_days: parseInt(e.target.value) || 0 } : s))}
+                                  type="number"
+                                  min={0}
+                                  value={seq.delay_days}
+                                  onChange={(e) =>
+                                    setSequences((prev) =>
+                                      prev.map((s, j) =>
+                                        j === i
+                                          ? {
+                                              ...s,
+                                              delay_days:
+                                                parseInt(e.target.value) || 0,
+                                            }
+                                          : s,
+                                      ),
+                                    )
+                                  }
                                   className="w-14 px-2 py-0.5 border border-[#E2E8F0] rounded text-xs text-center bg-white focus:outline-none focus:border-[#2563EB]"
                                 />
-                                <button onClick={() => setSequences((prev) => prev.filter((_, j) => j !== i))} className="ml-auto text-[#94A3B8] hover:text-red-500">
+                                <button
+                                  onClick={() =>
+                                    setSequences((prev) =>
+                                      prev.filter((_, j) => j !== i),
+                                    )
+                                  }
+                                  className="ml-auto text-[#94A3B8] hover:text-red-500"
+                                >
                                   <X className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                               <div className="p-3 space-y-2">
                                 <input
                                   value={seq.subject}
-                                  onChange={(e) => setSequences((prev) => prev.map((s, j) => j === i ? { ...s, subject: e.target.value } : s))}
+                                  onChange={(e) =>
+                                    setSequences((prev) =>
+                                      prev.map((s, j) =>
+                                        j === i
+                                          ? { ...s, subject: e.target.value }
+                                          : s,
+                                      ),
+                                    )
+                                  }
                                   placeholder="Subject line"
                                   className="w-full px-2.5 py-1.5 border border-[#E2E8F0] rounded text-sm focus:outline-none focus:border-[#2563EB] bg-white"
                                 />
                                 <textarea
                                   value={seq.body}
-                                  onChange={(e) => setSequences((prev) => prev.map((s, j) => j === i ? { ...s, body: e.target.value } : s))}
+                                  onChange={(e) =>
+                                    setSequences((prev) =>
+                                      prev.map((s, j) =>
+                                        j === i
+                                          ? { ...s, body: e.target.value }
+                                          : s,
+                                      ),
+                                    )
+                                  }
                                   placeholder="Email body…"
                                   rows={4}
                                   className="w-full px-2.5 py-1.5 border border-[#E2E8F0] rounded text-xs focus:outline-none focus:border-[#2563EB] bg-white resize-none font-mono leading-relaxed"
@@ -705,15 +1183,26 @@ export default function Campaigns() {
                           ))}
                         </div>
                       )}
+
                       {sequences.length > 0 && (
-                        <button onClick={addSequenceStep} className="flex items-center gap-1.5 text-xs text-[#2563EB] hover:underline font-medium">
+                        <button
+                          onClick={addSequenceStep}
+                          className="flex items-center gap-1.5 text-xs text-[#2563EB] hover:underline font-medium"
+                        >
                           <Plus className="w-3.5 h-3.5" /> Add follow-up step
                         </button>
                       )}
                       <div className="flex gap-3 pt-2">
-                        <button onClick={() => setStep(1)} className="px-4 py-2.5 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-lg hover:bg-[#F5F7FA]">Back</button>
                         <button
-                          onClick={() => { if (sequences.length > 0) setStep(3); }}
+                          onClick={() => setStep(1)}
+                          className="px-4 py-2.5 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-lg hover:bg-[#F5F7FA]"
+                        >
+                          Back
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (sequences.length > 0) setStep(3);
+                          }}
                           disabled={sequences.length === 0}
                           className="flex-1 py-2.5 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] disabled:opacity-50 flex items-center justify-center gap-2"
                         >
@@ -729,34 +1218,66 @@ export default function Campaigns() {
                         {[
                           ["Campaign name", wizardName],
                           ["Sending domain", wizardDomain],
-                          ["Lead list", wizardListId ? (lists.find((l) => l.id === wizardListId)?.label ?? "Unknown") : "None selected"],
-                          ["Email steps", `${sequences.length} step${sequences.length !== 1 ? "s" : ""}`],
+                          [
+                            "Lead list",
+                            wizardListId
+                              ? (lists.find((l) => l.id === wizardListId)
+                                  ?.label ?? "Unknown")
+                              : "None selected",
+                          ],
+                          [
+                            "Email steps",
+                            `${sequences.length} step${sequences.length !== 1 ? "s" : ""}`,
+                          ],
                         ].map(([label, value]) => (
-                          <div key={label} className="flex items-center justify-between text-sm">
+                          <div
+                            key={label}
+                            className="flex items-center justify-between text-sm"
+                          >
                             <span className="text-[#64748B]">{label}</span>
-                            <span className="font-semibold text-[#0A0A0A]">{value}</span>
+                            <span className="font-semibold text-[#0A0A0A]">
+                              {value}
+                            </span>
                           </div>
                         ))}
                       </div>
                       <div className="space-y-2">
                         {sequences.map((seq, i) => (
-                          <div key={i} className="flex items-center gap-3 p-3 bg-white border border-[#E2E8F0] rounded-lg">
-                            <span className="w-6 h-6 bg-[#EFF6FF] rounded-full text-[#2563EB] text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</span>
+                          <div
+                            key={i}
+                            className="flex items-center gap-3 p-3 bg-white border border-[#E2E8F0] rounded-lg"
+                          >
+                            <span className="w-6 h-6 bg-[#EFF6FF] rounded-full text-[#2563EB] text-xs font-bold flex items-center justify-center shrink-0">
+                              {i + 1}
+                            </span>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-[#0A0A0A] truncate">{seq.subject || "(no subject)"}</p>
-                              <p className="text-xs text-[#64748B]">Day {seq.delay_days}</p>
+                              <p className="text-sm font-medium text-[#0A0A0A] truncate">
+                                {seq.subject || "(no subject)"}
+                              </p>
+                              <p className="text-xs text-[#64748B]">
+                                Day {seq.delay_days}
+                              </p>
                             </div>
                           </div>
                         ))}
                       </div>
                       <div className="flex gap-3">
-                        <button onClick={() => setStep(2)} className="px-4 py-2.5 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-lg hover:bg-[#F5F7FA]">Back</button>
+                        <button
+                          onClick={() => setStep(2)}
+                          className="px-4 py-2.5 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-lg hover:bg-[#F5F7FA]"
+                        >
+                          Back
+                        </button>
                         <button
                           onClick={handleCreateCampaign}
                           disabled={saving}
                           className="flex-1 py-2.5 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] disabled:opacity-50 flex items-center justify-center gap-2"
                         >
-                          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                          {saving ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="w-4 h-4" />
+                          )}
                           {saving ? "Saving…" : "Save Campaign"}
                         </button>
                       </div>
@@ -767,8 +1288,9 @@ export default function Campaigns() {
             )}
 
             {/* CAMPAIGN DETAIL */}
-            {!wizard && selectedId && (
-              detailLoading ? (
+            {!wizard &&
+              selectedId &&
+              (detailLoading ? (
                 <div className="flex items-center justify-center py-24">
                   <Loader2 className="w-6 h-6 text-[#64748B] animate-spin" />
                 </div>
@@ -778,8 +1300,12 @@ export default function Campaigns() {
                   <div className="bg-white border border-[#E2E8F0] rounded-xl p-5">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <h2 className="text-lg font-bold text-[#0A0A0A] leading-tight">{detail.name}</h2>
-                        <p className="text-sm text-[#64748B] mt-0.5 font-mono">{detail.sending_domain}</p>
+                        <h2 className="text-lg font-bold text-[#0A0A0A] leading-tight">
+                          {detail.name}
+                        </h2>
+                        <p className="text-sm text-[#64748B] mt-0.5 font-mono">
+                          {detail.sending_domain}
+                        </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {detail.status === "draft" && (
@@ -788,7 +1314,11 @@ export default function Campaigns() {
                             disabled={launching}
                             className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] disabled:opacity-50"
                           >
-                            {launching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                            {launching ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Send className="w-3.5 h-3.5" />
+                            )}
                             Launch
                           </button>
                         )}
@@ -803,7 +1333,11 @@ export default function Campaigns() {
                               className="flex items-center gap-1.5 px-3 py-1.5 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-lg hover:bg-[#F5F7FA] transition-colors disabled:opacity-50"
                               title="Sync analytics from Instantly"
                             >
-                              {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                              {syncing ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <RefreshCw className="w-3.5 h-3.5" />
+                              )}
                               Sync
                             </button>
                           </>
@@ -821,36 +1355,79 @@ export default function Campaigns() {
                   {/* Analytics */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <p className="text-xs text-[#64748B] uppercase tracking-widest font-medium">Analytics</p>
+                      <p className="text-xs text-[#64748B] uppercase tracking-widest font-medium">
+                        Analytics
+                      </p>
                       {detail.status === "active" && (
                         <button
                           onClick={() => handleSync(detail.id)}
                           disabled={syncing}
                           className="flex items-center gap-1 text-xs text-[#2563EB] hover:underline font-medium disabled:opacity-50"
                         >
-                          {syncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                          {syncing ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-3 h-3" />
+                          )}
                           Refresh from Instantly
                         </button>
                       )}
                     </div>
                     {analytics ? (
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <StatCard icon={<Send className="w-4 h-4 text-[#2563EB]" />}           label="Sent"    value={analytics.sent_count}           color="bg-[#EFF6FF]" />
-                        <StatCard icon={<Eye className="w-4 h-4 text-purple-600" />}            label="Opened"  value={analytics.opened_count}  rate={openRate  ? `${openRate} open rate`  : undefined} color="bg-purple-50" />
-                        <StatCard icon={<MessageSquare className="w-4 h-4 text-green-600" />}  label="Replied" value={analytics.replied_count} rate={replyRate ? `${replyRate} reply rate` : undefined} color="bg-green-50"  />
-                        <StatCard icon={<MousePointerClick className="w-4 h-4 text-amber-600" />} label="Clicked" value={analytics.clicked_count ?? 0} rate={clickRate ? `${clickRate} click rate` : undefined} color="bg-amber-50"  />
+                        <StatCard
+                          icon={<Send className="w-4 h-4 text-[#2563EB]" />}
+                          label="Sent"
+                          value={analytics.sent_count}
+                          color="bg-[#EFF6FF]"
+                        />
+                        <StatCard
+                          icon={<Eye className="w-4 h-4 text-purple-600" />}
+                          label="Opened"
+                          value={analytics.opened_count}
+                          rate={openRate ? `${openRate} open rate` : undefined}
+                          color="bg-purple-50"
+                        />
+                        <StatCard
+                          icon={
+                            <MessageSquare className="w-4 h-4 text-green-600" />
+                          }
+                          label="Replied"
+                          value={analytics.replied_count}
+                          rate={
+                            replyRate ? `${replyRate} reply rate` : undefined
+                          }
+                          color="bg-green-50"
+                        />
+                        <StatCard
+                          icon={
+                            <MousePointerClick className="w-4 h-4 text-amber-600" />
+                          }
+                          label="Clicked"
+                          value={analytics.clicked_count ?? 0}
+                          rate={
+                            clickRate ? `${clickRate} click rate` : undefined
+                          }
+                          color="bg-amber-50"
+                        />
                       </div>
                     ) : (
                       <div className="bg-[#F5F7FA] border border-[#E2E8F0] rounded-xl p-6 text-center">
                         <TrendingUp className="w-8 h-8 text-[#CBD5E1] mx-auto mb-2" />
-                        <p className="text-sm text-[#64748B]">No analytics yet</p>
+                        <p className="text-sm text-[#64748B]">
+                          No analytics yet
+                        </p>
                         {detail.status === "active" && (
                           <button
                             onClick={() => handleSync(detail.id)}
                             disabled={syncing}
                             className="mt-3 flex items-center gap-1.5 text-xs text-[#2563EB] font-medium hover:underline mx-auto disabled:opacity-50"
                           >
-                            {syncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                            {syncing ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <RefreshCw className="w-3 h-3" />
+                            )}
                             Sync from Instantly
                           </button>
                         )}
@@ -858,7 +1435,7 @@ export default function Campaigns() {
                     )}
                   </div>
 
-                  {/* ── NEW: Leads Table ── */}
+                  {/* Leads Table */}
                   {detail.external_campaign_id && (
                     <div>
                       <div className="flex items-center justify-between mb-3">
@@ -875,7 +1452,11 @@ export default function Campaigns() {
                           disabled={leadsLoading}
                           className="flex items-center gap-1 text-xs text-[#2563EB] hover:underline font-medium disabled:opacity-50"
                         >
-                          {leadsLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                          {leadsLoading ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-3 h-3" />
+                          )}
                           Refresh
                         </button>
                       </div>
@@ -887,37 +1468,53 @@ export default function Campaigns() {
                       ) : leads.length === 0 ? (
                         <div className="bg-white border border-dashed border-[#E2E8F0] rounded-xl p-6 text-center">
                           <Users className="w-7 h-7 text-[#CBD5E1] mx-auto mb-2" />
-                          <p className="text-sm text-[#64748B]">No leads found</p>
+                          <p className="text-sm text-[#64748B]">
+                            No leads found
+                          </p>
                         </div>
                       ) : (
                         <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden">
-                          {/* Table header */}
                           <div className="grid grid-cols-[2fr_2fr_1.5fr_1.2fr] gap-3 px-4 py-2.5 bg-[#F5F7FA] border-b border-[#E2E8F0]">
-                            <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Email</span>
-                            <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Name</span>
-                            <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Company</span>
-                            <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Status</span>
+                            <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                              Email
+                            </span>
+                            <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                              Name
+                            </span>
+                            <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                              Company
+                            </span>
+                            <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                              Status
+                            </span>
                           </div>
-
-                          {/* Table rows */}
                           <div className="divide-y divide-[#F1F5F9]">
                             {leads.map((lead) => {
-                              const statusInfo = lead.status !== undefined
-                                ? LEAD_STATUS_MAP[lead.status]
-                                : null;
+                              const statusInfo =
+                                lead.status !== undefined
+                                  ? LEAD_STATUS_MAP[lead.status]
+                                  : null;
                               return (
                                 <div
                                   key={lead.id}
                                   className="grid grid-cols-[2fr_2fr_1.5fr_1.2fr] gap-3 px-4 py-3 hover:bg-[#F8FAFC] transition-colors"
                                 >
-                                  <span className="text-xs text-[#0A0A0A] truncate font-mono">{lead.email || "—"}</span>
-                                  <span className="text-xs text-[#0A0A0A] truncate">
-                                    {[lead.first_name, lead.last_name].filter(Boolean).join(" ") || "—"}
+                                  <span className="text-xs text-[#0A0A0A] truncate font-mono">
+                                    {lead.email || "—"}
                                   </span>
-                                  <span className="text-xs text-[#64748B] truncate">{lead.company_name || "—"}</span>
-                                  <span>
+                                  <span className="text-xs text-[#0A0A0A] truncate">
+                                    {[lead.first_name, lead.last_name]
+                                      .filter(Boolean)
+                                      .join(" ") || "—"}
+                                  </span>
+                                  <span className="text-xs text-[#64748B] truncate">
+                                    {lead.company_name || "—"}
+                                  </span>
+                                  <span className="flex flex-wrap items-center gap-1">
                                     {statusInfo ? (
-                                      <span className={`inline-block text-xs px-2 py-0.5 rounded-full border font-medium ${statusInfo.color}`}>
+                                      <span
+                                        className={`inline-block text-xs px-2 py-0.5 rounded-full border font-medium ${statusInfo.color}`}
+                                      >
                                         {statusInfo.label}
                                       </span>
                                     ) : (
@@ -925,22 +1522,30 @@ export default function Campaigns() {
                                         Not contacted
                                       </span>
                                     )}
+                                    {lead.email_open_count &&
+                                    lead.email_open_count > 0 ? (
+                                      <span className="inline-block text-xs px-2 py-0.5 rounded-full border font-medium text-amber-700 bg-amber-50 border-amber-200">
+                                        Email opened
+                                      </span>
+                                    ) : null}
                                   </span>
                                 </div>
                               );
                             })}
                           </div>
-
-                          {/* Pagination */}
                           <div className="flex items-center justify-between px-4 py-3 border-t border-[#E2E8F0] bg-[#F5F7FA]">
                             <button
                               onClick={handleLeadsPrev}
-                              disabled={leadsCursorStack.length === 0 || leadsLoading}
+                              disabled={
+                                leadsCursorStack.length === 0 || leadsLoading
+                              }
                               className="flex items-center gap-1 text-xs font-medium text-[#64748B] hover:text-[#2563EB] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                             >
                               <ChevronLeft className="w-3.5 h-3.5" /> Previous
                             </button>
-                            <span className="text-xs text-[#94A3B8]">{leads.length} leads on this page</span>
+                            <span className="text-xs text-[#94A3B8]">
+                              {leads.length} leads on this page
+                            </span>
                             <button
                               onClick={handleLeadsNext}
                               disabled={!leadsHasMore || leadsLoading}
@@ -957,14 +1562,21 @@ export default function Campaigns() {
                   {/* Sequences */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <p className="text-xs text-[#64748B] uppercase tracking-widest font-medium">Email Sequence</p>
-                      {detail.campaign_sequences && detail.campaign_sequences.length > 0 && (
-                        <button onClick={handleUpdateSequences} className="text-xs text-[#2563EB] hover:underline font-medium">
-                          Save changes
-                        </button>
-                      )}
+                      <p className="text-xs text-[#64748B] uppercase tracking-widest font-medium">
+                        Email Sequence
+                      </p>
+                      {detail.campaign_sequences &&
+                        detail.campaign_sequences.length > 0 && (
+                          <button
+                            onClick={handleUpdateSequences}
+                            className="text-xs text-[#2563EB] hover:underline font-medium"
+                          >
+                            Save changes
+                          </button>
+                        )}
                     </div>
-                    {!detail.campaign_sequences || detail.campaign_sequences.length === 0 ? (
+                    {!detail.campaign_sequences ||
+                    detail.campaign_sequences.length === 0 ? (
                       <div className="bg-white border border-dashed border-[#E2E8F0] rounded-xl p-6 text-center text-sm text-[#64748B]">
                         No email steps yet
                       </div>
@@ -973,14 +1585,25 @@ export default function Campaigns() {
                         {detail.campaign_sequences
                           .sort((a, b) => a.step_number - b.step_number)
                           .map((seq, i) => (
-                            <div key={seq.id || i} className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden">
+                            <div
+                              key={seq.id || i}
+                              className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden"
+                            >
                               <div className="flex items-center gap-3 px-4 py-2 bg-[#F5F7FA] border-b border-[#E2E8F0]">
-                                <span className="w-5 h-5 bg-[#2563EB] rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</span>
-                                <span className="text-xs text-[#64748B]">Day {seq.delay_days}</span>
-                                <span className="text-xs font-medium text-[#0A0A0A] flex-1 truncate">{seq.subject}</span>
+                                <span className="w-5 h-5 bg-[#2563EB] rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0">
+                                  {i + 1}
+                                </span>
+                                <span className="text-xs text-[#64748B]">
+                                  Day {seq.delay_days}
+                                </span>
+                                <span className="text-xs font-medium text-[#0A0A0A] flex-1 truncate">
+                                  {seq.subject}
+                                </span>
                               </div>
                               <div className="px-4 py-3">
-                                <pre className="text-xs text-[#64748B] whitespace-pre-wrap leading-relaxed font-sans line-clamp-4">{seq.body}</pre>
+                                <pre className="text-xs text-[#64748B] whitespace-pre-wrap leading-relaxed font-sans line-clamp-4">
+                                  {seq.body}
+                                </pre>
                               </div>
                             </div>
                           ))}
@@ -988,14 +1611,17 @@ export default function Campaigns() {
                     )}
                   </div>
                 </div>
-              ) : null
-            )}
+              ) : null)}
 
             {!wizard && !selectedId && (
               <div className="flex flex-col items-center justify-center h-64 text-center">
                 <Mail className="w-10 h-10 text-[#CBD5E1] mb-3" />
-                <p className="text-[#64748B] font-medium">Select a campaign to view details</p>
-                <p className="text-sm text-[#94A3B8] mt-1">or create a new one to get started</p>
+                <p className="text-[#64748B] font-medium">
+                  Select a campaign to view details
+                </p>
+                <p className="text-sm text-[#94A3B8] mt-1">
+                  or create a new one to get started
+                </p>
               </div>
             )}
           </div>
@@ -1005,7 +1631,10 @@ export default function Campaigns() {
       {/* Delete confirm */}
       {deleteId && (
         <>
-          <div className="fixed inset-0 bg-black/40 z-50 backdrop-blur-[2px]" onClick={() => setDeleteId(null)} />
+          <div
+            className="fixed inset-0 bg-black/40 z-50 backdrop-blur-[2px]"
+            onClick={() => setDeleteId(null)}
+          />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
               <div className="flex items-start gap-4">
@@ -1013,18 +1642,32 @@ export default function Campaigns() {
                   <AlertCircle className="w-5 h-5 text-red-500" />
                 </div>
                 <div>
-                  <p className="text-[#0A0A0A] font-semibold text-base">Delete campaign?</p>
-                  <p className="text-[#64748B] text-sm mt-1">This will permanently delete the campaign, all sequences, and analytics.</p>
+                  <p className="text-[#0A0A0A] font-semibold text-base">
+                    Delete campaign?
+                  </p>
+                  <p className="text-[#64748B] text-sm mt-1">
+                    This will permanently delete the campaign, all sequences,
+                    and analytics.
+                  </p>
                 </div>
               </div>
               <div className="flex gap-3">
-                <button onClick={() => setDeleteId(null)} className="flex-1 py-2.5 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-lg hover:bg-[#F5F7FA]">Cancel</button>
+                <button
+                  onClick={() => setDeleteId(null)}
+                  className="flex-1 py-2.5 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-lg hover:bg-[#F5F7FA]"
+                >
+                  Cancel
+                </button>
                 <button
                   onClick={() => handleDelete(deleteId)}
                   disabled={deleting}
                   className="flex-1 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  {deleting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
                   {deleting ? "Deleting…" : "Yes, delete"}
                 </button>
               </div>
@@ -1035,4 +1678,3 @@ export default function Campaigns() {
     </DashboardLayout>
   );
 }
-

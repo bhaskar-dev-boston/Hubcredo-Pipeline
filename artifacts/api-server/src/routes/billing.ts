@@ -8,18 +8,23 @@ import { requireAuth, type AuthenticatedRequest } from "../lib/auth";
 const router: IRouter = Router();
 
 // ── Pack / tier definitions ────────────────────────────────────────────
-// INR amounts in paise (1 INR = 100 paise), USD amounts in cents (1 USD = 100 cents)
-// Exchange rate: ₹95 per $1
+// 1 credit = $1 purchasing power.  Exchange rate: ₹95 per $1.
+// INR amounts in paise (1 INR = 100 paise), USD amounts in cents (1 USD = 100 cents).
+//
+// Top-up packs give bonus credits for larger purchases.
 const TOPUP_PACKS: Record<string, { credits: number; amount_inr: number; amount_usd: number; name: string }> = {
-  starter: { credits: 1000,  amount_inr: 38000,  amount_usd: 400,  name: "Starter Pack" },
-  growth:  { credits: 5000,  amount_inr: 95000,  amount_usd: 1000, name: "Growth Pack"  },
-  scale:   { credits: 15000, amount_inr: 237500, amount_usd: 2500, name: "Scale Pack"   },
+  small:  { credits: 10,  amount_inr:  95000, amount_usd:  1000, name: "$10 Credit Pack"  },
+  medium: { credits: 28,  amount_inr: 237500, amount_usd:  2500, name: "$25 Credit Pack"  },
+  large:  { credits: 60,  amount_inr: 475000, amount_usd:  5000, name: "$50 Credit Pack"  },
+  xl:     { credits: 130, amount_inr: 950000, amount_usd: 10000, name: "$100 Credit Pack" },
 };
 
-// Growth=$4/mo→₹380, Scale=$9/mo→₹855 (at ₹95/$1)
+// Subscription tiers: monthly credit allowances at a discounted rate.
+// starter=$29/mo→35cr, growth=$399/mo→500cr, scale=$799/mo→1000cr
 const SUBSCRIPTION_TIERS: Record<string, { credits: number; amount_inr: number; amount_usd: number }> = {
-  growth: { credits: 3000,  amount_inr: 38000, amount_usd: 400 },
-  scale:  { credits: 12000, amount_inr: 85500, amount_usd: 900 },
+  starter: { credits: 35,  amount_inr:  275500, amount_usd:  2900 },
+  growth:  { credits: 500, amount_inr: 3790500, amount_usd: 39900 },
+  scale:   { credits: 1000, amount_inr: 7590500, amount_usd: 79900 },
 };
 
 // ── POST /billing/create-order ────────────────────────────────────────
@@ -54,7 +59,7 @@ router.post("/billing/create-order", requireAuth, async (req: AuthenticatedReque
     if (type === "topup") {
       const pack = pack_id ? TOPUP_PACKS[pack_id] : null;
       if (!pack) {
-        res.status(400).json({ error: "pack_id must be 'starter', 'growth', or 'scale'" });
+        res.status(400).json({ error: "pack_id must be 'small', 'medium', 'large', or 'xl'" });
         return;
       }
 
@@ -93,8 +98,8 @@ router.post("/billing/create-order", requireAuth, async (req: AuthenticatedReque
     }
 
     // subscription
-    if (tier !== "growth" && tier !== "scale") {
-      res.status(400).json({ error: "tier must be 'growth' or 'scale'" });
+    if (tier !== "starter" && tier !== "growth" && tier !== "scale") {
+      res.status(400).json({ error: "tier must be 'starter', 'growth', or 'scale'" });
       return;
     }
 
@@ -192,7 +197,7 @@ router.post("/billing/verify-payment", requireAuth, async (req: AuthenticatedReq
     }
 
     // subscription
-    if (tier !== "growth" && tier !== "scale") {
+    if (tier !== "starter" && tier !== "growth" && tier !== "scale") {
       res.status(400).json({ error: "Invalid tier" });
       return;
     }

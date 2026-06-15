@@ -1,11 +1,14 @@
 import { Router, type IRouter } from "express";
 import { supabase } from "../lib/supabase";
 import { requireAuth, type AuthenticatedRequest } from "../lib/auth";
+import { grantCredits } from "../lib/credits";
 import {
   GetMeResponse,
   UpdateProfileBody,
   UpdateProfileResponse,
 } from "@workspace/api-zod";
+
+const TRIAL_CREDITS = 100;
 
 const router: IRouter = Router();
 
@@ -38,7 +41,15 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
     full_name: full_name || null,
     onboarding_step: "not_started",
     onboarding_complete: false,
+    credit_balance: 0,
   });
+
+  // Grant trial credits (100 credits = $100 value, one-time)
+  try {
+    await grantCredits(userId, TRIAL_CREDITS, "trial_grant", "Welcome! 100 free trial credits");
+  } catch (err) {
+    req.log.warn({ err }, "Failed to grant trial credits");
+  }
 
   // Create a session token
   const { data: sessionData, error: sessionError } =

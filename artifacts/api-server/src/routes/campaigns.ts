@@ -112,10 +112,10 @@ router.post(
 
       // ✅ FIXED: correct v2 field names
       const sent    = analyticsData.emails_sent_count    ?? analyticsData.total_sent    ?? 0;
-      const opened  = analyticsData.emails_opened_count  ?? analyticsData.total_opened  ?? 0;
-      const replied = analyticsData.emails_replied_count ?? analyticsData.total_replied ?? 0;
+      const opened  = analyticsData.open_count_unique  ?? analyticsData.total_opened  ?? 0;
+      const replied = analyticsData.reply_count_unique ?? analyticsData.total_replied ?? 0;
       const bounced = analyticsData.emails_bounced_count ?? analyticsData.total_bounced ?? 0;
-      const clicked = analyticsData.emails_clicked_count ?? analyticsData.total_clicked ?? 0;
+      const clicked = analyticsData.link_click_count_unique ?? analyticsData.total_clicked ?? 0;
 
       // Upsert into campaign_analytics
       const { error: upsertErr } = await supabase
@@ -528,10 +528,6 @@ router.post(
 );
 
 
-/* -------------------------------------------------------------------------- */
-/*                        LIST LEADS FROM INSTANTLY                           */
-/* -------------------------------------------------------------------------- */
-
 router.get(
   "/campaigns/:id/leads",
   requireAuth,
@@ -543,7 +539,6 @@ router.get(
         return;
       }
 
-      // Get the external_campaign_id from our DB
       const { data: campaign } = await supabase
         .from("email_campaigns")
         .select("external_campaign_id")
@@ -559,9 +554,9 @@ router.get(
       const limit = parseInt(req.query.limit as string) || 20;
       const starting_after = req.query.starting_after as string | undefined;
 
-      // Instantly v2: POST /api/v2/leads/list
+      // ✅ FIXED: use "campaign" field (UUID), NOT "filter"
       const body: Record<string, any> = {
-        filter: { campaign_id: campaign.external_campaign_id },
+        campaign: campaign.external_campaign_id,  // ← correct field name
         limit,
       };
       if (starting_after) body.starting_after = starting_after;
@@ -582,12 +577,11 @@ router.get(
       }
 
       const data = await leadsRes.json();
-      res.json(data); // { items: [...], next_starting_after: "..." }
+      res.json(data);
     } catch (err: any) {
       console.error("LEADS FETCH ERROR:", err);
       res.status(500).json({ error: "Failed to fetch leads", details: err?.message });
     }
   }
 );
-
 export default router;

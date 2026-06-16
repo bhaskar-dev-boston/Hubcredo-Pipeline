@@ -493,7 +493,7 @@ export default function LinkedIn() {
     catch { return ""; }
   }
 
-  const inputClass = "w-full px-3 py-2.5 text-sm bg-white border border-[#E2E8F0] rounded-lg text-[#0A0A0A] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-colors";
+  const inputClass = "w-full px-3 py-2.5 text-sm bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg text-white placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/30 focus:border-[rgba(99,102,241,.7)] transition-colors";
   const lists = leadLists as LeadList[];
 
   return (
@@ -503,13 +503,13 @@ export default function LinkedIn() {
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-[#0A0A0A] flex items-center gap-2.5">
-              <Linkedin className="w-6 h-6 text-[#2563EB]" />
+            <h1 className="text-2xl font-bold text-white flex items-center gap-2.5">
+              <Linkedin className="w-6 h-6 text-[#4f46e5]" />
               LinkedIn Outreach
             </h1>
-            <p className="text-sm text-[#64748B] mt-1">Send connection requests and follow-ups to leads automatically.</p>
+            <p className="text-sm text-[rgba(255,255,255,.5)] mt-1">Send connection requests and follow-ups to leads automatically.</p>
           </div>
-          <button onClick={() => openBuilder()} className="flex items-center gap-2 px-4 py-2.5 bg-[#2563EB] text-white text-sm font-semibold rounded-xl hover:bg-[#1D4ED8] transition-colors shrink-0">
+          <button onClick={() => openBuilder()} className="flex items-center gap-2 px-4 py-2.5 bg-[#4f46e5] text-white text-sm font-semibold rounded-xl hover:bg-[#4338ca] transition-colors shrink-0">
             <Plus className="w-4 h-4" /> New sequence
           </button>
         </div>
@@ -527,42 +527,42 @@ export default function LinkedIn() {
 
         {/* LinkedIn Account */}
         <section>
-          <h2 className="text-xs font-semibold text-[#94A3B8] uppercase tracking-widest mb-3">Your LinkedIn account</h2>
+          <h2 className="text-xs font-semibold text-[rgba(255,255,255,.35)] uppercase tracking-widest mb-3">Your LinkedIn account</h2>
           {loading ? (
-            <div className="bg-white border border-[#E2E8F0] rounded-xl p-6 flex justify-center">
-              <Loader2 className="w-5 h-5 animate-spin text-[#94A3B8]" />
+            <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-6 flex justify-center">
+              <Loader2 className="w-5 h-5 animate-spin text-[rgba(255,255,255,.35)]" />
             </div>
           ) : account && account.status === "connected" ? (
-            <div className="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+            <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                  <div className="w-10 h-10 bg-[rgba(99,102,241,.15)] rounded-xl flex items-center justify-center">
                     <Linkedin className="w-5 h-5 text-[#0077B5]" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-[#0A0A0A]">{account.profile_name ?? "LinkedIn connected"}</p>
-                      <span className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full border border-green-200">
+                      <p className="text-sm font-semibold text-white">{account.profile_name ?? "LinkedIn connected"}</p>
+                      <span className="inline-flex items-center gap-1 text-xs bg-[rgba(16,185,129,.1)] text-[#34d399] px-2 py-0.5 rounded-full border border-[rgba(52,211,153,.25)]">
                         <CheckCircle2 className="w-3 h-3" /> Active
                       </span>
                     </div>
-                    <p className="text-xs text-[#64748B] mt-0.5">Daily limit: {account.daily_limit} sends · {account.sends_today ?? 0} sent today</p>
+                    <p className="text-xs text-[rgba(255,255,255,.5)] mt-0.5">Daily limit: {account.daily_limit} sends · {account.sends_today ?? 0} sent today</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => { setDailyLimit(account.daily_limit); setShowLimitEditor(true); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-[#E2E8F0] text-[#64748B] text-xs font-medium rounded-lg hover:bg-[#F5F7FA] transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] text-xs font-medium rounded-lg hover:bg-[rgba(255,255,255,.04)] transition-colors"
                   >
                     <Settings className="w-3.5 h-3.5" /> Limit
                   </button>
-                  <button onClick={handleDisconnect} className="px-3 py-1.5 border border-red-200 text-red-600 text-xs font-medium rounded-lg hover:bg-red-50 transition-colors">
+                  <button onClick={handleDisconnect} className="px-3 py-1.5 border border-[rgba(248,113,113,.3)] text-[#f87171] text-xs font-medium rounded-lg hover:bg-[rgba(239,68,68,.1)] transition-colors">
                     Disconnect
                   </button>
                 </div>
               </div>
               <div className="mt-4">
-                <div className="flex justify-between text-xs text-[#64748B] mb-1.5">
+                <div className="flex justify-between text-xs text-[rgba(255,255,255,.5)] mb-1.5">
                   <span>Sends today</span><span>{account.sends_today ?? 0} / {account.daily_limit}</span>
                 </div>
                 <div className="w-full bg-[#F1F5F9] rounded-full h-1.5">
@@ -570,32 +570,32 @@ export default function LinkedIn() {
                 </div>
               </div>
               {showLimitEditor && (
-                <div className="mt-4 pt-4 border-t border-[#E2E8F0] space-y-3">
-                  <p className="text-sm font-medium text-[#0A0A0A]">Update daily limit</p>
+                <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,.08)] space-y-3">
+                  <p className="text-sm font-medium text-white">Update daily limit</p>
                   <div className="flex items-center gap-3">
                     <input type="range" min={1} max={30} value={dailyLimit} onChange={(e) => setDailyLimit(Number(e.target.value))} className="flex-1 accent-[#0077B5]" />
-                    <span className="w-12 text-center text-sm font-bold text-[#0A0A0A] bg-[#F5F7FA] border border-[#E2E8F0] rounded-lg py-1.5">{dailyLimit}</span>
+                    <span className="w-12 text-center text-sm font-bold text-white bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg py-1.5">{dailyLimit}</span>
                   </div>
-                  <p className="text-xs text-[#94A3B8]">We recommend 15 sends/day to stay below LinkedIn's detection threshold.</p>
+                  <p className="text-xs text-[rgba(255,255,255,.35)]">We recommend 15 sends/day to stay below LinkedIn's detection threshold.</p>
                   <div className="flex gap-2">
                     <button onClick={handleUpdateLimit} disabled={savingLimit} className="flex items-center gap-1.5 px-4 py-2 bg-[#0A0A0A] text-white text-sm font-semibold rounded-lg hover:bg-[#1a1a1a] transition-colors disabled:opacity-50">
                       {savingLimit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                       {savingLimit ? "Saving…" : "Save"}
                     </button>
-                    <button onClick={() => setShowLimitEditor(false)} className="px-4 py-2 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-lg hover:bg-[#F5F7FA] transition-colors">Cancel</button>
+                    <button onClick={() => setShowLimitEditor(false)} className="px-4 py-2 border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] text-sm font-semibold rounded-lg hover:bg-[rgba(255,255,255,.04)] transition-colors">Cancel</button>
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            <div className="bg-white border border-[#E2E8F0] rounded-xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+            <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-[#F5F7FA] rounded-xl flex items-center justify-center shrink-0">
-                  <Linkedin className="w-5 h-5 text-[#94A3B8]" />
+                <div className="w-10 h-10 bg-[rgba(255,255,255,.04)] rounded-xl flex items-center justify-center shrink-0">
+                  <Linkedin className="w-5 h-5 text-[rgba(255,255,255,.35)]" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-[#0A0A0A]">No LinkedIn account connected</p>
-                  <p className="text-xs text-[#64748B] mt-1 mb-5">Connect your LinkedIn account to start sending automated connection requests and follow-ups.</p>
+                  <p className="text-sm font-semibold text-white">No LinkedIn account connected</p>
+                  <p className="text-xs text-[rgba(255,255,255,.5)] mt-1 mb-5">Connect your LinkedIn account to start sending automated connection requests and follow-ups.</p>
                   <button
                     onClick={handleConnectLinkedIn}
                     disabled={connecting}
@@ -611,7 +611,7 @@ export default function LinkedIn() {
                     )}
                     {connecting ? "Redirecting to Unipile…" : "Connect LinkedIn"}
                   </button>
-                  <p className="text-xs text-[#94A3B8] mt-3">You'll be securely redirected to connect your LinkedIn account via Unipile.</p>
+                  <p className="text-xs text-[rgba(255,255,255,.35)] mt-3">You'll be securely redirected to connect your LinkedIn account via Unipile.</p>
                 </div>
               </div>
             </div>
@@ -619,16 +619,16 @@ export default function LinkedIn() {
         </section>
 
         {/* Tab switcher */}
-        <div className="flex items-center gap-1 border-b border-[#E2E8F0]">
+        <div className="flex items-center gap-1 border-b border-[rgba(255,255,255,.08)]">
           <button
             onClick={() => { setActiveTab("sequences"); setOpenChat(null); }}
-            className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${activeTab === "sequences" ? "border-[#2563EB] text-[#2563EB]" : "border-transparent text-[#64748B] hover:text-[#0A0A0A]"}`}
+            className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${activeTab === "sequences" ? "border-[#4f46e5] text-[#4f46e5]" : "border-transparent text-[rgba(255,255,255,.5)] hover:text-white"}`}
           >
             Sequences
           </button>
           <button
             onClick={() => { setActiveTab("inbox"); setOpenChat(null); if (inbox.length === 0) loadInbox(); }}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${activeTab === "inbox" ? "border-[#0077B5] text-[#0077B5]" : "border-transparent text-[#64748B] hover:text-[#0A0A0A]"}`}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${activeTab === "inbox" ? "border-[#0077B5] text-[#0077B5]" : "border-transparent text-[rgba(255,255,255,.5)] hover:text-white"}`}
           >
             <Mail className="w-3.5 h-3.5" /> LinkedIn Inbox
             {inbox.some((c) => (c.unread_count ?? 0) > 0) && <span className="w-2 h-2 bg-[#0077B5] rounded-full" />}
@@ -640,20 +640,20 @@ export default function LinkedIn() {
           <section className="pt-2">
             {openChat ? (
               /* ── Chat view ── */
-              <div className="bg-white border border-[#E2E8F0] rounded-2xl overflow-hidden flex flex-col" style={{ height: "560px" }}>
+              <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-2xl overflow-hidden flex flex-col" style={{ height: "560px" }}>
                 {/* Chat header */}
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-[#E2E8F0] bg-white shrink-0">
-                  <button onClick={() => setOpenChat(null)} className="p-1.5 text-[#64748B] hover:text-[#0A0A0A] hover:bg-[#F5F7FA] rounded-lg transition-colors">
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.04)] shrink-0">
+                  <button onClick={() => setOpenChat(null)} className="p-1.5 text-[rgba(255,255,255,.5)] hover:text-white hover:bg-[rgba(255,255,255,.04)] rounded-lg transition-colors">
                     <ArrowLeft className="w-4 h-4" />
                   </button>
                   <div className="w-8 h-8 rounded-full bg-[#0077B5] flex items-center justify-center text-white text-sm font-bold shrink-0">
                     {(openChat.display_name ?? "?").charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[#0A0A0A] truncate">{openChat.display_name ?? "Unknown contact"}</p>
-                    <p className="text-xs text-[#94A3B8]">LinkedIn · via Unipile</p>
+                    <p className="text-sm font-semibold text-white truncate">{openChat.display_name ?? "Unknown contact"}</p>
+                    <p className="text-xs text-[rgba(255,255,255,.35)]">LinkedIn · via Unipile</p>
                   </div>
-                  <button onClick={refreshMessages} className="p-1.5 text-[#64748B] hover:text-[#0A0A0A] hover:bg-[#F5F7FA] rounded-lg transition-colors">
+                  <button onClick={refreshMessages} className="p-1.5 text-[rgba(255,255,255,.5)] hover:text-white hover:bg-[rgba(255,255,255,.04)] rounded-lg transition-colors">
                     <RefreshCcw className={`w-3.5 h-3.5 ${loadingMessages ? "animate-spin" : ""}`} />
                   </button>
                 </div>
@@ -663,12 +663,12 @@ export default function LinkedIn() {
                   {loadingMessages ? (
                     <div className="flex flex-col items-center justify-center h-full gap-2">
                       <Loader2 className="w-5 h-5 animate-spin text-[#0077B5]" />
-                      <p className="text-xs text-[#94A3B8]">Loading messages…</p>
+                      <p className="text-xs text-[rgba(255,255,255,.35)]">Loading messages…</p>
                     </div>
                   ) : chatMessages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full gap-2">
                       <MessageCircle className="w-8 h-8 text-[#CBD5E1]" />
-                      <p className="text-sm text-[#94A3B8]">No messages yet</p>
+                      <p className="text-sm text-[rgba(255,255,255,.35)]">No messages yet</p>
                     </div>
                   ) : (
                     <>
@@ -683,12 +683,12 @@ export default function LinkedIn() {
                             <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${
                               msg.is_sender
                                 ? "bg-[#0077B5] text-white rounded-br-sm"
-                                : "bg-white border border-[#E2E8F0] text-[#0A0A0A] rounded-bl-sm shadow-sm"
+                                : "bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] text-white rounded-bl-sm shadow-sm"
                             }`}>
                               {msg.text ?? <span className="italic opacity-60">📎 Attachment</span>}
                             </div>
                             {msg.timestamp && (
-                              <span className="text-[10px] text-[#94A3B8] px-1">{formatMessageTime(msg.timestamp)}</span>
+                              <span className="text-[10px] text-[rgba(255,255,255,.35)] px-1">{formatMessageTime(msg.timestamp)}</span>
                             )}
                           </div>
                         </div>
@@ -699,7 +699,7 @@ export default function LinkedIn() {
                 </div>
 
                 {/* Input */}
-                <div className="px-4 py-3 border-t border-[#E2E8F0] bg-white shrink-0">
+                <div className="px-4 py-3 border-t border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.04)] shrink-0">
                   <div className="flex items-end gap-2">
                     <textarea
                       ref={inputRef}
@@ -708,7 +708,7 @@ export default function LinkedIn() {
                       onKeyDown={handleInputKeyDown}
                       placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
                       rows={2}
-                      className="flex-1 px-3 py-2.5 text-sm bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-[#0A0A0A] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0077B5]/30 focus:border-[#0077B5] transition-colors resize-none"
+                      className="flex-1 px-3 py-2.5 text-sm bg-[#F8FAFC] border border-[rgba(255,255,255,.08)] rounded-xl text-white placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0077B5]/30 focus:border-[#0077B5] transition-colors resize-none"
                     />
                     <button
                       onClick={handleSendMessage}
@@ -718,36 +718,36 @@ export default function LinkedIn() {
                       {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizonal className="w-4 h-4" />}
                     </button>
                   </div>
-                  <p className="text-[10px] text-[#94A3B8] mt-1.5 px-1">Sent via Unipile · Delivered to LinkedIn</p>
+                  <p className="text-[10px] text-[rgba(255,255,255,.35)] mt-1.5 px-1">Sent via Unipile · Delivered to LinkedIn</p>
                 </div>
               </div>
             ) : (
               /* ── Inbox list ── */
               !account ? (
-                <div className="bg-white border border-dashed border-[#E2E8F0] rounded-xl p-10 text-center">
+                <div className="bg-[rgba(255,255,255,.04)] border border-dashed border-[rgba(255,255,255,.08)] rounded-xl p-10 text-center">
                   <Linkedin className="w-8 h-8 text-[#CBD5E1] mx-auto mb-3" />
-                  <p className="text-sm font-medium text-[#0A0A0A]">LinkedIn not connected</p>
-                  <p className="text-xs text-[#64748B] mt-1">Connect your account above to see your inbox.</p>
+                  <p className="text-sm font-medium text-white">LinkedIn not connected</p>
+                  <p className="text-xs text-[rgba(255,255,255,.5)] mt-1">Connect your account above to see your inbox.</p>
                 </div>
               ) : loadingInbox ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-3">
                   <Loader2 className="w-6 h-6 animate-spin text-[#0077B5]" />
-                  <p className="text-xs text-[#64748B]">Loading messages from LinkedIn…</p>
+                  <p className="text-xs text-[rgba(255,255,255,.5)]">Loading messages from LinkedIn…</p>
                 </div>
               ) : inbox.length === 0 ? (
-                <div className="bg-white border border-dashed border-[#E2E8F0] rounded-xl p-10 text-center">
+                <div className="bg-[rgba(255,255,255,.04)] border border-dashed border-[rgba(255,255,255,.08)] rounded-xl p-10 text-center">
                   <Mail className="w-8 h-8 text-[#CBD5E1] mx-auto mb-3" />
-                  <p className="text-sm font-medium text-[#0A0A0A]">No messages yet</p>
-                  <p className="text-xs text-[#64748B] mt-1">LinkedIn replies will appear here once your connections start responding.</p>
-                  <button onClick={loadInbox} className="mt-4 inline-flex items-center gap-1.5 text-xs text-[#2563EB] hover:text-[#1D4ED8] transition-colors">
+                  <p className="text-sm font-medium text-white">No messages yet</p>
+                  <p className="text-xs text-[rgba(255,255,255,.5)] mt-1">LinkedIn replies will appear here once your connections start responding.</p>
+                  <button onClick={loadInbox} className="mt-4 inline-flex items-center gap-1.5 text-xs text-[#4f46e5] hover:text-[#4338ca] transition-colors">
                     <RefreshCcw className="w-3 h-3" /> Refresh inbox
                   </button>
                 </div>
               ) : (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs text-[#94A3B8]">{inbox.length} conversation{inbox.length !== 1 ? "s" : ""}</p>
-                    <button onClick={loadInbox} className="flex items-center gap-1.5 text-xs text-[#64748B] hover:text-[#0A0A0A] transition-colors">
+                    <p className="text-xs text-[rgba(255,255,255,.35)]">{inbox.length} conversation{inbox.length !== 1 ? "s" : ""}</p>
+                    <button onClick={loadInbox} className="flex items-center gap-1.5 text-xs text-[rgba(255,255,255,.5)] hover:text-white transition-colors">
                       <RefreshCcw className="w-3 h-3" /> Refresh
                     </button>
                   </div>
@@ -757,7 +757,7 @@ export default function LinkedIn() {
                       <button
                         key={chat.id}
                         onClick={() => openChatPanel(chat)}
-                        className={`w-full text-left bg-white border rounded-xl p-4 transition-all hover:shadow-sm hover:border-[#0077B5]/30 ${hasUnread ? "border-[#0077B5]/30 bg-blue-50/30" : "border-[#E2E8F0]"}`}
+                        className={`w-full text-left bg-[rgba(255,255,255,.04)] border rounded-xl p-4 transition-all hover:shadow-sm hover:border-[#0077B5]/30 ${hasUnread ? "border-[#0077B5]/30 bg-[rgba(99,102,241,.15)]/30" : "border-[rgba(255,255,255,.08)]"}`}
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-[#0077B5] flex items-center justify-center text-white text-sm font-bold shrink-0">
@@ -765,12 +765,12 @@ export default function LinkedIn() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
-                              <p className={`text-sm truncate ${hasUnread ? "font-semibold text-[#0A0A0A]" : "font-medium text-[#0A0A0A]"}`}>
-                                {chat.display_name ?? <span className="text-[#94A3B8] italic font-normal">Unknown contact</span>}
+                              <p className={`text-sm truncate ${hasUnread ? "font-semibold text-white" : "font-medium text-white"}`}>
+                                {chat.display_name ?? <span className="text-[rgba(255,255,255,.35)] italic font-normal">Unknown contact</span>}
                               </p>
                               <div className="flex items-center gap-1.5 shrink-0">
                                 {chat.timestamp && (
-                                  <span className={`text-[10px] ${hasUnread ? "text-[#0077B5] font-medium" : "text-[#94A3B8]"}`}>
+                                  <span className={`text-[10px] ${hasUnread ? "text-[#0077B5] font-medium" : "text-[rgba(255,255,255,.35)]"}`}>
                                     {formatTime(chat.timestamp)}
                                   </span>
                                 )}
@@ -781,8 +781,8 @@ export default function LinkedIn() {
                                 )}
                               </div>
                             </div>
-                            <p className={`text-xs mt-0.5 truncate ${hasUnread ? "text-[#374151]" : "text-[#64748B]"}`}>
-                              {chat.last_message_sender_is_me && <span className="text-[#94A3B8]">You: </span>}
+                            <p className={`text-xs mt-0.5 truncate ${hasUnread ? "text-[#374151]" : "text-[rgba(255,255,255,.5)]"}`}>
+                              {chat.last_message_sender_is_me && <span className="text-[rgba(255,255,255,.35)]">You: </span>}
                               {chat.last_message_text ?? <span className="text-[#CBD5E1] italic">Tap to open</span>}
                             </p>
                           </div>
@@ -800,13 +800,13 @@ export default function LinkedIn() {
         {/* ── SEQUENCES ── */}
         {activeTab === "sequences" && (
           <section>
-            <h2 className="text-xs font-semibold text-[#94A3B8] uppercase tracking-widest mb-3 pt-4">Sequences</h2>
+            <h2 className="text-xs font-semibold text-[rgba(255,255,255,.35)] uppercase tracking-widest mb-3 pt-4">Sequences</h2>
             {sequences.length === 0 ? (
-              <div className="bg-white border border-[#E2E8F0] border-dashed rounded-xl p-10 flex flex-col items-center gap-3 text-center">
-                <div className="w-12 h-12 bg-[#F5F7FA] rounded-2xl flex items-center justify-center"><Send className="w-5 h-5 text-[#94A3B8]" /></div>
-                <p className="text-sm font-semibold text-[#0A0A0A]">No sequences yet</p>
-                <p className="text-xs text-[#64748B] max-w-xs">Create a sequence with a connection request template and optional follow-up message.</p>
-                <button onClick={() => openBuilder()} className="mt-1 flex items-center gap-2 px-4 py-2.5 bg-[#2563EB] text-white text-sm font-semibold rounded-xl hover:bg-[#1D4ED8] transition-colors">
+              <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] border-dashed rounded-xl p-10 flex flex-col items-center gap-3 text-center">
+                <div className="w-12 h-12 bg-[rgba(255,255,255,.04)] rounded-2xl flex items-center justify-center"><Send className="w-5 h-5 text-[rgba(255,255,255,.35)]" /></div>
+                <p className="text-sm font-semibold text-white">No sequences yet</p>
+                <p className="text-xs text-[rgba(255,255,255,.5)] max-w-xs">Create a sequence with a connection request template and optional follow-up message.</p>
+                <button onClick={() => openBuilder()} className="mt-1 flex items-center gap-2 px-4 py-2.5 bg-[#4f46e5] text-white text-sm font-semibold rounded-xl hover:bg-[#4338ca] transition-colors">
                   <Plus className="w-4 h-4" /> Create first sequence
                 </button>
               </div>
@@ -817,26 +817,26 @@ export default function LinkedIn() {
                   const isExpanded = expandedAnalytics[seq.id];
                   const isLoadingA = loadingAnalytics[seq.id];
                   return (
-                    <div key={seq.id} className="bg-white border border-[#E2E8F0] rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.06)] overflow-hidden">
+                    <div key={seq.id} className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.06)] overflow-hidden">
                       <div className="p-5">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="text-sm font-semibold text-[#0A0A0A]">{seq.name}</h3>
-                              <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${seq.is_active ? "bg-green-50 text-green-700 border-green-200" : "bg-[#F5F7FA] text-[#64748B] border-[#E2E8F0]"}`}>
+                              <h3 className="text-sm font-semibold text-white">{seq.name}</h3>
+                              <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${seq.is_active ? "bg-[rgba(16,185,129,.1)] text-[#34d399] border-[rgba(52,211,153,.25)]" : "bg-[rgba(255,255,255,.04)] text-[rgba(255,255,255,.5)] border-[rgba(255,255,255,.08)]"}`}>
                                 {seq.is_active ? "Active" : "Inactive"}
                               </span>
                             </div>
                             {seq.lead_lists && (
-                              <p className="text-xs text-[#64748B] mt-1 flex items-center gap-1.5">
+                              <p className="text-xs text-[rgba(255,255,255,.5)] mt-1 flex items-center gap-1.5">
                                 <Users className="w-3.5 h-3.5" />{seq.lead_lists.label}
                               </p>
                             )}
-                            <p className="text-xs text-[#94A3B8] mt-1.5 line-clamp-2">{seq.connection_message}</p>
+                            <p className="text-xs text-[rgba(255,255,255,.35)] mt-1.5 line-clamp-2">{seq.connection_message}</p>
                             <div className="flex flex-wrap gap-3 mt-2">
-                              <span className="text-xs text-[#64748B] flex items-center gap-1"><Send className="w-3 h-3" /> {seq.daily_limit}/day limit</span>
+                              <span className="text-xs text-[rgba(255,255,255,.5)] flex items-center gap-1"><Send className="w-3 h-3" /> {seq.daily_limit}/day limit</span>
                               {seq.followup_message && (
-                                <span className="text-xs text-[#64748B] flex items-center gap-1"><MessageSquare className="w-3 h-3" /> Follow-up in {seq.followup_delay_days}d</span>
+                                <span className="text-xs text-[rgba(255,255,255,.5)] flex items-center gap-1"><MessageSquare className="w-3 h-3" /> Follow-up in {seq.followup_delay_days}d</span>
                               )}
                             </div>
                           </div>
@@ -846,54 +846,54 @@ export default function LinkedIn() {
                                 <button onClick={() => handleLaunch(seq)} disabled={launchingId === seq.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0077B5] text-white text-xs font-semibold rounded-lg hover:bg-[#005e93] transition-colors disabled:opacity-50">
                                   {launchingId === seq.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />} Launch
                                 </button>
-                                <span className="text-[10px] text-[#94A3B8] flex items-center gap-0.5"><Zap className="w-2.5 h-2.5" /> 1 cr/send</span>
+                                <span className="text-[10px] text-[rgba(255,255,255,.35)] flex items-center gap-0.5"><Zap className="w-2.5 h-2.5" /> 1 cr/send</span>
                               </div>
                             ) : (
-                              <button onClick={() => handlePause(seq)} disabled={pausingId === seq.id} className="flex items-center gap-1.5 px-3 py-1.5 border border-[#E2E8F0] text-[#64748B] text-xs font-medium rounded-lg hover:bg-[#F5F7FA] transition-colors disabled:opacity-50">
+                              <button onClick={() => handlePause(seq)} disabled={pausingId === seq.id} className="flex items-center gap-1.5 px-3 py-1.5 border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] text-xs font-medium rounded-lg hover:bg-[rgba(255,255,255,.04)] transition-colors disabled:opacity-50">
                                 {pausingId === seq.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pause className="w-3.5 h-3.5" />} Pause
                               </button>
                             )}
-                            <button onClick={() => openBuilder(seq)} className="p-1.5 text-[#94A3B8] hover:text-[#0A0A0A] hover:bg-[#F5F7FA] rounded-lg transition-colors">
+                            <button onClick={() => openBuilder(seq)} className="p-1.5 text-[rgba(255,255,255,.35)] hover:text-white hover:bg-[rgba(255,255,255,.04)] rounded-lg transition-colors">
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
-                            <button onClick={() => handleDelete(seq.id)} disabled={deletingId === seq.id} className="p-1.5 text-[#94A3B8] hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50">
+                            <button onClick={() => handleDelete(seq.id)} disabled={deletingId === seq.id} className="p-1.5 text-[rgba(255,255,255,.35)] hover:text-red-500 hover:bg-[rgba(239,68,68,.1)] rounded-lg transition-colors disabled:opacity-50">
                               {deletingId === seq.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                             </button>
                           </div>
                         </div>
                       </div>
-                      <button onClick={() => toggleAnalytics(seq.id)} className="w-full flex items-center justify-between px-5 py-2.5 bg-[#F8FAFC] border-t border-[#E2E8F0] text-xs font-medium text-[#64748B] hover:bg-[#F1F5F9] transition-colors">
-                        <span className="flex items-center gap-1.5"><BarChart2 className="w-3.5 h-3.5 text-[#2563EB]" /> Analytics</span>
+                      <button onClick={() => toggleAnalytics(seq.id)} className="w-full flex items-center justify-between px-5 py-2.5 bg-[#F8FAFC] border-t border-[rgba(255,255,255,.08)] text-xs font-medium text-[rgba(255,255,255,.5)] hover:bg-[#F1F5F9] transition-colors">
+                        <span className="flex items-center gap-1.5"><BarChart2 className="w-3.5 h-3.5 text-[#4f46e5]" /> Analytics</span>
                         {isLoadingA ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                       </button>
                       {isExpanded && (
-                        <div className="px-5 py-4 border-t border-[#E2E8F0] bg-[#F8FAFC]">
+                        <div className="px-5 py-4 border-t border-[rgba(255,255,255,.08)] bg-[#F8FAFC]">
                           {isLoadingA ? (
-                            <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-[#94A3B8]" /></div>
+                            <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-[rgba(255,255,255,.35)]" /></div>
                           ) : analytics ? (
                             <div className="space-y-4">
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                 {[
-                                  { label: "Contacted", value: analytics.total_contacted, icon: <Send className="w-3.5 h-3.5 text-[#64748B]" />, color: "text-[#0A0A0A]", sub: undefined },
+                                  { label: "Contacted", value: analytics.total_contacted, icon: <Send className="w-3.5 h-3.5 text-[rgba(255,255,255,.5)]" />, color: "text-white", sub: undefined },
                                   { label: "Connected", value: analytics.connected, icon: <UserCheck className="w-3.5 h-3.5 text-[#0077B5]" />, color: "text-[#0077B5]", sub: analytics.total_contacted > 0 ? `${getAcceptanceRate(analytics)}% rate` : undefined },
-                                  { label: "Replied", value: analytics.replied, icon: <MessageCircle className="w-3.5 h-3.5 text-green-600" />, color: "text-green-600", sub: analytics.connected > 0 ? `${getReplyRate(analytics)}% rate` : undefined },
+                                  { label: "Replied", value: analytics.replied, icon: <MessageCircle className="w-3.5 h-3.5 text-[#34d399]" />, color: "text-[#34d399]", sub: analytics.connected > 0 ? `${getReplyRate(analytics)}% rate` : undefined },
                                   { label: "Follow-ups", value: analytics.followups_pending, icon: <Clock className="w-3.5 h-3.5 text-amber-500" />, color: "text-amber-500", sub: `${analytics.followups_sent} sent` },
                                 ].map((stat) => (
-                                  <div key={stat.label} className="bg-white rounded-xl border border-[#E2E8F0] p-3">
-                                    <div className="flex items-center gap-1.5 mb-1">{stat.icon}<span className="text-xs text-[#64748B]">{stat.label}</span></div>
+                                  <div key={stat.label} className="bg-[rgba(255,255,255,.04)] rounded-xl border border-[rgba(255,255,255,.08)] p-3">
+                                    <div className="flex items-center gap-1.5 mb-1">{stat.icon}<span className="text-xs text-[rgba(255,255,255,.5)]">{stat.label}</span></div>
                                     <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-                                    {stat.sub && <p className="text-xs text-[#94A3B8] mt-0.5">{stat.sub}</p>}
+                                    {stat.sub && <p className="text-xs text-[rgba(255,255,255,.35)] mt-0.5">{stat.sub}</p>}
                                   </div>
                                 ))}
                               </div>
                               {analytics.total_contacted > 0 && (
-                                <div className="bg-white rounded-xl border border-[#E2E8F0] p-4">
-                                  <p className="text-xs font-semibold text-[#0A0A0A] mb-3">Funnel</p>
+                                <div className="bg-[rgba(255,255,255,.04)] rounded-xl border border-[rgba(255,255,255,.08)] p-4">
+                                  <p className="text-xs font-semibold text-white mb-3">Funnel</p>
                                   <div className="space-y-2.5">
                                     {[
-                                      { label: "Contacted", value: analytics.total_contacted, pct: 100, color: "bg-[#64748B]", textColor: "text-[#64748B]" },
+                                      { label: "Contacted", value: analytics.total_contacted, pct: 100, color: "bg-[#64748B]", textColor: "text-[rgba(255,255,255,.5)]" },
                                       { label: "Connected", value: analytics.connected, pct: getAcceptanceRate(analytics), color: "bg-[#0077B5]", textColor: "text-[#0077B5]" },
-                                      { label: "Replied", value: analytics.replied, pct: analytics.total_contacted > 0 ? Math.round((analytics.replied / analytics.total_contacted) * 100) : 0, color: "bg-green-500", textColor: "text-green-600" },
+                                      { label: "Replied", value: analytics.replied, pct: analytics.total_contacted > 0 ? Math.round((analytics.replied / analytics.total_contacted) * 100) : 0, color: "bg-[rgba(16,185,129,.1)]0", textColor: "text-[#34d399]" },
                                     ].map((bar) => (
                                       <div key={bar.label}>
                                         <div className={`flex justify-between text-xs ${bar.textColor} mb-1`}>
@@ -908,14 +908,14 @@ export default function LinkedIn() {
                                 </div>
                               )}
                               <div className="flex items-center gap-3">
-                                <button onClick={() => loadAnalytics(seq.id)} className="text-xs text-[#2563EB] hover:text-[#1D4ED8] transition-colors">Refresh analytics</button>
+                                <button onClick={() => loadAnalytics(seq.id)} className="text-xs text-[#4f46e5] hover:text-[#4338ca] transition-colors">Refresh analytics</button>
                                 <button onClick={() => refreshAnalyticsFromLinkedIn(seq.id)} disabled={refreshingAnalytics[seq.id]} className="flex items-center gap-1 text-xs text-[#0077B5] hover:text-[#005e93] transition-colors disabled:opacity-50">
                                   {refreshingAnalytics[seq.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCcw className="w-3 h-3" />} Sync from LinkedIn
                                 </button>
                               </div>
                             </div>
                           ) : (
-                            <p className="text-xs text-[#94A3B8] text-center py-4">No analytics data yet. Launch the sequence first.</p>
+                            <p className="text-xs text-[rgba(255,255,255,.35)] text-center py-4">No analytics data yet. Launch the sequence first.</p>
                           )}
                         </div>
                       )}
@@ -931,18 +931,18 @@ export default function LinkedIn() {
       {/* ── Sequence builder modal ── */}
       {showBuilder && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-[#E2E8F0] px-6 py-4 flex items-center justify-between rounded-t-2xl">
-              <h2 className="text-base font-bold text-[#0A0A0A]">{editingSeq ? "Edit sequence" : "New sequence"}</h2>
-              <button onClick={() => setShowBuilder(false)} className="p-1.5 text-[#94A3B8] hover:text-[#0A0A0A] hover:bg-[#F5F7FA] rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+          <div className="bg-[rgba(255,255,255,.04)] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-[rgba(255,255,255,.04)] border-b border-[rgba(255,255,255,.08)] px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <h2 className="text-base font-bold text-white">{editingSeq ? "Edit sequence" : "New sequence"}</h2>
+              <button onClick={() => setShowBuilder(false)} className="p-1.5 text-[rgba(255,255,255,.35)] hover:text-white hover:bg-[rgba(255,255,255,.04)] rounded-lg transition-colors"><X className="w-4 h-4" /></button>
             </div>
             <div className="p-6 space-y-5">
               <div>
-                <label className="block text-sm font-medium text-[#0A0A0A] mb-1.5">Sequence name</label>
+                <label className="block text-sm font-medium text-white mb-1.5">Sequence name</label>
                 <input value={seqName} onChange={(e) => setSeqName(e.target.value)} placeholder="My LinkedIn Sequence" className={inputClass} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#0A0A0A] mb-1.5">Lead list</label>
+                <label className="block text-sm font-medium text-white mb-1.5">Lead list</label>
                 <select value={seqListId} onChange={(e) => setSeqListId(e.target.value)} className={inputClass}>
                   <option value="">No list selected</option>
                   {lists.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
@@ -950,23 +950,23 @@ export default function LinkedIn() {
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-sm font-medium text-[#0A0A0A]">
-                    Connection request message <span className="text-[#94A3B8] font-normal">(max 300 chars)</span>
+                  <label className="text-sm font-medium text-white">
+                    Connection request message <span className="text-[rgba(255,255,255,.35)] font-normal">(max 300 chars)</span>
                   </label>
                   <div className="flex items-center gap-2">
-                    <button onClick={handlePrefill} disabled={prefilling} className="flex items-center gap-1 text-xs text-[#2563EB] hover:text-[#1D4ED8] transition-colors disabled:opacity-50">
+                    <button onClick={handlePrefill} disabled={prefilling} className="flex items-center gap-1 text-xs text-[#4f46e5] hover:text-[#4338ca] transition-colors disabled:opacity-50">
                       {prefilling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} AI fill
                     </button>
                     <div className="relative">
-                      <button onClick={() => setShowTemplates(!showTemplates)} className="flex items-center gap-1 text-xs text-[#64748B] hover:text-[#0A0A0A] transition-colors">
+                      <button onClick={() => setShowTemplates(!showTemplates)} className="flex items-center gap-1 text-xs text-[rgba(255,255,255,.5)] hover:text-white transition-colors">
                         <FileText className="w-3 h-3" /> Templates
                       </button>
                       {showTemplates && (
-                        <div className="absolute right-0 top-6 z-20 bg-white border border-[#E2E8F0] rounded-xl shadow-lg w-72 p-1.5">
+                        <div className="absolute right-0 top-6 z-20 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl shadow-lg w-72 p-1.5">
                           {LINKEDIN_TEMPLATES.map((t, i) => (
-                            <button key={i} onClick={() => { setConnMsg(t.connection_message); if (t.followup_message) setFollowupMsg(t.followup_message); setShowTemplates(false); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#F5F7FA] transition-colors">
-                              <p className="text-xs font-semibold text-[#0A0A0A]">{t.name}</p>
-                              <p className="text-xs text-[#64748B] truncate mt-0.5">{t.connection_message.slice(0, 65)}…</p>
+                            <button key={i} onClick={() => { setConnMsg(t.connection_message); if (t.followup_message) setFollowupMsg(t.followup_message); setShowTemplates(false); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-[rgba(255,255,255,.04)] transition-colors">
+                              <p className="text-xs font-semibold text-white">{t.name}</p>
+                              <p className="text-xs text-[rgba(255,255,255,.5)] truncate mt-0.5">{t.connection_message.slice(0, 65)}…</p>
                             </button>
                           ))}
                         </div>
@@ -976,36 +976,36 @@ export default function LinkedIn() {
                 </div>
                 <textarea value={connMsg} onChange={(e) => setConnMsg(e.target.value)} placeholder="Hi {{firstName}}, I noticed you work in… Open to connecting?" rows={4} maxLength={300} className={`${inputClass} resize-none`} />
                 <div className="flex justify-between mt-1">
-                  <p className="text-xs text-[#94A3B8]">Use {"{{firstName}}"} as a personalisation token.</p>
-                  <span className={`text-xs ${connMsg.length > 280 ? "text-amber-600" : "text-[#94A3B8]"}`}>{connMsg.length}/300</span>
+                  <p className="text-xs text-[rgba(255,255,255,.35)]">Use {"{{firstName}}"} as a personalisation token.</p>
+                  <span className={`text-xs ${connMsg.length > 280 ? "text-amber-600" : "text-[rgba(255,255,255,.35)]"}`}>{connMsg.length}/300</span>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#0A0A0A] mb-1.5">Follow-up message <span className="text-[#94A3B8] font-normal">(optional)</span></label>
+                <label className="block text-sm font-medium text-white mb-1.5">Follow-up message <span className="text-[rgba(255,255,255,.35)] font-normal">(optional)</span></label>
                 <textarea value={followupMsg} onChange={(e) => setFollowupMsg(e.target.value)} placeholder="Hey {{firstName}}, thanks for connecting! …" rows={3} className={`${inputClass} resize-none`} />
               </div>
               {followupMsg.trim() && (
                 <div>
-                  <label className="block text-sm font-medium text-[#0A0A0A] mb-1.5">
-                    Send follow-up after <span className="text-[#2563EB] font-bold">{followupDelay} day{followupDelay !== 1 ? "s" : ""}</span>
+                  <label className="block text-sm font-medium text-white mb-1.5">
+                    Send follow-up after <span className="text-[#4f46e5] font-bold">{followupDelay} day{followupDelay !== 1 ? "s" : ""}</span>
                   </label>
-                  <input type="range" min={1} max={14} value={followupDelay} onChange={(e) => setFollowupDelay(Number(e.target.value))} className="w-full accent-[#2563EB]" />
+                  <input type="range" min={1} max={14} value={followupDelay} onChange={(e) => setFollowupDelay(Number(e.target.value))} className="w-full accent-[#4f46e5]" />
                 </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-[#0A0A0A] mb-1.5">Sequence daily limit <span className="text-[#94A3B8] font-normal">(max 30)</span></label>
+                <label className="block text-sm font-medium text-white mb-1.5">Sequence daily limit <span className="text-[rgba(255,255,255,.35)] font-normal">(max 30)</span></label>
                 <div className="flex items-center gap-3">
-                  <input type="range" min={1} max={30} value={seqDailyLimit} onChange={(e) => setSeqDailyLimit(Number(e.target.value))} className="flex-1 accent-[#2563EB]" />
-                  <span className="w-12 text-center text-sm font-bold text-[#0A0A0A] bg-[#F5F7FA] border border-[#E2E8F0] rounded-lg py-1.5">{seqDailyLimit}</span>
+                  <input type="range" min={1} max={30} value={seqDailyLimit} onChange={(e) => setSeqDailyLimit(Number(e.target.value))} className="flex-1 accent-[#4f46e5]" />
+                  <span className="w-12 text-center text-sm font-bold text-white bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg py-1.5">{seqDailyLimit}</span>
                 </div>
               </div>
             </div>
-            <div className="sticky bottom-0 bg-white border-t border-[#E2E8F0] px-6 py-4 flex gap-3 rounded-b-2xl">
-              <button onClick={handleSaveSeq} disabled={savingSeq} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#2563EB] text-white text-sm font-semibold rounded-xl hover:bg-[#1D4ED8] transition-colors disabled:opacity-50">
+            <div className="sticky bottom-0 bg-[rgba(255,255,255,.04)] border-t border-[rgba(255,255,255,.08)] px-6 py-4 flex gap-3 rounded-b-2xl">
+              <button onClick={handleSaveSeq} disabled={savingSeq} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#4f46e5] text-white text-sm font-semibold rounded-xl hover:bg-[#4338ca] transition-colors disabled:opacity-50">
                 {savingSeq ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                 {savingSeq ? "Saving…" : editingSeq ? "Update sequence" : "Create sequence"}
               </button>
-              <button onClick={() => setShowBuilder(false)} className="px-5 py-2.5 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-xl hover:bg-[#F5F7FA] transition-colors">Cancel</button>
+              <button onClick={() => setShowBuilder(false)} className="px-5 py-2.5 border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] text-sm font-semibold rounded-xl hover:bg-[rgba(255,255,255,.04)] transition-colors">Cancel</button>
             </div>
           </div>
         </div>

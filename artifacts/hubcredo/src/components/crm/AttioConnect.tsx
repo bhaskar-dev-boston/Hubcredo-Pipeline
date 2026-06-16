@@ -85,7 +85,7 @@ export function AttioConnect({
       <button
         onClick={onConnect}
         disabled={isLoading}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] transition-colors disabled:opacity-50"
+        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#4f46e5] text-white text-sm font-semibold rounded-lg hover:bg-[#4338ca] transition-colors disabled:opacity-50"
       >
         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
         {isLoading ? "Connecting..." : "Connect with Attio"}

@@ -18,6 +18,7 @@ import Campaigns from "@/pages/dashboard/Campaigns";
 import InboxPage from "@/pages/dashboard/Inbox";
 import LinkedInOutreach from "@/pages/dashboard/LinkedIn";
 import CRM from "@/pages/dashboard/CRM";
+import RecommendedTools from "@/pages/dashboard/RecommendedTools";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -69,6 +70,9 @@ function Router() {
       </Route>
       <Route path="/dashboard/crm">
         <ProtectedRoute component={CRM} />
+      </Route>
+      <Route path="/dashboard/tools">
+        <ProtectedRoute component={RecommendedTools} />
       </Route>
       <Route component={NotFound} />
     </Switch>

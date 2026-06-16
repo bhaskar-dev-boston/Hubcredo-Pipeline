@@ -58,7 +58,7 @@ export function FieldMapper({ mapping, onChange, isLoading = false }: FieldMappe
                 checked={mapping[key as keyof FieldMapping] || false}
                 onChange={() => handleToggle(key)}
                 disabled={isLoading}
-                className="w-5 h-5 cursor-pointer accent-[#2563EB]"
+                className="w-5 h-5 cursor-pointer accent-[#4f46e5]"
               />
             </div>
           ))}

@@ -15,43 +15,36 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   useEffect(() => { fetchBalance(); }, []);
 
   return (
-    <div className="flex min-h-screen bg-[#F5F7FA]">
+    <div className="flex min-h-screen" style={{ background: "#05101f", fontFamily: "'Inter', system-ui, sans-serif" }}>
       <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
-        <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-white border-b border-[#E2E8F0] shadow-sm">
+        <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3" style={{ background: "#040b14", borderBottom: "1px solid rgba(255,255,255,.07)" }}>
           <button
             onClick={() => setMobileOpen(true)}
-            className="w-9 h-9 flex items-center justify-center rounded-xl text-[#64748B] hover:bg-[#F5F7FA] hover:text-[#0A0A0A] transition-colors"
+            style={{ width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 10, border: "none", background: "rgba(255,255,255,.06)", color: "rgba(255,255,255,.6)", cursor: "pointer" }}
             aria-label="Open menu"
           >
-            <Menu className="w-5 h-5" />
+            <Menu style={{ width: 18, height: 18 }} />
           </button>
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-[#2563EB] rounded-lg flex items-center justify-center shadow-[0_2px_6px_rgba(37,99,235,0.3)]">
-              <Zap className="w-4 h-4 text-white" />
+          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+            <div style={{ width: 28, height: 28, borderRadius: 7, background: "linear-gradient(135deg,#4f46e5,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Zap style={{ width: 14, height: 14, color: "#fff" }} />
             </div>
-            <span
-              className="text-[#0A0A0A]"
-              style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.2rem", letterSpacing: "0.08em" }}
-            >
-              HubCredo
-            </span>
+            <span style={{ color: "#fff", fontWeight: 800, fontSize: "1rem", letterSpacing: "-0.02em" }}>HubCredo</span>
           </Link>
-          {/* Credit balance on mobile header */}
           {balance !== null ? (
-            <Link href="/dashboard/billing"
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg text-xs font-semibold text-[#2563EB]">
-              <Zap className="w-3 h-3" />
+            <Link href="/dashboard/billing" style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 10px", background: "rgba(79,70,229,.15)", border: "1px solid rgba(79,70,229,.3)", borderRadius: 8, fontSize: "0.75rem", fontWeight: 600, color: "#818cf8", textDecoration: "none" }}>
+              <Zap style={{ width: 11, height: 11 }} />
               {balance.toLocaleString()}
             </Link>
           ) : (
-            <div className="w-9" />
+            <div style={{ width: 36 }} />
           )}
         </header>
 
-        <main className="flex-1 overflow-auto bg-white">
+        <main className="flex-1 overflow-auto" style={{ background: "#05101f" }}>
           {children}
         </main>
       </div>

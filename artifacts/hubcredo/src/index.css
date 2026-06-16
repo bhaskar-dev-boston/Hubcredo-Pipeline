@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -26,20 +26,20 @@
   --sidebar-foreground: 0 0% 4%;
   --sidebar-border: 214 32% 91%;
   /* #2563EB */
-  --sidebar-primary: 221 83% 53%;
+  --sidebar-primary: 243 75% 59%;
   --sidebar-primary-foreground: 0 0% 100%;
   /* #EFF6FF */
   --sidebar-accent: 214 100% 97%;
   /* #2563EB */
-  --sidebar-accent-foreground: 221 83% 53%;
-  --sidebar-ring: 221 83% 53%;
+  --sidebar-accent-foreground: 243 75% 59%;
+  --sidebar-ring: 243 75% 59%;
 
   --popover: 0 0% 100%;
   --popover-foreground: 0 0% 4%;
   --popover-border: 214 32% 91%;
 
   /* Primary: #2563EB */
-  --primary: 221 83% 53%;
+  --primary: 243 75% 59%;
   --primary-foreground: 0 0% 100%;
 
   /* Secondary: light gray */
@@ -52,7 +52,7 @@
   --muted-foreground: 215 16% 47%;
 
   /* Accent: #2563EB */
-  --accent: 221 83% 53%;
+  --accent: 243 75% 59%;
   --accent-foreground: 0 0% 100%;
 
   --destructive: 0 72% 51%;
@@ -61,9 +61,9 @@
   /* Input border: #E2E8F0 */
   --input: 214 32% 91%;
   /* Ring: #2563EB */
-  --ring: 221 83% 53%;
+  --ring: 243 75% 59%;
 
-  --chart-1: 221 83% 53%;
+  --chart-1: 243 75% 59%;
   --chart-2: 160 60% 40%;
   --chart-3: 270 60% 55%;
   --chart-4: 43 74% 60%;
@@ -266,20 +266,20 @@
   --sidebar-foreground: 0 0% 4%;
   --sidebar-border: 214 32% 91%;
   /* #2563EB */
-  --sidebar-primary: 221 83% 53%;
+  --sidebar-primary: 243 75% 59%;
   --sidebar-primary-foreground: 0 0% 100%;
   /* #EFF6FF */
   --sidebar-accent: 214 100% 97%;
   /* #2563EB */
-  --sidebar-accent-foreground: 221 83% 53%;
-  --sidebar-ring: 221 83% 53%;
+  --sidebar-accent-foreground: 243 75% 59%;
+  --sidebar-ring: 243 75% 59%;
 
   --popover: 0 0% 100%;
   --popover-foreground: 0 0% 4%;
   --popover-border: 214 32% 91%;
 
   /* Primary: #2563EB */
-  --primary: 221 83% 53%;
+  --primary: 243 75% 59%;
   --primary-foreground: 0 0% 100%;
 
   /* Secondary: light gray */
@@ -292,7 +292,7 @@
   --muted-foreground: 215 16% 47%;
 
   /* Accent: #2563EB */
-  --accent: 221 83% 53%;
+  --accent: 243 75% 59%;
   --accent-foreground: 0 0% 100%;
 
   --destructive: 0 72% 51%;
@@ -301,9 +301,9 @@
   /* Input border: #E2E8F0 */
   --input: 214 32% 91%;
   /* Ring: #2563EB */
-  --ring: 221 83% 53%;
+  --ring: 243 75% 59%;
 
-  --chart-1: 221 83% 53%;
+  --chart-1: 243 75% 59%;
   --chart-2: 160 60% 40%;
   --chart-3: 270 60% 55%;
   --chart-4: 43 74% 60%;

@@ -89,18 +89,18 @@ interface InstantlyLead {
 }
 
 const LEAD_STATUS_MAP: Record<number, { label: string; color: string }> = {
-  1: { label: "Active", color: "text-blue-700 bg-blue-50 border-blue-200" },
+  1: { label: "Active", color: "text-[#818cf8] bg-[rgba(99,102,241,.15)] border-[rgba(129,140,248,.3)]" },
   2: { label: "Paused", color: "text-amber-700 bg-amber-50 border-amber-200" },
   3: {
     label: "Completed",
-    color: "text-green-700 bg-green-50 border-green-200",
+    color: "text-[#34d399] bg-[rgba(16,185,129,.1)] border-[rgba(52,211,153,.25)]",
   },
-  [-1]: { label: "Bounced", color: "text-red-700 bg-red-50 border-red-200" },
+  [-1]: { label: "Bounced", color: "text-[#f87171] bg-[rgba(239,68,68,.1)] border-[rgba(248,113,113,.3)]" },
   [-2]: {
     label: "Unsubscribed",
     color: "text-orange-700 bg-orange-50 border-orange-200",
   },
-  [-3]: { label: "Skipped", color: "text-gray-700 bg-gray-50 border-gray-200" },
+  [-3]: { label: "Skipped", color: "text-[rgba(255,255,255,.65)] bg-[rgba(255,255,255,.04)] border-[rgba(255,255,255,.08)]" },
 };
 
 const STATUS_CONFIG: Record<
@@ -109,12 +109,12 @@ const STATUS_CONFIG: Record<
 > = {
   draft: {
     label: "Draft",
-    color: "bg-[#F5F7FA] border-[#E2E8F0] text-[#64748B]",
+    color: "bg-[rgba(255,255,255,.04)] border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)]",
     icon: <Edit3 className="w-3 h-3" />,
   },
   active: {
     label: "Active",
-    color: "bg-green-50 border-green-200 text-green-700",
+    color: "bg-[rgba(16,185,129,.1)] border-[rgba(52,211,153,.25)] text-[#34d399]",
     icon: <Play className="w-3 h-3" />,
   },
   paused: {
@@ -124,12 +124,12 @@ const STATUS_CONFIG: Record<
   },
   completed: {
     label: "Done",
-    color: "bg-blue-50 border-blue-200 text-blue-700",
+    color: "bg-[rgba(99,102,241,.15)] border-[rgba(129,140,248,.3)] text-[#818cf8]",
     icon: <CheckCircle2 className="w-3 h-3" />,
   },
   error: {
     label: "Error",
-    color: "bg-red-50 border-red-200 text-red-600",
+    color: "bg-[rgba(239,68,68,.1)] border-[rgba(248,113,113,.3)] text-[#f87171]",
     icon: <AlertCircle className="w-3 h-3" />,
   },
 };
@@ -226,7 +226,7 @@ Best,
 function WarmupProgress({ score }: { score: number }) {
   const pct = Math.min(100, Math.max(0, score));
   const color =
-    pct >= 80 ? "bg-green-500" : pct >= 40 ? "bg-amber-400" : "bg-[#2563EB]";
+    pct >= 80 ? "bg-[rgba(16,185,129,.1)]0" : pct >= 40 ? "bg-amber-400" : "bg-[#4f46e5]";
   return (
     <div className="flex items-center gap-2 flex-1 min-w-0">
       <div className="flex-1 bg-[#E2E8F0] rounded-full h-1.5 overflow-hidden">
@@ -235,7 +235,7 @@ function WarmupProgress({ score }: { score: number }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-xs font-semibold text-[#0A0A0A] shrink-0">
+      <span className="text-xs font-semibold text-white shrink-0">
         {pct}%
       </span>
     </div>
@@ -256,18 +256,18 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-xl p-4">
+    <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-4">
       <div
         className={`w-8 h-8 rounded-lg flex items-center justify-center mb-3 ${color}`}
       >
         {icon}
       </div>
-      <p className="text-2xl font-bold text-[#0A0A0A]">
+      <p className="text-2xl font-bold text-white">
         {value.toLocaleString()}
       </p>
-      <p className="text-xs text-[#64748B] mt-0.5">{label}</p>
+      <p className="text-xs text-[rgba(255,255,255,.5)] mt-0.5">{label}</p>
       {rate && (
-        <p className="text-xs font-semibold text-[#2563EB] mt-1">{rate}</p>
+        <p className="text-xs font-semibold text-[#4f46e5] mt-1">{rate}</p>
       )}
     </div>
   );
@@ -287,7 +287,7 @@ function TemplateDropdown({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#E2E8F0] text-[#475569] text-xs font-semibold rounded-lg hover:bg-[#F5F7FA] hover:border-[#CBD5E1] transition-colors"
+        className="flex items-center gap-1.5 px-3 py-1.5 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] text-[#475569] text-xs font-semibold rounded-lg hover:bg-[rgba(255,255,255,.04)] hover:border-[rgba(255,255,255,.15)] transition-colors"
       >
         Use Template
         <ChevronDown
@@ -299,8 +299,8 @@ function TemplateDropdown({
         <>
           {/* backdrop */}
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-1.5 z-20 w-72 bg-white border border-[#E2E8F0] rounded-xl shadow-lg overflow-hidden">
-            <p className="text-[10px] font-semibold text-[#94A3B8] uppercase tracking-widest px-3 pt-2.5 pb-1.5">
+          <div className="absolute right-0 top-full mt-1.5 z-20 w-72 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl shadow-lg overflow-hidden">
+            <p className="text-[10px] font-semibold text-[rgba(255,255,255,.35)] uppercase tracking-widest px-3 pt-2.5 pb-1.5">
               Choose a starting template — fully editable after
             </p>
             {EMAIL_TEMPLATES.map((t) => (
@@ -311,12 +311,12 @@ function TemplateDropdown({
                   onSelect(t);
                   setOpen(false);
                 }}
-                className="w-full text-left px-3 py-2.5 hover:bg-[#F5F7FA] transition-colors border-t border-[#F1F5F9] first:border-t-0"
+                className="w-full text-left px-3 py-2.5 hover:bg-[rgba(255,255,255,.04)] transition-colors border-t border-[#F1F5F9] first:border-t-0"
               >
-                <p className="text-xs font-semibold text-[#0A0A0A] leading-tight">
+                <p className="text-xs font-semibold text-white leading-tight">
                   {t.name}
                 </p>
-                <p className="text-[11px] text-[#64748B] mt-0.5 truncate">
+                <p className="text-[11px] text-[rgba(255,255,255,.5)] mt-0.5 truncate">
                   {t.sequences[0]?.subject}
                 </p>
               </button>
@@ -729,15 +729,15 @@ export default function Campaigns() {
           <div>
             <h1
               style={{
-                fontFamily: "'Bebas Neue', sans-serif",
+                fontFamily: "'Inter', system-ui, sans-serif",
                 fontSize: "2rem",
                 letterSpacing: "0.04em",
               }}
-              className="text-[#0A0A0A] mb-1"
+              className="text-white mb-1"
             >
               Campaigns
             </h1>
-            <p className="text-[#64748B] text-sm">
+            <p className="text-[rgba(255,255,255,.5)] text-sm">
               Build and send email outreach from your warmed domains
             </p>
           </div>
@@ -748,24 +748,24 @@ export default function Campaigns() {
               setDetail(null);
               resetWizard();
             }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#4f46e5] text-white text-sm font-semibold rounded-lg hover:bg-[#4338ca] transition-colors"
           >
             <Plus className="w-4 h-4" /> New Campaign
           </button>
         </div>
 
         {/* Domain Warmup */}
-        <div className="bg-white border border-[#E2E8F0] rounded-xl p-5 mb-6">
+        <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-5 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-[#EFF6FF] rounded-lg flex items-center justify-center">
-                <Globe className="w-4 h-4 text-[#2563EB]" />
+              <div className="w-8 h-8 bg-[#eef2ff] rounded-lg flex items-center justify-center">
+                <Globe className="w-4 h-4 text-[#4f46e5]" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#0A0A0A]">
+                <p className="text-sm font-semibold text-white">
                   Domain Warmup
                 </p>
-                <p className="text-xs text-[#64748B]">
+                <p className="text-xs text-[rgba(255,255,255,.5)]">
                   Warm your sending domains before launching campaigns
                 </p>
               </div>
@@ -776,12 +776,12 @@ export default function Campaigns() {
                 onChange={(e) => setWarmupInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleAddWarmup()}
                 placeholder="yourdomain.com"
-                className="w-44 px-3 py-1.5 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20"
+                className="w-44 px-3 py-1.5 border border-[rgba(255,255,255,.08)] rounded-lg text-sm focus:outline-none focus:border-[rgba(99,102,241,.7)] focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/20"
               />
               <button
                 onClick={handleAddWarmup}
                 disabled={warmupAdding || !warmupInput.trim()}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#4f46e5] text-white text-sm font-semibold rounded-lg hover:bg-[#4338ca] transition-colors disabled:opacity-50"
               >
                 {warmupAdding ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -794,10 +794,10 @@ export default function Campaigns() {
           </div>
 
           {warmupDomains.length === 0 ? (
-            <div className="text-center py-6 border border-dashed border-[#E2E8F0] rounded-lg">
+            <div className="text-center py-6 border border-dashed border-[rgba(255,255,255,.08)] rounded-lg">
               <Globe className="w-8 h-8 text-[#CBD5E1] mx-auto mb-2" />
-              <p className="text-sm text-[#64748B]">No domains warming yet</p>
-              <p className="text-xs text-[#94A3B8] mt-0.5">
+              <p className="text-sm text-[rgba(255,255,255,.5)]">No domains warming yet</p>
+              <p className="text-xs text-[rgba(255,255,255,.35)] mt-0.5">
                 Add a domain you purchased to start the warmup process
               </p>
             </div>
@@ -806,19 +806,19 @@ export default function Campaigns() {
               {warmupDomains.map((w) => (
                 <div
                   key={w.id}
-                  className="flex items-center gap-4 p-3 bg-[#F5F7FA] rounded-lg border border-[#E2E8F0]"
+                  className="flex items-center gap-4 p-3 bg-[rgba(255,255,255,.04)] rounded-lg border border-[rgba(255,255,255,.08)]"
                 >
                   <div className="flex items-center gap-2 w-48 shrink-0">
                     <div
                       className={`w-2 h-2 rounded-full shrink-0 ${
                         w.status === "ready"
-                          ? "bg-green-500"
+                          ? "bg-[rgba(16,185,129,.1)]0"
                           : w.status === "failed"
-                            ? "bg-red-500"
+                            ? "bg-[rgba(239,68,68,.1)]0"
                             : "bg-amber-400 animate-pulse"
                       }`}
                     />
-                    <span className="text-sm font-medium text-[#0A0A0A] truncate">
+                    <span className="text-sm font-medium text-white truncate">
                       {w.domain}
                     </span>
                   </div>
@@ -826,9 +826,9 @@ export default function Campaigns() {
                   <span
                     className={`text-xs px-2 py-0.5 rounded-full border shrink-0 capitalize ${
                       w.status === "ready"
-                        ? "bg-green-50 border-green-200 text-green-700"
+                        ? "bg-[rgba(16,185,129,.1)] border-[rgba(52,211,153,.25)] text-[#34d399]"
                         : w.status === "failed"
-                          ? "bg-red-50 border-red-200 text-red-600"
+                          ? "bg-[rgba(239,68,68,.1)] border-[rgba(248,113,113,.3)] text-[#f87171]"
                           : "bg-amber-50 border-amber-200 text-amber-700"
                     }`}
                   >
@@ -838,14 +838,14 @@ export default function Campaigns() {
                     {w.status === "warming" && (
                       <button
                         onClick={() => handleMarkReady(w)}
-                        className="text-xs text-[#2563EB] hover:underline font-medium"
+                        className="text-xs text-[#4f46e5] hover:underline font-medium"
                       >
                         Mark ready
                       </button>
                     )}
                     <button
                       onClick={() => handleRemoveWarmup(w.id)}
-                      className="w-6 h-6 flex items-center justify-center rounded text-[#94A3B8] hover:text-red-500 hover:bg-red-50 transition-colors"
+                      className="w-6 h-6 flex items-center justify-center rounded text-[rgba(255,255,255,.35)] hover:text-red-500 hover:bg-[rgba(239,68,68,.1)] transition-colors"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -860,17 +860,17 @@ export default function Campaigns() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Campaign list */}
           <div className="space-y-2">
-            <p className="text-xs text-[#64748B] uppercase tracking-widest font-medium px-1 mb-3">
+            <p className="text-xs text-[rgba(255,255,255,.5)] uppercase tracking-widest font-medium px-1 mb-3">
               Your Campaigns
             </p>
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-5 h-5 text-[#64748B] animate-spin" />
+                <Loader2 className="w-5 h-5 text-[rgba(255,255,255,.5)] animate-spin" />
               </div>
             ) : campaigns.length === 0 ? (
-              <div className="bg-white border border-dashed border-[#E2E8F0] rounded-xl p-8 text-center">
+              <div className="bg-[rgba(255,255,255,.04)] border border-dashed border-[rgba(255,255,255,.08)] rounded-xl p-8 text-center">
                 <Mail className="w-8 h-8 text-[#CBD5E1] mx-auto mb-2" />
-                <p className="text-sm text-[#64748B]">No campaigns yet</p>
+                <p className="text-sm text-[rgba(255,255,255,.5)]">No campaigns yet</p>
                 <button
                   onClick={() => {
                     setWizard(true);
@@ -878,7 +878,7 @@ export default function Campaigns() {
                     setDetail(null);
                     resetWizard();
                   }}
-                  className="mt-3 text-xs text-[#2563EB] font-medium hover:underline"
+                  className="mt-3 text-xs text-[#4f46e5] font-medium hover:underline"
                 >
                   Create your first →
                 </button>
@@ -893,14 +893,14 @@ export default function Campaigns() {
                   <div
                     key={c.id}
                     onClick={() => loadDetail(c.id)}
-                    className={`group cursor-pointer bg-white border rounded-xl p-4 transition-all ${
+                    className={`group cursor-pointer bg-[rgba(255,255,255,.04)] border rounded-xl p-4 transition-all ${
                       selectedId === c.id
-                        ? "border-[#2563EB] shadow-[0_0_0_3px_rgba(37,99,235,0.1)]"
-                        : "border-[#E2E8F0] hover:border-[#CBD5E1] hover:shadow-sm"
+                        ? "border-[#4f46e5] shadow-[0_0_0_3px_rgba(79,70,229,0.1)]"
+                        : "border-[rgba(255,255,255,.08)] hover:border-[rgba(255,255,255,.15)] hover:shadow-sm"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-semibold text-[#0A0A0A] leading-tight flex-1 truncate">
+                      <p className="text-sm font-semibold text-white leading-tight flex-1 truncate">
                         {c.name}
                       </p>
                       <span
@@ -910,11 +910,11 @@ export default function Campaigns() {
                         {cfg.label}
                       </span>
                     </div>
-                    <p className="text-xs text-[#64748B] mt-1 truncate">
+                    <p className="text-xs text-[rgba(255,255,255,.5)] mt-1 truncate">
                       {c.sending_domain}
                     </p>
                     {a && (
-                      <div className="flex items-center gap-3 mt-2 text-xs text-[#94A3B8]">
+                      <div className="flex items-center gap-3 mt-2 text-xs text-[rgba(255,255,255,.35)]">
                         <span>{a.sent_count} sent</span>
                         <span>{a.opened_count} opened</span>
                         <span>{a.replied_count} replied</span>
@@ -930,17 +930,17 @@ export default function Campaigns() {
           <div className="lg:col-span-2">
             {/* CREATE WIZARD */}
             {wizard && (
-              <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden">
-                <div className="flex border-b border-[#E2E8F0]">
+              <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl overflow-hidden">
+                <div className="flex border-b border-[rgba(255,255,255,.08)]">
                   {([1, 2, 3] as const).map((s) => (
                     <div
                       key={s}
                       className={`flex-1 py-3 text-center text-xs font-semibold transition-colors ${
                         step === s
-                          ? "text-[#2563EB] border-b-2 border-[#2563EB] bg-[#EFF6FF]"
+                          ? "text-[#4f46e5] border-b-2 border-[#4f46e5] bg-[#eef2ff]"
                           : step > s
-                            ? "text-green-600 bg-green-50"
-                            : "text-[#94A3B8]"
+                            ? "text-[#34d399] bg-[rgba(16,185,129,.1)]"
+                            : "text-[rgba(255,255,255,.35)]"
                       }`}
                     >
                       {step > s ? (
@@ -958,21 +958,21 @@ export default function Campaigns() {
                   {step === 1 && (
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-1.5">
+                        <label className="block text-xs font-semibold text-[rgba(255,255,255,.5)] uppercase tracking-wider mb-1.5">
                           Campaign Name
                         </label>
                         <input
                           value={wizardName}
                           onChange={(e) => setWizardName(e.target.value)}
                           placeholder="e.g. Q3 SaaS Founders Outreach"
-                          className="w-full px-3 py-2.5 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20"
+                          className="w-full px-3 py-2.5 border border-[rgba(255,255,255,.08)] rounded-lg text-sm focus:outline-none focus:border-[rgba(99,102,241,.7)] focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/20"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-1.5">
+                        <label className="block text-xs font-semibold text-[rgba(255,255,255,.5)] uppercase tracking-wider mb-1.5">
                           Sending Domain{" "}
                           {readyDomains.length > 0 && (
-                            <span className="ml-2 text-green-600 normal-case font-normal">
+                            <span className="ml-2 text-[#34d399] normal-case font-normal">
                               ({readyDomains.length} ready)
                             </span>
                           )}
@@ -981,7 +981,7 @@ export default function Campaigns() {
                           <select
                             value={wizardDomain}
                             onChange={(e) => setWizardDomain(e.target.value)}
-                            className="w-full px-3 py-2.5 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:border-[#2563EB] bg-white"
+                            className="w-full px-3 py-2.5 border border-[rgba(255,255,255,.08)] rounded-lg text-sm focus:outline-none focus:border-[rgba(99,102,241,.7)] bg-[rgba(255,255,255,.04)]"
                           >
                             <option value="">Select a domain…</option>
                             {readyDomains.map((d) => (
@@ -1000,7 +1000,7 @@ export default function Campaigns() {
                             }
                             onChange={(e) => setWizardDomain(e.target.value)}
                             placeholder="yourdomain.com"
-                            className="w-full mt-2 px-3 py-2.5 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20"
+                            className="w-full mt-2 px-3 py-2.5 border border-[rgba(255,255,255,.08)] rounded-lg text-sm focus:outline-none focus:border-[rgba(99,102,241,.7)] focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/20"
                           />
                         )}
                         {readyDomains.length === 0 && (
@@ -1011,13 +1011,13 @@ export default function Campaigns() {
                         )}
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-1.5">
+                        <label className="block text-xs font-semibold text-[rgba(255,255,255,.5)] uppercase tracking-wider mb-1.5">
                           Lead List (optional)
                         </label>
                         <select
                           value={wizardListId}
                           onChange={(e) => setWizardListId(e.target.value)}
-                          className="w-full px-3 py-2.5 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:border-[#2563EB] bg-white"
+                          className="w-full px-3 py-2.5 border border-[rgba(255,255,255,.08)] rounded-lg text-sm focus:outline-none focus:border-[rgba(99,102,241,.7)] bg-[rgba(255,255,255,.04)]"
                         >
                           <option value="">No list selected</option>
                           {lists.map((l) => (
@@ -1036,7 +1036,7 @@ export default function Campaigns() {
                           !wizardDomain.trim() ||
                           wizardDomain === "__custom__"
                         }
-                        className="w-full py-2.5 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        className="w-full py-2.5 bg-[#4f46e5] text-white text-sm font-semibold rounded-lg hover:bg-[#4338ca] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                       >
                         Continue <ArrowRight className="w-4 h-4" />
                       </button>
@@ -1047,7 +1047,7 @@ export default function Campaigns() {
                     <div className="space-y-4">
                       {/* ── Step 2 header with template dropdown + AI button ── */}
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold text-[#0A0A0A]">
+                        <p className="text-sm font-semibold text-white">
                           Email Sequences ({sequences.length} step
                           {sequences.length !== 1 ? "s" : ""})
                         </p>
@@ -1058,7 +1058,7 @@ export default function Campaigns() {
                           <button
                             onClick={handleGenerateAI}
                             disabled={aiLoading}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EFF6FF] border border-[#BFDBFE] text-[#2563EB] text-xs font-semibold rounded-lg hover:bg-[#DBEAFE] transition-colors disabled:opacity-50"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#eef2ff] border border-[#c7d2fe] text-[#4f46e5] text-xs font-semibold rounded-lg hover:bg-[#e0e7ff] transition-colors disabled:opacity-50"
                           >
                             {aiLoading ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1071,16 +1071,16 @@ export default function Campaigns() {
                       </div>
 
                       {sequences.length === 0 ? (
-                        <div className="border border-dashed border-[#E2E8F0] rounded-lg p-8 text-center">
+                        <div className="border border-dashed border-[rgba(255,255,255,.08)] rounded-lg p-8 text-center">
                           <Mail className="w-8 h-8 text-[#CBD5E1] mx-auto mb-2" />
-                          <p className="text-sm text-[#64748B] mb-3">
+                          <p className="text-sm text-[rgba(255,255,255,.5)] mb-3">
                             No steps yet
                           </p>
                           <div className="flex items-center justify-center gap-2 flex-wrap">
                             <button
                               onClick={handleGenerateAI}
                               disabled={aiLoading}
-                              className="flex items-center gap-1.5 px-3 py-2 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] disabled:opacity-50"
+                              className="flex items-center gap-1.5 px-3 py-2 bg-[#4f46e5] text-white text-sm font-semibold rounded-lg hover:bg-[#4338ca] disabled:opacity-50"
                             >
                               {aiLoading ? (
                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1091,12 +1091,12 @@ export default function Campaigns() {
                             </button>
                             <button
                               onClick={addSequenceStep}
-                              className="px-3 py-2 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-lg hover:bg-[#F5F7FA]"
+                              className="px-3 py-2 border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] text-sm font-semibold rounded-lg hover:bg-[rgba(255,255,255,.04)]"
                             >
                               Add blank step
                             </button>
                           </div>
-                          <p className="text-xs text-[#94A3B8] mt-3">
+                          <p className="text-xs text-[rgba(255,255,255,.35)] mt-3">
                             or use the{" "}
                             <span className="font-semibold text-[#475569]">
                               Use Template
@@ -1109,13 +1109,13 @@ export default function Campaigns() {
                           {sequences.map((seq, i) => (
                             <div
                               key={i}
-                              className="border border-[#E2E8F0] rounded-lg overflow-hidden"
+                              className="border border-[rgba(255,255,255,.08)] rounded-lg overflow-hidden"
                             >
-                              <div className="flex items-center gap-3 px-3 py-2 bg-[#F5F7FA] border-b border-[#E2E8F0]">
-                                <span className="w-5 h-5 bg-[#2563EB] rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0">
+                              <div className="flex items-center gap-3 px-3 py-2 bg-[rgba(255,255,255,.04)] border-b border-[rgba(255,255,255,.08)]">
+                                <span className="w-5 h-5 bg-[#4f46e5] rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0">
                                   {i + 1}
                                 </span>
-                                <span className="text-xs text-[#64748B]">
+                                <span className="text-xs text-[rgba(255,255,255,.5)]">
                                   Day
                                 </span>
                                 <input
@@ -1135,7 +1135,7 @@ export default function Campaigns() {
                                       ),
                                     )
                                   }
-                                  className="w-14 px-2 py-0.5 border border-[#E2E8F0] rounded text-xs text-center bg-white focus:outline-none focus:border-[#2563EB]"
+                                  className="w-14 px-2 py-0.5 border border-[rgba(255,255,255,.08)] rounded text-xs text-center bg-[rgba(255,255,255,.04)] focus:outline-none focus:border-[rgba(99,102,241,.7)]"
                                 />
                                 <button
                                   onClick={() =>
@@ -1143,7 +1143,7 @@ export default function Campaigns() {
                                       prev.filter((_, j) => j !== i),
                                     )
                                   }
-                                  className="ml-auto text-[#94A3B8] hover:text-red-500"
+                                  className="ml-auto text-[rgba(255,255,255,.35)] hover:text-red-500"
                                 >
                                   <X className="w-3.5 h-3.5" />
                                 </button>
@@ -1161,7 +1161,7 @@ export default function Campaigns() {
                                     )
                                   }
                                   placeholder="Subject line"
-                                  className="w-full px-2.5 py-1.5 border border-[#E2E8F0] rounded text-sm focus:outline-none focus:border-[#2563EB] bg-white"
+                                  className="w-full px-2.5 py-1.5 border border-[rgba(255,255,255,.08)] rounded text-sm focus:outline-none focus:border-[rgba(99,102,241,.7)] bg-[rgba(255,255,255,.04)]"
                                 />
                                 <textarea
                                   value={seq.body}
@@ -1176,7 +1176,7 @@ export default function Campaigns() {
                                   }
                                   placeholder="Email body…"
                                   rows={4}
-                                  className="w-full px-2.5 py-1.5 border border-[#E2E8F0] rounded text-xs focus:outline-none focus:border-[#2563EB] bg-white resize-none font-mono leading-relaxed"
+                                  className="w-full px-2.5 py-1.5 border border-[rgba(255,255,255,.08)] rounded text-xs focus:outline-none focus:border-[rgba(99,102,241,.7)] bg-[rgba(255,255,255,.04)] resize-none font-mono leading-relaxed"
                                 />
                               </div>
                             </div>
@@ -1187,7 +1187,7 @@ export default function Campaigns() {
                       {sequences.length > 0 && (
                         <button
                           onClick={addSequenceStep}
-                          className="flex items-center gap-1.5 text-xs text-[#2563EB] hover:underline font-medium"
+                          className="flex items-center gap-1.5 text-xs text-[#4f46e5] hover:underline font-medium"
                         >
                           <Plus className="w-3.5 h-3.5" /> Add follow-up step
                         </button>
@@ -1195,7 +1195,7 @@ export default function Campaigns() {
                       <div className="flex gap-3 pt-2">
                         <button
                           onClick={() => setStep(1)}
-                          className="px-4 py-2.5 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-lg hover:bg-[#F5F7FA]"
+                          className="px-4 py-2.5 border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] text-sm font-semibold rounded-lg hover:bg-[rgba(255,255,255,.04)]"
                         >
                           Back
                         </button>
@@ -1204,7 +1204,7 @@ export default function Campaigns() {
                             if (sequences.length > 0) setStep(3);
                           }}
                           disabled={sequences.length === 0}
-                          className="flex-1 py-2.5 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] disabled:opacity-50 flex items-center justify-center gap-2"
+                          className="flex-1 py-2.5 bg-[#4f46e5] text-white text-sm font-semibold rounded-lg hover:bg-[#4338ca] disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                           Review <ArrowRight className="w-4 h-4" />
                         </button>
@@ -1214,7 +1214,7 @@ export default function Campaigns() {
 
                   {step === 3 && (
                     <div className="space-y-4">
-                      <div className="bg-[#F5F7FA] rounded-lg p-4 space-y-2">
+                      <div className="bg-[rgba(255,255,255,.04)] rounded-lg p-4 space-y-2">
                         {[
                           ["Campaign name", wizardName],
                           ["Sending domain", wizardDomain],
@@ -1234,8 +1234,8 @@ export default function Campaigns() {
                             key={label}
                             className="flex items-center justify-between text-sm"
                           >
-                            <span className="text-[#64748B]">{label}</span>
-                            <span className="font-semibold text-[#0A0A0A]">
+                            <span className="text-[rgba(255,255,255,.5)]">{label}</span>
+                            <span className="font-semibold text-white">
                               {value}
                             </span>
                           </div>
@@ -1245,16 +1245,16 @@ export default function Campaigns() {
                         {sequences.map((seq, i) => (
                           <div
                             key={i}
-                            className="flex items-center gap-3 p-3 bg-white border border-[#E2E8F0] rounded-lg"
+                            className="flex items-center gap-3 p-3 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg"
                           >
-                            <span className="w-6 h-6 bg-[#EFF6FF] rounded-full text-[#2563EB] text-xs font-bold flex items-center justify-center shrink-0">
+                            <span className="w-6 h-6 bg-[#eef2ff] rounded-full text-[#4f46e5] text-xs font-bold flex items-center justify-center shrink-0">
                               {i + 1}
                             </span>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-[#0A0A0A] truncate">
+                              <p className="text-sm font-medium text-white truncate">
                                 {seq.subject || "(no subject)"}
                               </p>
-                              <p className="text-xs text-[#64748B]">
+                              <p className="text-xs text-[rgba(255,255,255,.5)]">
                                 Day {seq.delay_days}
                               </p>
                             </div>
@@ -1264,14 +1264,14 @@ export default function Campaigns() {
                       <div className="flex gap-3">
                         <button
                           onClick={() => setStep(2)}
-                          className="px-4 py-2.5 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-lg hover:bg-[#F5F7FA]"
+                          className="px-4 py-2.5 border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] text-sm font-semibold rounded-lg hover:bg-[rgba(255,255,255,.04)]"
                         >
                           Back
                         </button>
                         <button
                           onClick={handleCreateCampaign}
                           disabled={saving}
-                          className="flex-1 py-2.5 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] disabled:opacity-50 flex items-center justify-center gap-2"
+                          className="flex-1 py-2.5 bg-[#4f46e5] text-white text-sm font-semibold rounded-lg hover:bg-[#4338ca] disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                           {saving ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -1292,18 +1292,18 @@ export default function Campaigns() {
               selectedId &&
               (detailLoading ? (
                 <div className="flex items-center justify-center py-24">
-                  <Loader2 className="w-6 h-6 text-[#64748B] animate-spin" />
+                  <Loader2 className="w-6 h-6 text-[rgba(255,255,255,.5)] animate-spin" />
                 </div>
               ) : detail ? (
                 <div className="space-y-5">
                   {/* Header */}
-                  <div className="bg-white border border-[#E2E8F0] rounded-xl p-5">
+                  <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-5">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <h2 className="text-lg font-bold text-[#0A0A0A] leading-tight">
+                        <h2 className="text-lg font-bold text-white leading-tight">
                           {detail.name}
                         </h2>
-                        <p className="text-sm text-[#64748B] mt-0.5 font-mono">
+                        <p className="text-sm text-[rgba(255,255,255,.5)] mt-0.5 font-mono">
                           {detail.sending_domain}
                         </p>
                       </div>
@@ -1312,7 +1312,7 @@ export default function Campaigns() {
                           <button
                             onClick={() => handleLaunch(detail.id)}
                             disabled={launching}
-                            className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] disabled:opacity-50"
+                            className="flex items-center gap-2 px-4 py-2 bg-[#4f46e5] text-white text-sm font-semibold rounded-lg hover:bg-[#4338ca] disabled:opacity-50"
                           >
                             {launching ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1324,13 +1324,13 @@ export default function Campaigns() {
                         )}
                         {detail.status === "active" && (
                           <>
-                            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border border-green-200 text-green-700 text-sm font-semibold rounded-lg">
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-[rgba(16,185,129,.1)] border border-[rgba(52,211,153,.25)] text-[#34d399] text-sm font-semibold rounded-lg">
                               <Play className="w-3.5 h-3.5" /> Active
                             </span>
                             <button
                               onClick={() => handleSync(detail.id)}
                               disabled={syncing}
-                              className="flex items-center gap-1.5 px-3 py-1.5 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-lg hover:bg-[#F5F7FA] transition-colors disabled:opacity-50"
+                              className="flex items-center gap-1.5 px-3 py-1.5 border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] text-sm font-semibold rounded-lg hover:bg-[rgba(255,255,255,.04)] transition-colors disabled:opacity-50"
                               title="Sync analytics from Instantly"
                             >
                               {syncing ? (
@@ -1344,7 +1344,7 @@ export default function Campaigns() {
                         )}
                         <button
                           onClick={() => setDeleteId(detail.id)}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-[#94A3B8] hover:text-red-500 hover:bg-red-50 border border-transparent hover:border-red-100 transition-colors"
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-[rgba(255,255,255,.35)] hover:text-red-500 hover:bg-[rgba(239,68,68,.1)] border border-transparent hover:border-red-100 transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -1355,14 +1355,14 @@ export default function Campaigns() {
                   {/* Analytics */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <p className="text-xs text-[#64748B] uppercase tracking-widest font-medium">
+                      <p className="text-xs text-[rgba(255,255,255,.5)] uppercase tracking-widest font-medium">
                         Analytics
                       </p>
                       {detail.status === "active" && (
                         <button
                           onClick={() => handleSync(detail.id)}
                           disabled={syncing}
-                          className="flex items-center gap-1 text-xs text-[#2563EB] hover:underline font-medium disabled:opacity-50"
+                          className="flex items-center gap-1 text-xs text-[#4f46e5] hover:underline font-medium disabled:opacity-50"
                         >
                           {syncing ? (
                             <Loader2 className="w-3 h-3 animate-spin" />
@@ -1376,28 +1376,28 @@ export default function Campaigns() {
                     {analytics ? (
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <StatCard
-                          icon={<Send className="w-4 h-4 text-[#2563EB]" />}
+                          icon={<Send className="w-4 h-4 text-[#4f46e5]" />}
                           label="Sent"
                           value={analytics.sent_count}
-                          color="bg-[#EFF6FF]"
+                          color="bg-[#eef2ff]"
                         />
                         <StatCard
-                          icon={<Eye className="w-4 h-4 text-purple-600" />}
+                          icon={<Eye className="w-4 h-4 text-[#c084fc]" />}
                           label="Opened"
                           value={analytics.opened_count}
                           rate={openRate ? `${openRate} open rate` : undefined}
-                          color="bg-purple-50"
+                          color="bg-[rgba(124,58,237,.15)]"
                         />
                         <StatCard
                           icon={
-                            <MessageSquare className="w-4 h-4 text-green-600" />
+                            <MessageSquare className="w-4 h-4 text-[#34d399]" />
                           }
                           label="Replied"
                           value={analytics.replied_count}
                           rate={
                             replyRate ? `${replyRate} reply rate` : undefined
                           }
-                          color="bg-green-50"
+                          color="bg-[rgba(16,185,129,.1)]"
                         />
                         <StatCard
                           icon={
@@ -1412,16 +1412,16 @@ export default function Campaigns() {
                         />
                       </div>
                     ) : (
-                      <div className="bg-[#F5F7FA] border border-[#E2E8F0] rounded-xl p-6 text-center">
+                      <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-6 text-center">
                         <TrendingUp className="w-8 h-8 text-[#CBD5E1] mx-auto mb-2" />
-                        <p className="text-sm text-[#64748B]">
+                        <p className="text-sm text-[rgba(255,255,255,.5)]">
                           No analytics yet
                         </p>
                         {detail.status === "active" && (
                           <button
                             onClick={() => handleSync(detail.id)}
                             disabled={syncing}
-                            className="mt-3 flex items-center gap-1.5 text-xs text-[#2563EB] font-medium hover:underline mx-auto disabled:opacity-50"
+                            className="mt-3 flex items-center gap-1.5 text-xs text-[#4f46e5] font-medium hover:underline mx-auto disabled:opacity-50"
                           >
                             {syncing ? (
                               <Loader2 className="w-3 h-3 animate-spin" />
@@ -1439,7 +1439,7 @@ export default function Campaigns() {
                   {detail.external_campaign_id && (
                     <div>
                       <div className="flex items-center justify-between mb-3">
-                        <p className="text-xs text-[#64748B] uppercase tracking-widest font-medium flex items-center gap-1.5">
+                        <p className="text-xs text-[rgba(255,255,255,.5)] uppercase tracking-widest font-medium flex items-center gap-1.5">
                           <Users className="w-3.5 h-3.5" /> Leads
                         </p>
                         <button
@@ -1450,7 +1450,7 @@ export default function Campaigns() {
                             fetchLeads(detail.id, undefined);
                           }}
                           disabled={leadsLoading}
-                          className="flex items-center gap-1 text-xs text-[#2563EB] hover:underline font-medium disabled:opacity-50"
+                          className="flex items-center gap-1 text-xs text-[#4f46e5] hover:underline font-medium disabled:opacity-50"
                         >
                           {leadsLoading ? (
                             <Loader2 className="w-3 h-3 animate-spin" />
@@ -1462,29 +1462,29 @@ export default function Campaigns() {
                       </div>
 
                       {leadsLoading && leads.length === 0 ? (
-                        <div className="flex items-center justify-center py-10 bg-white border border-[#E2E8F0] rounded-xl">
-                          <Loader2 className="w-5 h-5 text-[#64748B] animate-spin" />
+                        <div className="flex items-center justify-center py-10 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl">
+                          <Loader2 className="w-5 h-5 text-[rgba(255,255,255,.5)] animate-spin" />
                         </div>
                       ) : leads.length === 0 ? (
-                        <div className="bg-white border border-dashed border-[#E2E8F0] rounded-xl p-6 text-center">
+                        <div className="bg-[rgba(255,255,255,.04)] border border-dashed border-[rgba(255,255,255,.08)] rounded-xl p-6 text-center">
                           <Users className="w-7 h-7 text-[#CBD5E1] mx-auto mb-2" />
-                          <p className="text-sm text-[#64748B]">
+                          <p className="text-sm text-[rgba(255,255,255,.5)]">
                             No leads found
                           </p>
                         </div>
                       ) : (
-                        <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden">
-                          <div className="grid grid-cols-[2fr_2fr_1.5fr_1.2fr] gap-3 px-4 py-2.5 bg-[#F5F7FA] border-b border-[#E2E8F0]">
-                            <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                        <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl overflow-hidden">
+                          <div className="grid grid-cols-[2fr_2fr_1.5fr_1.2fr] gap-3 px-4 py-2.5 bg-[rgba(255,255,255,.04)] border-b border-[rgba(255,255,255,.08)]">
+                            <span className="text-xs font-semibold text-[rgba(255,255,255,.5)] uppercase tracking-wider">
                               Email
                             </span>
-                            <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                            <span className="text-xs font-semibold text-[rgba(255,255,255,.5)] uppercase tracking-wider">
                               Name
                             </span>
-                            <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                            <span className="text-xs font-semibold text-[rgba(255,255,255,.5)] uppercase tracking-wider">
                               Company
                             </span>
-                            <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                            <span className="text-xs font-semibold text-[rgba(255,255,255,.5)] uppercase tracking-wider">
                               Status
                             </span>
                           </div>
@@ -1499,15 +1499,15 @@ export default function Campaigns() {
                                   key={lead.id}
                                   className="grid grid-cols-[2fr_2fr_1.5fr_1.2fr] gap-3 px-4 py-3 hover:bg-[#F8FAFC] transition-colors"
                                 >
-                                  <span className="text-xs text-[#0A0A0A] truncate font-mono">
+                                  <span className="text-xs text-white truncate font-mono">
                                     {lead.email || "—"}
                                   </span>
-                                  <span className="text-xs text-[#0A0A0A] truncate">
+                                  <span className="text-xs text-white truncate">
                                     {[lead.first_name, lead.last_name]
                                       .filter(Boolean)
                                       .join(" ") || "—"}
                                   </span>
-                                  <span className="text-xs text-[#64748B] truncate">
+                                  <span className="text-xs text-[rgba(255,255,255,.5)] truncate">
                                     {lead.company_name || "—"}
                                   </span>
                                   <span className="flex flex-wrap items-center gap-1">
@@ -1518,7 +1518,7 @@ export default function Campaigns() {
                                         {statusInfo.label}
                                       </span>
                                     ) : (
-                                      <span className="text-xs text-[#94A3B8] bg-[#F5F7FA] border border-[#E2E8F0] px-2 py-0.5 rounded-full">
+                                      <span className="text-xs text-[rgba(255,255,255,.35)] bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] px-2 py-0.5 rounded-full">
                                         Not contacted
                                       </span>
                                     )}
@@ -1533,23 +1533,23 @@ export default function Campaigns() {
                               );
                             })}
                           </div>
-                          <div className="flex items-center justify-between px-4 py-3 border-t border-[#E2E8F0] bg-[#F5F7FA]">
+                          <div className="flex items-center justify-between px-4 py-3 border-t border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.04)]">
                             <button
                               onClick={handleLeadsPrev}
                               disabled={
                                 leadsCursorStack.length === 0 || leadsLoading
                               }
-                              className="flex items-center gap-1 text-xs font-medium text-[#64748B] hover:text-[#2563EB] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                              className="flex items-center gap-1 text-xs font-medium text-[rgba(255,255,255,.5)] hover:text-[#4f46e5] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                             >
                               <ChevronLeft className="w-3.5 h-3.5" /> Previous
                             </button>
-                            <span className="text-xs text-[#94A3B8]">
+                            <span className="text-xs text-[rgba(255,255,255,.35)]">
                               {leads.length} leads on this page
                             </span>
                             <button
                               onClick={handleLeadsNext}
                               disabled={!leadsHasMore || leadsLoading}
-                              className="flex items-center gap-1 text-xs font-medium text-[#64748B] hover:text-[#2563EB] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                              className="flex items-center gap-1 text-xs font-medium text-[rgba(255,255,255,.5)] hover:text-[#4f46e5] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                             >
                               Next <ChevronRight className="w-3.5 h-3.5" />
                             </button>
@@ -1562,14 +1562,14 @@ export default function Campaigns() {
                   {/* Sequences */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <p className="text-xs text-[#64748B] uppercase tracking-widest font-medium">
+                      <p className="text-xs text-[rgba(255,255,255,.5)] uppercase tracking-widest font-medium">
                         Email Sequence
                       </p>
                       {detail.campaign_sequences &&
                         detail.campaign_sequences.length > 0 && (
                           <button
                             onClick={handleUpdateSequences}
-                            className="text-xs text-[#2563EB] hover:underline font-medium"
+                            className="text-xs text-[#4f46e5] hover:underline font-medium"
                           >
                             Save changes
                           </button>
@@ -1577,7 +1577,7 @@ export default function Campaigns() {
                     </div>
                     {!detail.campaign_sequences ||
                     detail.campaign_sequences.length === 0 ? (
-                      <div className="bg-white border border-dashed border-[#E2E8F0] rounded-xl p-6 text-center text-sm text-[#64748B]">
+                      <div className="bg-[rgba(255,255,255,.04)] border border-dashed border-[rgba(255,255,255,.08)] rounded-xl p-6 text-center text-sm text-[rgba(255,255,255,.5)]">
                         No email steps yet
                       </div>
                     ) : (
@@ -1587,21 +1587,21 @@ export default function Campaigns() {
                           .map((seq, i) => (
                             <div
                               key={seq.id || i}
-                              className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden"
+                              className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl overflow-hidden"
                             >
-                              <div className="flex items-center gap-3 px-4 py-2 bg-[#F5F7FA] border-b border-[#E2E8F0]">
-                                <span className="w-5 h-5 bg-[#2563EB] rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0">
+                              <div className="flex items-center gap-3 px-4 py-2 bg-[rgba(255,255,255,.04)] border-b border-[rgba(255,255,255,.08)]">
+                                <span className="w-5 h-5 bg-[#4f46e5] rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0">
                                   {i + 1}
                                 </span>
-                                <span className="text-xs text-[#64748B]">
+                                <span className="text-xs text-[rgba(255,255,255,.5)]">
                                   Day {seq.delay_days}
                                 </span>
-                                <span className="text-xs font-medium text-[#0A0A0A] flex-1 truncate">
+                                <span className="text-xs font-medium text-white flex-1 truncate">
                                   {seq.subject}
                                 </span>
                               </div>
                               <div className="px-4 py-3">
-                                <pre className="text-xs text-[#64748B] whitespace-pre-wrap leading-relaxed font-sans line-clamp-4">
+                                <pre className="text-xs text-[rgba(255,255,255,.5)] whitespace-pre-wrap leading-relaxed font-sans line-clamp-4">
                                   {seq.body}
                                 </pre>
                               </div>
@@ -1616,10 +1616,10 @@ export default function Campaigns() {
             {!wizard && !selectedId && (
               <div className="flex flex-col items-center justify-center h-64 text-center">
                 <Mail className="w-10 h-10 text-[#CBD5E1] mb-3" />
-                <p className="text-[#64748B] font-medium">
+                <p className="text-[rgba(255,255,255,.5)] font-medium">
                   Select a campaign to view details
                 </p>
-                <p className="text-sm text-[#94A3B8] mt-1">
+                <p className="text-sm text-[rgba(255,255,255,.35)] mt-1">
                   or create a new one to get started
                 </p>
               </div>
@@ -1636,16 +1636,16 @@ export default function Campaigns() {
             onClick={() => setDeleteId(null)}
           />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
+            <div className="bg-[rgba(255,255,255,.04)] rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 bg-[rgba(239,68,68,.1)] rounded-xl flex items-center justify-center shrink-0">
                   <AlertCircle className="w-5 h-5 text-red-500" />
                 </div>
                 <div>
-                  <p className="text-[#0A0A0A] font-semibold text-base">
+                  <p className="text-white font-semibold text-base">
                     Delete campaign?
                   </p>
-                  <p className="text-[#64748B] text-sm mt-1">
+                  <p className="text-[rgba(255,255,255,.5)] text-sm mt-1">
                     This will permanently delete the campaign, all sequences,
                     and analytics.
                   </p>
@@ -1654,7 +1654,7 @@ export default function Campaigns() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setDeleteId(null)}
-                  className="flex-1 py-2.5 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-lg hover:bg-[#F5F7FA]"
+                  className="flex-1 py-2.5 border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] text-sm font-semibold rounded-lg hover:bg-[rgba(255,255,255,.04)]"
                 >
                   Cancel
                 </button>

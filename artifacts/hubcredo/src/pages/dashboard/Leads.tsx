@@ -200,9 +200,9 @@ export default function Leads() {
   }
 
   const statusPill = (status?: string | null) => {
-    if (status === "approved") return "bg-green-50 border-green-200 text-green-700";
-    if (status === "rejected") return "bg-red-50 border-red-200 text-red-600";
-    return "bg-[#F5F7FA] border-[#E2E8F0] text-[#64748B]";
+    if (status === "approved") return "bg-[rgba(16,185,129,.1)] border-[rgba(52,211,153,.25)] text-[#34d399]";
+    if (status === "rejected") return "bg-[rgba(239,68,68,.1)] border-[rgba(248,113,113,.3)] text-[#f87171]";
+    return "bg-[rgba(255,255,255,.04)] border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)]";
   };
 
   return (
@@ -211,10 +211,10 @@ export default function Leads() {
         {/* Header */}
         <div className="flex items-start justify-between mb-5 pt-2">
           <div>
-            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "2rem", letterSpacing: "0.04em" }} className="text-[#0A0A0A] mb-1">
+            <h1 style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: "2rem", letterSpacing: "0.04em" }} className="text-white mb-1">
               My Leads
             </h1>
-            <p className="text-[#64748B] text-sm">Generate and manage qualified prospects from LinkedIn</p>
+            <p className="text-[rgba(255,255,255,.5)] text-sm">Generate and manage qualified prospects from LinkedIn</p>
           </div>
         </div>
 
@@ -238,7 +238,7 @@ export default function Leads() {
                 </button>
                 <button
                   onClick={handleAutoFill}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-white border border-amber-300 text-amber-700 text-xs font-semibold rounded-lg hover:bg-amber-50 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-[rgba(255,255,255,.04)] border border-amber-300 text-amber-700 text-xs font-semibold rounded-lg hover:bg-amber-50 transition-colors"
                 >
                   <Sparkles className="w-3 h-3" />
                   Auto-fill from website analysis
@@ -247,9 +247,9 @@ export default function Leads() {
             </div>
           </div>
         ) : (
-          <div className="bg-[#2563EB] rounded-xl p-6 mb-8">
+          <div className="bg-[#4f46e5] rounded-xl p-6 mb-8">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-              <div className="w-12 h-12 bg-white/15 rounded-xl flex items-center justify-center shrink-0">
+              <div className="w-12 h-12 bg-[rgba(255,255,255,.04)]/15 rounded-xl flex items-center justify-center shrink-0">
                 <Zap className="w-6 h-6 text-white" />
               </div>
               <div className="flex-1 min-w-0">
@@ -266,7 +266,7 @@ export default function Leads() {
               <button
                 onClick={handleGenerateLeads}
                 disabled={scraping}
-                className="flex items-center gap-2.5 px-6 py-3 bg-white text-[#2563EB] font-bold rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50 shrink-0 text-sm"
+                className="flex items-center gap-2.5 px-6 py-3 bg-[rgba(255,255,255,.04)] text-[#4f46e5] font-bold rounded-lg hover:bg-[rgba(99,102,241,.15)] transition-colors disabled:opacity-50 shrink-0 text-sm"
               >
                 {scraping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
                 {scraping ? "Scraping…" : "Generate leads"}
@@ -281,7 +281,7 @@ export default function Leads() {
                   <button
                     key={n}
                     onClick={() => setLeadCount(n)}
-                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${leadCount === n ? "bg-white text-[#2563EB]" : "bg-white/15 text-white hover:bg-white/25"}`}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${leadCount === n ? "bg-[rgba(255,255,255,.04)] text-[#4f46e5]" : "bg-[rgba(255,255,255,.04)]/15 text-white hover:bg-[rgba(255,255,255,.04)]/25"}`}
                   >
                     {n}
                   </button>
@@ -296,7 +296,7 @@ export default function Leads() {
                       const v = parseInt(e.target.value, 10);
                       if (!isNaN(v)) setLeadCount(Math.max(5, Math.min(500, v)));
                     }}
-                    className="w-16 px-2 py-1 rounded-md text-xs font-semibold bg-white/15 text-white border border-white/30 focus:outline-none focus:border-white text-center"
+                    className="w-16 px-2 py-1 rounded-md text-xs font-semibold bg-[rgba(255,255,255,.04)]/15 text-white border border-white/30 focus:outline-none focus:border-white text-center"
                     placeholder="Custom"
                   />
                 </div>
@@ -314,10 +314,10 @@ export default function Leads() {
           {/* Left — lists */}
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1 mb-3">
-              <p className="text-xs text-[#64748B] uppercase tracking-widest font-medium">Lead lists</p>
+              <p className="text-xs text-[rgba(255,255,255,.5)] uppercase tracking-widest font-medium">Lead lists</p>
               <button
                 onClick={() => setShowNewList(true)}
-                className="flex items-center gap-1 text-xs text-[#2563EB] hover:text-[#1D4ED8] transition-colors font-medium"
+                className="flex items-center gap-1 text-xs text-[#4f46e5] hover:text-[#4338ca] transition-colors font-medium"
               >
                 <Plus className="w-3.5 h-3.5" /> New
               </button>
@@ -325,13 +325,13 @@ export default function Leads() {
 
             {listsLoading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-5 h-5 text-[#64748B] animate-spin" />
+                <Loader2 className="w-5 h-5 text-[rgba(255,255,255,.5)] animate-spin" />
               </div>
             ) : lists.length === 0 ? (
-              <div className="bg-white border border-dashed border-[#E2E8F0] rounded-xl p-6 text-center">
+              <div className="bg-[rgba(255,255,255,.04)] border border-dashed border-[rgba(255,255,255,.08)] rounded-xl p-6 text-center">
                 <Users className="w-8 h-8 text-[#CBD5E1] mx-auto mb-2" />
-                <p className="text-sm text-[#64748B]">No lists yet</p>
-                <p className="text-xs text-[#94A3B8] mt-1">One will be created when you generate leads</p>
+                <p className="text-sm text-[rgba(255,255,255,.5)]">No lists yet</p>
+                <p className="text-xs text-[rgba(255,255,255,.35)] mt-1">One will be created when you generate leads</p>
               </div>
             ) : (
               lists.map((list) => (
@@ -339,22 +339,22 @@ export default function Leads() {
                   key={list.id}
                   className={`group relative flex items-center rounded-lg border transition-colors ${
                     activeListId === list.id
-                      ? "bg-[#EFF6FF] border-[#BFDBFE]"
-                      : "bg-white border-[#E2E8F0] hover:border-[#CBD5E1] hover:bg-[#F5F7FA]"
+                      ? "bg-[#eef2ff] border-[#c7d2fe]"
+                      : "bg-[rgba(255,255,255,.04)] border-[rgba(255,255,255,.08)] hover:border-[rgba(255,255,255,.15)] hover:bg-[rgba(255,255,255,.04)]"
                   }`}
                 >
                   <button
                     onClick={() => setSelectedListId(list.id)}
                     className="flex-1 text-left px-4 py-3 min-w-0"
                   >
-                    <p className={`text-sm font-medium truncate ${activeListId === list.id ? "text-[#2563EB]" : "text-[#0A0A0A]"}`}>
+                    <p className={`text-sm font-medium truncate ${activeListId === list.id ? "text-[#4f46e5]" : "text-white"}`}>
                       {list.label || "Untitled list"}
                     </p>
-                    <p className={`text-xs mt-0.5 capitalize ${activeListId === list.id ? "text-[#2563EB]/70" : "text-[#64748B]"}`}>{list.status}</p>
+                    <p className={`text-xs mt-0.5 capitalize ${activeListId === list.id ? "text-[#4f46e5]/70" : "text-[rgba(255,255,255,.5)]"}`}>{list.status}</p>
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); setDeleteConfirmList(list); }}
-                    className="opacity-0 group-hover:opacity-100 mr-2 shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-[#94A3B8] hover:text-red-500 hover:bg-red-50 transition-all"
+                    className="opacity-0 group-hover:opacity-100 mr-2 shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-[rgba(255,255,255,.35)] hover:text-red-500 hover:bg-[rgba(239,68,68,.1)] transition-all"
                     title="Delete list"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -364,26 +364,26 @@ export default function Leads() {
             )}
 
             {showNewList && (
-              <div className="bg-white border border-[#2563EB]/30 rounded-xl p-4 space-y-3 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+              <div className="bg-[rgba(255,255,255,.04)] border border-[#4f46e5]/30 rounded-xl p-4 space-y-3 shadow-none">
                 <input
                   autoFocus
                   value={listLabel}
                   onChange={(e) => setListLabel(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleCreateList()}
                   placeholder="List name"
-                  className="w-full px-3 py-2 bg-white border border-[#E2E8F0] rounded-lg text-sm text-[#0A0A0A] placeholder:text-[#64748B] focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 transition-colors"
+                  className="w-full px-3 py-2 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg text-sm text-white placeholder:text-[rgba(255,255,255,.5)] focus:outline-none focus:border-[rgba(99,102,241,.7)] focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/20 transition-colors"
                 />
                 <div className="flex gap-2">
                   <button
                     onClick={handleCreateList}
                     disabled={createLeadList.isPending}
-                    className="flex-1 py-2 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] transition-colors disabled:opacity-50"
+                    className="flex-1 py-2 bg-[#4f46e5] text-white text-sm font-semibold rounded-lg hover:bg-[#4338ca] transition-colors disabled:opacity-50"
                   >
                     {createLeadList.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Create"}
                   </button>
                   <button
                     onClick={() => setShowNewList(false)}
-                    className="flex-1 py-2 border border-[#E2E8F0] text-[#64748B] text-sm rounded-lg hover:bg-[#F5F7FA] transition-colors"
+                    className="flex-1 py-2 border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] text-sm rounded-lg hover:bg-[rgba(255,255,255,.04)] transition-colors"
                   >
                     Cancel
                   </button>
@@ -393,13 +393,13 @@ export default function Leads() {
 
             {/* ICP summary */}
             {currentIcp && (
-              <div className="mt-4 p-3 bg-[#F5F7FA] border border-[#E2E8F0] rounded-lg">
-                <p className="text-xs font-medium text-[#0A0A0A] mb-1">Active ICP targeting</p>
+              <div className="mt-4 p-3 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg">
+                <p className="text-xs font-medium text-white mb-1">Active ICP targeting</p>
                 {currentIcp.job_titles?.length ? (
-                  <p className="text-xs text-[#64748B]">{currentIcp.job_titles.slice(0, 3).join(", ")}{currentIcp.job_titles.length > 3 ? ` +${currentIcp.job_titles.length - 3}` : ""}</p>
+                  <p className="text-xs text-[rgba(255,255,255,.5)]">{currentIcp.job_titles.slice(0, 3).join(", ")}{currentIcp.job_titles.length > 3 ? ` +${currentIcp.job_titles.length - 3}` : ""}</p>
                 ) : null}
                 {currentIcp.industries?.length ? (
-                  <p className="text-xs text-[#64748B] mt-0.5">{currentIcp.industries.slice(0, 2).join(", ")}</p>
+                  <p className="text-xs text-[rgba(255,255,255,.5)] mt-0.5">{currentIcp.industries.slice(0, 2).join(", ")}</p>
                 ) : null}
               </div>
             )}
@@ -409,7 +409,7 @@ export default function Leads() {
           <div className="lg:col-span-2 space-y-4">
             {activeListId && selectedList && (
               <div className="flex items-center justify-between">
-                <p className="text-xs text-[#64748B] uppercase tracking-widest font-medium">
+                <p className="text-xs text-[rgba(255,255,255,.5)] uppercase tracking-widest font-medium">
                   {leadsLoading ? "Loading…" : `${(leads as Lead[]).length} leads in "${selectedList.label}"`}
                 </p>
                 <div className="flex items-center gap-2">
@@ -418,7 +418,7 @@ export default function Leads() {
                       onClick={handleSyncAllApproved}
                       disabled={syncingAll}
                       title="Sync all approved leads to Attio CRM"
-                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-[#EFF6FF] border border-[#BFDBFE] text-[#2563EB] rounded-lg hover:bg-[#DBEAFE] transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-[#eef2ff] border border-[#c7d2fe] text-[#4f46e5] rounded-lg hover:bg-[#e0e7ff] transition-colors disabled:opacity-50"
                     >
                       {syncingAll ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                       Sync approved
@@ -429,11 +429,11 @@ export default function Leads() {
                       <select
                         value={activeListId}
                         onChange={(e) => setSelectedListId(e.target.value)}
-                        className="appearance-none text-xs text-[#2563EB] bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg pl-3 pr-7 py-1.5 focus:outline-none cursor-pointer"
+                        className="appearance-none text-xs text-[#4f46e5] bg-[#eef2ff] border border-[#c7d2fe] rounded-lg pl-3 pr-7 py-1.5 focus:outline-none cursor-pointer"
                       >
                         {lists.map((l) => <option key={l.id} value={l.id}>{l.label || "Untitled list"}</option>)}
                       </select>
-                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#2563EB] pointer-events-none" />
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#4f46e5] pointer-events-none" />
                     </div>
                   )}
                 </div>
@@ -442,17 +442,17 @@ export default function Leads() {
 
             {leadsLoading ? (
               <div className="flex items-center justify-center py-16">
-                <Loader2 className="w-6 h-6 text-[#64748B] animate-spin" />
+                <Loader2 className="w-6 h-6 text-[rgba(255,255,255,.5)] animate-spin" />
               </div>
             ) : (leads as Lead[]).length === 0 ? (
-              <div className="bg-white border border-dashed border-[#E2E8F0] rounded-xl p-16 text-center">
+              <div className="bg-[rgba(255,255,255,.04)] border border-dashed border-[rgba(255,255,255,.08)] rounded-xl p-16 text-center">
                 <Users className="w-10 h-10 text-[#CBD5E1] mx-auto mb-3" />
-                <p className="text-[#0A0A0A] font-medium mb-1">No leads yet</p>
-                <p className="text-sm text-[#64748B] mb-4">Click the blue "Generate leads" button above to kick off your n8n workflow.</p>
+                <p className="text-white font-medium mb-1">No leads yet</p>
+                <p className="text-sm text-[rgba(255,255,255,.5)] mb-4">Click the blue "Generate leads" button above to kick off your n8n workflow.</p>
                 <button
                   onClick={handleGenerateLeads}
                   disabled={scraping || !currentIcp}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#4f46e5] text-white text-sm font-semibold rounded-lg hover:bg-[#4338ca] transition-colors disabled:opacity-50"
                 >
                   {scraping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
                   Generate leads
@@ -467,9 +467,9 @@ export default function Leads() {
                     <div
                       key={lead.id}
                       onClick={() => setProfileLead(lead)}
-                      className="bg-white border border-[#E2E8F0] rounded-xl p-4 flex items-start gap-4 hover:border-[#2563EB]/40 hover:shadow-sm transition-all cursor-pointer"
+                      className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-4 flex items-start gap-4 hover:border-[#4f46e5]/40 hover:shadow-sm transition-all cursor-pointer"
                     >
-                      <div className="w-10 h-10 rounded-full bg-[#EFF6FF] border border-[#BFDBFE] flex items-center justify-center text-[#2563EB] text-sm font-bold shrink-0 overflow-hidden">
+                      <div className="w-10 h-10 rounded-full bg-[#eef2ff] border border-[#c7d2fe] flex items-center justify-center text-[#4f46e5] text-sm font-bold shrink-0 overflow-hidden">
                         {lead.profile_picture_url ? (
                           <img
                             src={lead.profile_picture_url}
@@ -487,16 +487,16 @@ export default function Leads() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-medium text-[#0A0A0A]">{displayName}</p>
+                          <p className="text-sm font-medium text-white">{displayName}</p>
                           <span className={`text-xs px-2 py-0.5 rounded-full border ${statusPill(lead.review_status)}`}>
                             {lead.review_status ?? "new"}
                           </span>
                           {linkedinStatus && linkedinStatus !== "not_contacted" && (
                             <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${
                               linkedinStatus === "request_sent" ? "bg-amber-50 text-amber-700 border-amber-200" :
-                              linkedinStatus === "connected"    ? "bg-green-50 text-green-700 border-green-200" :
-                              linkedinStatus === "replied"      ? "bg-blue-50 text-blue-700 border-blue-200" :
-                              "bg-[#F5F7FA] text-[#64748B] border-[#E2E8F0]"
+                              linkedinStatus === "connected"    ? "bg-[rgba(16,185,129,.1)] text-[#34d399] border-[rgba(52,211,153,.25)]" :
+                              linkedinStatus === "replied"      ? "bg-[rgba(99,102,241,.15)] text-[#818cf8] border-[rgba(129,140,248,.3)]" :
+                              "bg-[rgba(255,255,255,.04)] text-[rgba(255,255,255,.5)] border-[rgba(255,255,255,.08)]"
                             }`}>
                               <Linkedin className="w-2.5 h-2.5" />
                               {linkedinStatus === "request_sent" ? "Sent" :
@@ -506,9 +506,9 @@ export default function Leads() {
                           )}
                           {hasCrm && lead.review_status === "approved" && (
                             <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${
-                              lead.crm_sync_status === "synced" ? "bg-green-50 text-green-700 border-green-200" :
-                              lead.crm_sync_status === "error"  ? "bg-red-50 text-red-700 border-red-200" :
-                              "bg-[#F5F7FA] text-[#64748B] border-[#E2E8F0]"
+                              lead.crm_sync_status === "synced" ? "bg-[rgba(16,185,129,.1)] text-[#34d399] border-[rgba(52,211,153,.25)]" :
+                              lead.crm_sync_status === "error"  ? "bg-[rgba(239,68,68,.1)] text-[#f87171] border-[rgba(248,113,113,.3)]" :
+                              "bg-[rgba(255,255,255,.04)] text-[rgba(255,255,255,.5)] border-[rgba(255,255,255,.08)]"
                             }`} title={lead.crm_sync_status === "error" ? (lead.crm_sync_error ?? "Sync error") : undefined}>
                               {lead.crm_sync_status === "synced" ? <CheckCircle2 className="w-2.5 h-2.5" /> :
                                lead.crm_sync_status === "error"  ? <AlertCircle className="w-2.5 h-2.5" /> :
@@ -518,15 +518,15 @@ export default function Leads() {
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-[#64748B] mt-0.5">
+                        <p className="text-xs text-[rgba(255,255,255,.5)] mt-0.5">
                           {lead.job_title}{lead.company_name ? ` · ${lead.company_name}` : ""}
                         </p>
-                        {lead.email && <p className="text-xs text-[#64748B] mt-0.5">{lead.email}</p>}
-                        {(lead as any).phone && <p className="text-xs text-[#64748B] mt-0.5">{(lead as any).phone}</p>}
+                        {lead.email && <p className="text-xs text-[rgba(255,255,255,.5)] mt-0.5">{lead.email}</p>}
+                        {(lead as any).phone && <p className="text-xs text-[rgba(255,255,255,.5)] mt-0.5">{(lead as any).phone}</p>}
                         {lead.linkedin_url && (
                           <a href={lead.linkedin_url} target="_blank" rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 text-xs text-[#2563EB] hover:text-[#1D4ED8] mt-1 transition-colors">
+                            className="inline-flex items-center gap-1 text-xs text-[#4f46e5] hover:text-[#4338ca] mt-1 transition-colors">
                             LinkedIn <ExternalLink className="w-3 h-3" />
                           </a>
                         )}
@@ -538,10 +538,10 @@ export default function Leads() {
                             disabled={syncingLeadId === lead.id}
                             className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${
                               lead.crm_sync_status === "synced"
-                                ? "border-green-200 text-green-600 hover:bg-green-50"
+                                ? "border-[rgba(52,211,153,.25)] text-[#34d399] hover:bg-[rgba(16,185,129,.1)]"
                                 : lead.crm_sync_status === "error"
-                                ? "border-red-200 text-red-600 hover:bg-red-50"
-                                : "border-[#E2E8F0] text-[#64748B] hover:text-[#2563EB] hover:border-[#2563EB]/30 hover:bg-[#EFF6FF]"
+                                ? "border-[rgba(248,113,113,.3)] text-[#f87171] hover:bg-[rgba(239,68,68,.1)]"
+                                : "border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] hover:text-[#4f46e5] hover:border-[#4f46e5]/30 hover:bg-[#eef2ff]"
                             }`}
                             title={lead.crm_sync_status === "synced" ? "Re-sync to Attio" : lead.crm_sync_status === "error" ? `Retry sync — ${lead.crm_sync_error}` : "Sync to Attio"}
                           >
@@ -554,14 +554,14 @@ export default function Leads() {
                           <>
                             <button
                               onClick={(e) => { e.stopPropagation(); handleReview(lead.id, "approved"); }}
-                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E2E8F0] text-[#64748B] hover:text-green-600 hover:border-green-200 hover:bg-green-50 transition-colors"
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] hover:text-[#34d399] hover:border-[rgba(52,211,153,.25)] hover:bg-[rgba(16,185,129,.1)] transition-colors"
                               title="Approve"
                             >
                               <ThumbsUp className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); handleReview(lead.id, "rejected"); }}
-                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E2E8F0] text-[#64748B] hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors"
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] hover:text-[#f87171] hover:border-[rgba(248,113,113,.3)] hover:bg-[rgba(239,68,68,.1)] transition-colors"
                               title="Reject"
                             >
                               <ThumbsDown className="w-3.5 h-3.5" />
@@ -591,13 +591,13 @@ export default function Leads() {
               onClick={() => setProfileLead(null)}
             />
             {/* Panel */}
-            <div className="fixed top-0 right-0 h-full w-full max-w-md bg-white z-50 shadow-2xl flex flex-col overflow-hidden">
+            <div className="fixed top-0 right-0 h-full w-full max-w-md bg-[rgba(255,255,255,.04)] z-50 shadow-2xl flex flex-col overflow-hidden">
               {/* Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-[#E2E8F0]">
-                <p className="text-xs font-semibold text-[#64748B] uppercase tracking-widest">Lead profile</p>
+              <div className="flex items-center justify-between px-6 py-4 border-b border-[rgba(255,255,255,.08)]">
+                <p className="text-xs font-semibold text-[rgba(255,255,255,.5)] uppercase tracking-widest">Lead profile</p>
                 <button
                   onClick={() => setProfileLead(null)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#F5F7FA] text-[#64748B] transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[rgba(255,255,255,.04)] text-[rgba(255,255,255,.5)] transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -605,9 +605,9 @@ export default function Leads() {
 
               <div className="flex-1 overflow-y-auto">
                 {/* Identity block */}
-                <div className="px-6 py-6 border-b border-[#E2E8F0]">
+                <div className="px-6 py-6 border-b border-[rgba(255,255,255,.08)]">
                   <div className="flex items-start gap-4">
-                    <div className="w-16 h-16 rounded-full bg-[#EFF6FF] border-2 border-[#BFDBFE] flex items-center justify-center text-[#2563EB] text-xl font-bold shrink-0 overflow-hidden">
+                    <div className="w-16 h-16 rounded-full bg-[#eef2ff] border-2 border-[#c7d2fe] flex items-center justify-center text-[#4f46e5] text-xl font-bold shrink-0 overflow-hidden">
                       {lead.profile_picture_url ? (
                         <img
                           src={lead.profile_picture_url}
@@ -624,10 +624,10 @@ export default function Leads() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h2 className="text-lg font-semibold text-[#0A0A0A] leading-tight">{displayName}</h2>
-                      {lead.job_title && <p className="text-sm text-[#64748B] mt-0.5">{lead.job_title}</p>}
+                      <h2 className="text-lg font-semibold text-white leading-tight">{displayName}</h2>
+                      {lead.job_title && <p className="text-sm text-[rgba(255,255,255,.5)] mt-0.5">{lead.job_title}</p>}
                       {lead.company_name && (
-                        <p className="text-sm text-[#64748B]">{lead.company_name}</p>
+                        <p className="text-sm text-[rgba(255,255,255,.5)]">{lead.company_name}</p>
                       )}
                       <div className="flex flex-wrap gap-2 mt-2">
                         <span className={`inline-block text-xs px-2.5 py-0.5 rounded-full border font-medium ${statusPill(lead.review_status)}`}>
@@ -636,9 +636,9 @@ export default function Leads() {
                         {linkedinStatus && linkedinStatus !== "not_contacted" && (
                           <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border font-medium ${
                             linkedinStatus === "request_sent" ? "bg-amber-50 text-amber-700 border-amber-200" :
-                            linkedinStatus === "connected"    ? "bg-green-50 text-green-700 border-green-200" :
-                            linkedinStatus === "replied"      ? "bg-blue-50 text-blue-700 border-blue-200" :
-                            "bg-[#F5F7FA] text-[#64748B] border-[#E2E8F0]"
+                            linkedinStatus === "connected"    ? "bg-[rgba(16,185,129,.1)] text-[#34d399] border-[rgba(52,211,153,.25)]" :
+                            linkedinStatus === "replied"      ? "bg-[rgba(99,102,241,.15)] text-[#818cf8] border-[rgba(129,140,248,.3)]" :
+                            "bg-[rgba(255,255,255,.04)] text-[rgba(255,255,255,.5)] border-[rgba(255,255,255,.08)]"
                           }`}>
                             <Linkedin className="w-3 h-3" />
                             {linkedinStatus === "request_sent" ? "Request sent" :
@@ -656,26 +656,26 @@ export default function Leads() {
                   {/* Contact */}
                   {(lead.email || lead.linkedin_url) && (
                     <div>
-                      <p className="text-xs font-semibold text-[#0A0A0A] uppercase tracking-widest mb-2">Contact</p>
+                      <p className="text-xs font-semibold text-white uppercase tracking-widest mb-2">Contact</p>
                       <div className="space-y-2">
                         {lead.email && (
                           <div className="flex items-center gap-3">
-                            <Mail className="w-4 h-4 text-[#64748B] shrink-0" />
-                            <a href={`mailto:${lead.email}`} className="text-sm text-[#2563EB] hover:underline truncate">{lead.email}</a>
+                            <Mail className="w-4 h-4 text-[rgba(255,255,255,.5)] shrink-0" />
+                            <a href={`mailto:${lead.email}`} className="text-sm text-[#4f46e5] hover:underline truncate">{lead.email}</a>
                           </div>
                         )}
                        {lead.phone && (
   <div className="flex items-center gap-3">
-    <Phone className="w-4 h-4 text-[#64748B] shrink-0" />
-    <a href={`tel:${lead.phone}`} className="text-sm text-[#2563EB] hover:underline truncate">
+    <Phone className="w-4 h-4 text-[rgba(255,255,255,.5)] shrink-0" />
+    <a href={`tel:${lead.phone}`} className="text-sm text-[#4f46e5] hover:underline truncate">
       {lead.phone}
     </a>
   </div>
 )}
                         {lead.linkedin_url && (
                           <div className="flex items-center gap-3">
-                            <ExternalLink className="w-4 h-4 text-[#64748B] shrink-0" />
-                            <a href={lead.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-sm text-[#2563EB] hover:underline truncate">
+                            <ExternalLink className="w-4 h-4 text-[rgba(255,255,255,.5)] shrink-0" />
+                            <a href={lead.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-sm text-[#4f46e5] hover:underline truncate">
                               LinkedIn profile
                             </a>
                           </div>
@@ -687,18 +687,18 @@ export default function Leads() {
                   {/* Role */}
                   {(lead.seniority || lead.department) && (
                     <div>
-                      <p className="text-xs font-semibold text-[#0A0A0A] uppercase tracking-widest mb-2">Role</p>
+                      <p className="text-xs font-semibold text-white uppercase tracking-widest mb-2">Role</p>
                       <div className="space-y-2">
                         {lead.seniority && (
                           <div className="flex items-center gap-3">
-                            <Briefcase className="w-4 h-4 text-[#64748B] shrink-0" />
-                            <span className="text-sm text-[#0A0A0A] capitalize">{lead.seniority}</span>
+                            <Briefcase className="w-4 h-4 text-[rgba(255,255,255,.5)] shrink-0" />
+                            <span className="text-sm text-white capitalize">{lead.seniority}</span>
                           </div>
                         )}
                         {lead.department && (
                           <div className="flex items-center gap-3">
-                            <Users className="w-4 h-4 text-[#64748B] shrink-0" />
-                            <span className="text-sm text-[#0A0A0A]">{lead.department}</span>
+                            <Users className="w-4 h-4 text-[rgba(255,255,255,.5)] shrink-0" />
+                            <span className="text-sm text-white">{lead.department}</span>
                           </div>
                         )}
                       </div>
@@ -708,30 +708,30 @@ export default function Leads() {
                   {/* Company */}
                   {(lead.company_name || lead.company_domain || lead.company_size || lead.industry) && (
                     <div>
-                      <p className="text-xs font-semibold text-[#0A0A0A] uppercase tracking-widest mb-2">Company</p>
+                      <p className="text-xs font-semibold text-white uppercase tracking-widest mb-2">Company</p>
                       <div className="space-y-2">
                         {lead.company_name && (
                           <div className="flex items-center gap-3">
-                            <Building2 className="w-4 h-4 text-[#64748B] shrink-0" />
-                            <span className="text-sm text-[#0A0A0A]">{lead.company_name}</span>
+                            <Building2 className="w-4 h-4 text-[rgba(255,255,255,.5)] shrink-0" />
+                            <span className="text-sm text-white">{lead.company_name}</span>
                           </div>
                         )}
                         {lead.company_domain && (
                           <div className="flex items-center gap-3">
-                            <Globe className="w-4 h-4 text-[#64748B] shrink-0" />
-                            <a href={`https://${lead.company_domain}`} target="_blank" rel="noopener noreferrer" className="text-sm text-[#2563EB] hover:underline">{lead.company_domain}</a>
+                            <Globe className="w-4 h-4 text-[rgba(255,255,255,.5)] shrink-0" />
+                            <a href={`https://${lead.company_domain}`} target="_blank" rel="noopener noreferrer" className="text-sm text-[#4f46e5] hover:underline">{lead.company_domain}</a>
                           </div>
                         )}
                         {lead.company_size && (
                           <div className="flex items-center gap-3">
-                            <Users className="w-4 h-4 text-[#64748B] shrink-0" />
-                            <span className="text-sm text-[#0A0A0A]">{lead.company_size} employees</span>
+                            <Users className="w-4 h-4 text-[rgba(255,255,255,.5)] shrink-0" />
+                            <span className="text-sm text-white">{lead.company_size} employees</span>
                           </div>
                         )}
                         {lead.industry && (
                           <div className="flex items-center gap-3">
-                            <Briefcase className="w-4 h-4 text-[#64748B] shrink-0" />
-                            <span className="text-sm text-[#0A0A0A]">{lead.industry}</span>
+                            <Briefcase className="w-4 h-4 text-[rgba(255,255,255,.5)] shrink-0" />
+                            <span className="text-sm text-white">{lead.industry}</span>
                           </div>
                         )}
                       </div>
@@ -741,10 +741,10 @@ export default function Leads() {
                   {/* Location */}
                   {(lead.hq_city || lead.hq_country) && (
                     <div>
-                      <p className="text-xs font-semibold text-[#0A0A0A] uppercase tracking-widest mb-2">Location</p>
+                      <p className="text-xs font-semibold text-white uppercase tracking-widest mb-2">Location</p>
                       <div className="flex items-center gap-3">
-                        <MapPin className="w-4 h-4 text-[#64748B] shrink-0" />
-                        <span className="text-sm text-[#0A0A0A]">
+                        <MapPin className="w-4 h-4 text-[rgba(255,255,255,.5)] shrink-0" />
+                        <span className="text-sm text-white">
                           {[lead.hq_city, lead.hq_country].filter(Boolean).join(", ")}
                         </span>
                       </div>
@@ -754,8 +754,8 @@ export default function Leads() {
                   {/* Research blurb */}
                   {lead.research_blurb && (
                     <div>
-                      <p className="text-xs font-semibold text-[#0A0A0A] uppercase tracking-widest mb-2">AI Research Notes</p>
-                      <p className="text-sm text-[#64748B] leading-relaxed bg-[#F5F7FA] border border-[#E2E8F0] rounded-lg p-3">{lead.research_blurb}</p>
+                      <p className="text-xs font-semibold text-white uppercase tracking-widest mb-2">AI Research Notes</p>
+                      <p className="text-sm text-[rgba(255,255,255,.5)] leading-relaxed bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg p-3">{lead.research_blurb}</p>
                     </div>
                   )}
                 </div>
@@ -763,36 +763,36 @@ export default function Leads() {
 
               {/* CRM sync status in panel */}
               {hasCrm && lead.review_status === "approved" && (
-                <div className="px-6 py-3 border-t border-[#E2E8F0]">
+                <div className="px-6 py-3 border-t border-[rgba(255,255,255,.08)]">
                   <div className={`flex items-center justify-between p-3 rounded-lg border ${
-                    lead.crm_sync_status === "synced" ? "bg-green-50 border-green-200" :
-                    lead.crm_sync_status === "error"  ? "bg-red-50 border-red-200" :
-                    "bg-[#F5F7FA] border-[#E2E8F0]"
+                    lead.crm_sync_status === "synced" ? "bg-[rgba(16,185,129,.1)] border-[rgba(52,211,153,.25)]" :
+                    lead.crm_sync_status === "error"  ? "bg-[rgba(239,68,68,.1)] border-[rgba(248,113,113,.3)]" :
+                    "bg-[rgba(255,255,255,.04)] border-[rgba(255,255,255,.08)]"
                   }`}>
                     <div className="flex items-center gap-2">
-                      {lead.crm_sync_status === "synced" ? <CheckCircle2 className="w-4 h-4 text-green-600" /> :
-                       lead.crm_sync_status === "error"  ? <AlertCircle className="w-4 h-4 text-red-600" /> :
-                       <Clock className="w-4 h-4 text-[#64748B]" />}
+                      {lead.crm_sync_status === "synced" ? <CheckCircle2 className="w-4 h-4 text-[#34d399]" /> :
+                       lead.crm_sync_status === "error"  ? <AlertCircle className="w-4 h-4 text-[#f87171]" /> :
+                       <Clock className="w-4 h-4 text-[rgba(255,255,255,.5)]" />}
                       <div>
                         <p className={`text-xs font-medium ${
                           lead.crm_sync_status === "synced" ? "text-green-800" :
-                          lead.crm_sync_status === "error"  ? "text-red-800" : "text-[#0A0A0A]"
+                          lead.crm_sync_status === "error"  ? "text-red-800" : "text-white"
                         }`}>
                           {lead.crm_sync_status === "synced" ? "Synced to Attio" :
                            lead.crm_sync_status === "error"  ? "Sync failed" : "Not synced to CRM"}
                         </p>
                         {lead.crm_sync_status === "error" && lead.crm_sync_error && (
-                          <p className="text-xs text-red-600 mt-0.5 truncate max-w-[200px]">{lead.crm_sync_error}</p>
+                          <p className="text-xs text-[#f87171] mt-0.5 truncate max-w-[200px]">{lead.crm_sync_error}</p>
                         )}
                         {lead.crm_sync_status === "synced" && lead.crm_synced_at && (
-                          <p className="text-xs text-green-600 mt-0.5">{new Date(lead.crm_synced_at).toLocaleString()}</p>
+                          <p className="text-xs text-[#34d399] mt-0.5">{new Date(lead.crm_synced_at).toLocaleString()}</p>
                         )}
                       </div>
                     </div>
                     <button
                       onClick={(e) => handleSyncLeadToCrm(lead.id, e)}
                       disabled={syncingLeadId === lead.id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-[#E2E8F0] bg-white text-[#64748B] rounded-lg hover:border-[#2563EB]/40 hover:text-[#2563EB] transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.04)] text-[rgba(255,255,255,.5)] rounded-lg hover:border-[#4f46e5]/40 hover:text-[#4f46e5] transition-colors disabled:opacity-50"
                     >
                       {syncingLeadId === lead.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                       {lead.crm_sync_status === "synced" ? "Re-sync" : "Sync now"}
@@ -803,7 +803,7 @@ export default function Leads() {
 
               {/* Footer actions */}
               {(!lead.review_status || lead.review_status === "pending") && (
-                <div className="px-6 py-4 border-t border-[#E2E8F0] flex gap-3">
+                <div className="px-6 py-4 border-t border-[rgba(255,255,255,.08)] flex gap-3">
                   <button
                     onClick={() => { handleReview(lead.id, "approved"); setProfileLead(null); }}
                     className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors"
@@ -812,7 +812,7 @@ export default function Leads() {
                   </button>
                   <button
                     onClick={() => { handleReview(lead.id, "rejected"); setProfileLead(null); }}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] text-sm font-semibold rounded-lg hover:bg-[rgba(239,68,68,.1)] hover:text-[#f87171] hover:border-[rgba(248,113,113,.3)] transition-colors"
                   >
                     <ThumbsDown className="w-4 h-4" /> Reject
                   </button>
@@ -831,16 +831,16 @@ export default function Leads() {
             onClick={() => setDeleteConfirmList(null)}
           />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
+            <div className="bg-[rgba(255,255,255,.04)] rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
               {/* Icon + title */}
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 bg-[rgba(239,68,68,.1)] rounded-xl flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-5 h-5 text-red-500" />
                 </div>
                 <div>
-                  <p className="text-[#0A0A0A] font-semibold text-base leading-tight">Delete this list?</p>
-                  <p className="text-[#64748B] text-sm mt-1 leading-relaxed">
-                    <span className="font-medium text-[#0A0A0A]">"{deleteConfirmList.label || "Untitled list"}"</span> and all the leads inside it will be permanently deleted. This cannot be undone.
+                  <p className="text-white font-semibold text-base leading-tight">Delete this list?</p>
+                  <p className="text-[rgba(255,255,255,.5)] text-sm mt-1 leading-relaxed">
+                    <span className="font-medium text-white">"{deleteConfirmList.label || "Untitled list"}"</span> and all the leads inside it will be permanently deleted. This cannot be undone.
                   </p>
                 </div>
               </div>
@@ -849,7 +849,7 @@ export default function Leads() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setDeleteConfirmList(null)}
-                  className="flex-1 py-2.5 border border-[#E2E8F0] text-[#64748B] text-sm font-semibold rounded-lg hover:bg-[#F5F7FA] transition-colors"
+                  className="flex-1 py-2.5 border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] text-sm font-semibold rounded-lg hover:bg-[rgba(255,255,255,.04)] transition-colors"
                 >
                   Cancel
                 </button>

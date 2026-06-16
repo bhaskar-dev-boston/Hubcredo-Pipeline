@@ -82,7 +82,7 @@ interface Member { id: { workspace_member_id: string }; first_name: string; last
 // ─── Colour helpers ───────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = [
-  "bg-blue-100 text-blue-700", "bg-emerald-100 text-emerald-700",
+  "bg-blue-100 text-[#818cf8]", "bg-emerald-100 text-emerald-700",
   "bg-violet-100 text-violet-700", "bg-amber-100 text-amber-700",
   "bg-rose-100 text-rose-700", "bg-cyan-100 text-cyan-700",
 ];
@@ -106,15 +106,15 @@ export default function CRM() {
 
   if (connected === null) return (
     <div className="flex items-center justify-center h-64">
-      <Loader2 className="w-6 h-6 animate-spin text-[#2563EB]" />
+      <Loader2 className="w-6 h-6 animate-spin text-[#4f46e5]" />
     </div>
   );
 
   if (!connected) return (
     <div className="flex flex-col items-center justify-center h-64 gap-3 text-center">
-      <AlertCircle className="w-10 h-10 text-[#94A3B8]" />
-      <p className="font-semibold text-[#0A0A0A]">Attio not connected</p>
-      <p className="text-sm text-[#64748B]">Go to Settings → CRM to connect your Attio workspace.</p>
+      <AlertCircle className="w-10 h-10 text-[rgba(255,255,255,.35)]" />
+      <p className="font-semibold text-white">Attio not connected</p>
+      <p className="text-sm text-[rgba(255,255,255,.5)]">Go to Settings → CRM to connect your Attio workspace.</p>
     </div>
   );
 
@@ -129,10 +129,10 @@ export default function CRM() {
   return (
     <div className="flex flex-col h-full min-h-0 bg-[#F8FAFC]">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 pt-5 pb-0 bg-white border-b border-[#E2E8F0]">
+      <div className="flex items-center justify-between px-6 pt-5 pb-0 bg-[rgba(255,255,255,.04)] border-b border-[rgba(255,255,255,.08)]">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-[#0A0A0A] tracking-tight">CRM</h1>
-          <span className="text-[11px] text-[#94A3B8] border border-[#E2E8F0] rounded px-1.5 py-0.5">
+          <h1 className="text-xl font-bold text-white tracking-tight">CRM</h1>
+          <span className="text-[11px] text-[rgba(255,255,255,.35)] border border-[rgba(255,255,255,.08)] rounded px-1.5 py-0.5">
             Powered by Attio
           </span>
         </div>
@@ -143,8 +143,8 @@ export default function CRM() {
               onClick={() => setTab(t.id)}
               className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-all -mb-px
                 ${tab === t.id
-                  ? "border-[#2563EB] text-[#2563EB] bg-[#EFF6FF]"
-                  : "border-transparent text-[#64748B] hover:text-[#0A0A0A] hover:bg-[#F1F5F9]"}`}
+                  ? "border-[#4f46e5] text-[#4f46e5] bg-[#eef2ff]"
+                  : "border-transparent text-[rgba(255,255,255,.5)] hover:text-white hover:bg-[#F1F5F9]"}`}
             >
               {t.icon}{t.label}
             </button>
@@ -198,39 +198,39 @@ function ContactsTab() {
         {/* Search bar */}
         <div className="flex items-center gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgba(255,255,255,.35)]" />
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Search by name or email…"
-              className="w-full pl-9 pr-4 py-2.5 text-sm bg-white border border-[#E2E8F0] rounded-xl
-                focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
+              className="w-full pl-9 pr-4 py-2.5 text-sm bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl
+                focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/20 focus:border-[rgba(99,102,241,.7)]"
             />
           </div>
           <button onClick={() => load(query, 0)}
-            className="p-2.5 rounded-xl border border-[#E2E8F0] bg-white hover:bg-[#F1F5F9] transition-colors">
-            <RefreshCw className="w-4 h-4 text-[#64748B]" />
+            className="p-2.5 rounded-xl border border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.04)] hover:bg-[#F1F5F9] transition-colors">
+            <RefreshCw className="w-4 h-4 text-[rgba(255,255,255,.5)]" />
           </button>
         </div>
 
         {/* Table */}
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl overflow-hidden">
+        <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-2xl overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#F1F5F9] bg-[#F8FAFC]">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B] uppercase tracking-wide">Name</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B] uppercase tracking-wide">Email</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B] uppercase tracking-wide">Job Title</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B] uppercase tracking-wide">Company</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-[rgba(255,255,255,.5)] uppercase tracking-wide">Name</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-[rgba(255,255,255,.5)] uppercase tracking-wide">Email</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-[rgba(255,255,255,.5)] uppercase tracking-wide">Job Title</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-[rgba(255,255,255,.5)] uppercase tracking-wide">Company</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F8FAFC]">
               {loading && people.length === 0 ? (
-                <tr><td colSpan={4} className="text-center py-12 text-[#94A3B8]">
+                <tr><td colSpan={4} className="text-center py-12 text-[rgba(255,255,255,.35)]">
                   <Loader2 className="w-5 h-5 animate-spin mx-auto" />
                 </td></tr>
               ) : people.length === 0 ? (
-                <tr><td colSpan={4} className="text-center py-12 text-[#94A3B8] text-sm">No contacts found</td></tr>
+                <tr><td colSpan={4} className="text-center py-12 text-[rgba(255,255,255,.35)] text-sm">No contacts found</td></tr>
               ) : people.map(p => {
                 const name    = av(p.values.name ?? []);
                 const email   = av(p.values.email_addresses ?? []);
@@ -245,7 +245,7 @@ function ContactsTab() {
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${avatarColor(name)}`}>
                           {initials(name)}
                         </div>
-                        <span className="font-medium text-[#0A0A0A] truncate">{name}</span>
+                        <span className="font-medium text-white truncate">{name}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-[#475569] truncate max-w-[180px]">{email}</td>
@@ -261,7 +261,7 @@ function ContactsTab() {
             <div className="flex justify-center p-3 border-t border-[#F1F5F9]">
               <button onClick={() => { const next = offset + LIMIT; setOffset(next); load(query, next); }}
                 disabled={loading}
-                className="text-sm text-[#2563EB] font-medium hover:underline disabled:opacity-50">
+                className="text-sm text-[#4f46e5] font-medium hover:underline disabled:opacity-50">
                 {loading ? "Loading…" : "Load more"}
               </button>
             </div>
@@ -353,7 +353,7 @@ function ContactDetail({ person, onClose }: { person: Person; onClose: () => voi
   }
 
   return (
-    <div className="w-80 shrink-0 bg-white border border-[#E2E8F0] rounded-2xl flex flex-col overflow-hidden">
+    <div className="w-80 shrink-0 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-2xl flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-start justify-between p-4 border-b border-[#F1F5F9]">
         <div className="flex items-center gap-3">
@@ -361,12 +361,12 @@ function ContactDetail({ person, onClose }: { person: Person; onClose: () => voi
             {initials(name)}
           </div>
           <div>
-            <p className="font-semibold text-[#0A0A0A] text-sm leading-tight">{name}</p>
-            <p className="text-xs text-[#64748B]">{title !== "—" ? title : email}</p>
+            <p className="font-semibold text-white text-sm leading-tight">{name}</p>
+            <p className="text-xs text-[rgba(255,255,255,.5)]">{title !== "—" ? title : email}</p>
           </div>
         </div>
         <button onClick={onClose} className="p-1 rounded-lg hover:bg-[#F1F5F9] transition-colors">
-          <X className="w-4 h-4 text-[#64748B]" />
+          <X className="w-4 h-4 text-[rgba(255,255,255,.5)]" />
         </button>
       </div>
 
@@ -374,14 +374,14 @@ function ContactDetail({ person, onClose }: { person: Person; onClose: () => voi
       <div className="p-4 border-b border-[#F1F5F9] space-y-1.5">
         {email !== "—" && (
           <div className="flex items-center gap-2 text-xs text-[#475569]">
-            <Mail className="w-3.5 h-3.5 text-[#94A3B8]" />{email}
+            <Mail className="w-3.5 h-3.5 text-[rgba(255,255,255,.35)]" />{email}
           </div>
         )}
         {linkedin !== "—" && (
           <div className="flex items-center gap-2 text-xs text-[#475569]">
-            <ExternalLink className="w-3.5 h-3.5 text-[#94A3B8]" />
+            <ExternalLink className="w-3.5 h-3.5 text-[rgba(255,255,255,.35)]" />
             <a href={linkedin} target="_blank" rel="noopener noreferrer"
-              className="text-[#2563EB] hover:underline truncate">LinkedIn</a>
+              className="text-[#4f46e5] hover:underline truncate">LinkedIn</a>
           </div>
         )}
       </div>
@@ -391,7 +391,7 @@ function ContactDetail({ person, onClose }: { person: Person; onClose: () => voi
         {(["notes", "tasks"] as const).map(p => (
           <button key={p} onClick={() => setActivePanel(p)}
             className={`flex-1 py-2 text-xs font-semibold capitalize transition-colors
-              ${activePanel === p ? "text-[#2563EB] border-b-2 border-[#2563EB]" : "text-[#64748B] hover:text-[#0A0A0A]"}`}>
+              ${activePanel === p ? "text-[#4f46e5] border-b-2 border-[#4f46e5]" : "text-[rgba(255,255,255,.5)] hover:text-white"}`}>
             {p} {p === "notes" ? `(${notes.length})` : `(${tasks.filter(t => !t.is_completed).length})`}
           </button>
         ))}
@@ -401,17 +401,17 @@ function ContactDetail({ person, onClose }: { person: Person; onClose: () => voi
       {activePanel === "notes" && (
         <div className="flex flex-col flex-1 min-h-0">
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {notes.length === 0 && <p className="text-xs text-[#94A3B8] text-center pt-4">No notes yet</p>}
+            {notes.length === 0 && <p className="text-xs text-[rgba(255,255,255,.35)] text-center pt-4">No notes yet</p>}
             {notes.map(n => (
               <div key={n.id.note_id} className="group bg-[#F8FAFC] rounded-xl p-3">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-xs text-[#0A0A0A] leading-relaxed flex-1">{n.content_plaintext}</p>
+                  <p className="text-xs text-white leading-relaxed flex-1">{n.content_plaintext}</p>
                   <button onClick={() => deleteNote(n.id.note_id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50">
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-[rgba(239,68,68,.1)]">
                     <Trash2 className="w-3 h-3 text-red-400" />
                   </button>
                 </div>
-                <p className="text-[10px] text-[#94A3B8] mt-1">
+                <p className="text-[10px] text-[rgba(255,255,255,.35)] mt-1">
                   {new Date(n.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                 </p>
               </div>
@@ -423,12 +423,12 @@ function ContactDetail({ person, onClose }: { person: Person; onClose: () => voi
               onChange={e => setNoteText(e.target.value)}
               placeholder="Add a note…"
               rows={2}
-              className="w-full px-3 py-2 text-xs bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl
-                focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none"
+              className="w-full px-3 py-2 text-xs bg-[#F8FAFC] border border-[rgba(255,255,255,.08)] rounded-xl
+                focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/20 focus:border-[rgba(99,102,241,.7)] resize-none"
             />
             <button onClick={addNote} disabled={savingNote || !noteText.trim()}
-              className="mt-1.5 w-full py-1.5 rounded-lg text-xs font-semibold bg-[#2563EB] text-white
-                hover:bg-[#1D4ED8] disabled:opacity-50 transition-colors">
+              className="mt-1.5 w-full py-1.5 rounded-lg text-xs font-semibold bg-[#4f46e5] text-white
+                hover:bg-[#4338ca] disabled:opacity-50 transition-colors">
               {savingNote ? "Saving…" : "Add Note"}
             </button>
           </div>
@@ -439,22 +439,22 @@ function ContactDetail({ person, onClose }: { person: Person; onClose: () => voi
       {activePanel === "tasks" && (
         <div className="flex flex-col flex-1 min-h-0">
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {tasks.length === 0 && <p className="text-xs text-[#94A3B8] text-center pt-4">No tasks yet</p>}
+            {tasks.length === 0 && <p className="text-xs text-[rgba(255,255,255,.35)] text-center pt-4">No tasks yet</p>}
             {tasks.map(t => (
               <div key={t.id.task_id}
                 className={`flex items-start gap-2 p-2.5 rounded-xl border
-                  ${t.is_completed ? "opacity-50 bg-[#F8FAFC] border-[#E2E8F0]" : "bg-white border-[#E2E8F0]"}`}>
+                  ${t.is_completed ? "opacity-50 bg-[#F8FAFC] border-[rgba(255,255,255,.08)]" : "bg-[rgba(255,255,255,.04)] border-[rgba(255,255,255,.08)]"}`}>
                 <button onClick={() => !t.is_completed && completeTask(t.id.task_id)}>
                   {t.is_completed
                     ? <CheckCircle2 className="w-4 h-4 text-[#16A34A] shrink-0" />
-                    : <Circle className="w-4 h-4 text-[#94A3B8] shrink-0 hover:text-[#2563EB]" />}
+                    : <Circle className="w-4 h-4 text-[rgba(255,255,255,.35)] shrink-0 hover:text-[#4f46e5]" />}
                 </button>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-xs leading-relaxed ${t.is_completed ? "line-through text-[#94A3B8]" : "text-[#0A0A0A]"}`}>
+                  <p className={`text-xs leading-relaxed ${t.is_completed ? "line-through text-[rgba(255,255,255,.35)]" : "text-white"}`}>
                     {t.content}
                   </p>
                   {t.deadline_at && (
-                    <p className="text-[10px] text-[#94A3B8] flex items-center gap-1 mt-0.5">
+                    <p className="text-[10px] text-[rgba(255,255,255,.35)] flex items-center gap-1 mt-0.5">
                       <Calendar className="w-3 h-3" />
                       {new Date(t.deadline_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                     </p>
@@ -466,11 +466,11 @@ function ContactDetail({ person, onClose }: { person: Person; onClose: () => voi
           <div className="p-3 border-t border-[#F1F5F9] space-y-1.5">
             <input value={taskText} onChange={e => setTaskText(e.target.value)}
               placeholder="Add a task…"
-              className="w-full px-3 py-2 text-xs bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl
-                focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]" />
+              className="w-full px-3 py-2 text-xs bg-[#F8FAFC] border border-[rgba(255,255,255,.08)] rounded-xl
+                focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/20 focus:border-[rgba(99,102,241,.7)]" />
             <input type="date" value={taskDeadline} onChange={e => setTaskDeadline(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl
-                focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]" />
+              className="w-full px-3 py-2 text-xs bg-[#F8FAFC] border border-[rgba(255,255,255,.08)] rounded-xl
+                focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/20 focus:border-[rgba(99,102,241,.7)]" />
             <button onClick={addTask} disabled={savingTask || !taskText.trim()}
               className="w-full py-1.5 rounded-lg text-xs font-semibold bg-[#0A0A0A] text-white
                 hover:bg-[#1e1e1e] disabled:opacity-50 transition-colors">
@@ -498,22 +498,22 @@ function CompaniesTab() {
   }, []);
 
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-2xl overflow-hidden">
+    <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-2xl overflow-hidden">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[#F1F5F9] bg-[#F8FAFC]">
-            <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B] uppercase tracking-wide">Company</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B] uppercase tracking-wide">Domain</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B] uppercase tracking-wide">Location</th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-[rgba(255,255,255,.5)] uppercase tracking-wide">Company</th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-[rgba(255,255,255,.5)] uppercase tracking-wide">Domain</th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-[rgba(255,255,255,.5)] uppercase tracking-wide">Location</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#F8FAFC]">
           {loading ? (
             <tr><td colSpan={3} className="text-center py-12">
-              <Loader2 className="w-5 h-5 animate-spin mx-auto text-[#94A3B8]" />
+              <Loader2 className="w-5 h-5 animate-spin mx-auto text-[rgba(255,255,255,.35)]" />
             </td></tr>
           ) : companies.length === 0 ? (
-            <tr><td colSpan={3} className="text-center py-12 text-[#94A3B8] text-sm">No companies found</td></tr>
+            <tr><td colSpan={3} className="text-center py-12 text-[rgba(255,255,255,.35)] text-sm">No companies found</td></tr>
           ) : companies.map(c => {
             const name     = av(c.values.name ?? []);
             const domain   = av(c.values.domains ?? []);
@@ -525,13 +525,13 @@ function CompaniesTab() {
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${avatarColor(name)}`}>
                       {initials(name)}
                     </div>
-                    <span className="font-medium text-[#0A0A0A]">{name}</span>
+                    <span className="font-medium text-white">{name}</span>
                   </div>
                 </td>
                 <td className="px-4 py-3 text-[#475569]">
                   {domain !== "—" ? (
                     <a href={`https://${domain}`} target="_blank" rel="noopener noreferrer"
-                      className="text-[#2563EB] hover:underline flex items-center gap-1">
+                      className="text-[#4f46e5] hover:underline flex items-center gap-1">
                       {domain}<ExternalLink className="w-3 h-3" />
                     </a>
                   ) : "—"}
@@ -594,7 +594,7 @@ function DealsTab() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-40">
-      <Loader2 className="w-5 h-5 animate-spin text-[#94A3B8]" />
+      <Loader2 className="w-5 h-5 animate-spin text-[rgba(255,255,255,.35)]" />
     </div>
   );
 
@@ -605,8 +605,8 @@ function DealsTab() {
           <button key={l.id.list_id} onClick={() => setActiveList(l)}
             className={`px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all
               ${activeList?.id.list_id === l.id.list_id
-                ? "bg-[#2563EB] text-white shadow-sm"
-                : "bg-white border border-[#E2E8F0] text-[#475569] hover:border-[#2563EB] hover:text-[#2563EB]"}`}>
+                ? "bg-[#4f46e5] text-white shadow-sm"
+                : "bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] text-[#475569] hover:border-[#4f46e5] hover:text-[#4f46e5]"}`}>
             {l.name}
           </button>
         ))}
@@ -614,27 +614,27 @@ function DealsTab() {
           <input value={newListName} onChange={e => setNewListName(e.target.value)}
             onKeyDown={e => e.key === "Enter" && createList()}
             placeholder="New list…"
-            className="px-3 py-1.5 text-sm bg-white border border-[#E2E8F0] rounded-xl
-              focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] w-32" />
+            className="px-3 py-1.5 text-sm bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl
+              focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/20 focus:border-[rgba(99,102,241,.7)] w-32" />
           <button onClick={createList} disabled={creatingList || !newListName.trim()}
-            className="p-1.5 rounded-xl bg-[#2563EB] text-white hover:bg-[#1D4ED8] disabled:opacity-50">
+            className="p-1.5 rounded-xl bg-[#4f46e5] text-white hover:bg-[#4338ca] disabled:opacity-50">
             {creatingList ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
           </button>
         </div>
       </div>
 
       {activeList && (
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl overflow-hidden">
+        <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-2xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#F1F5F9]">
-            <h3 className="text-sm font-semibold text-[#0A0A0A]">{activeList.name}</h3>
-            <span className="text-xs text-[#94A3B8]">{entries.length} entries</span>
+            <h3 className="text-sm font-semibold text-white">{activeList.name}</h3>
+            <span className="text-xs text-[rgba(255,255,255,.35)]">{entries.length} entries</span>
           </div>
           {loadingEntries ? (
             <div className="flex items-center justify-center py-10">
-              <Loader2 className="w-5 h-5 animate-spin text-[#94A3B8]" />
+              <Loader2 className="w-5 h-5 animate-spin text-[rgba(255,255,255,.35)]" />
             </div>
           ) : entries.length === 0 ? (
-            <p className="text-center text-sm text-[#94A3B8] py-10">No entries in this list</p>
+            <p className="text-center text-sm text-[rgba(255,255,255,.35)] py-10">No entries in this list</p>
           ) : (
             <table className="w-full text-sm">
               <tbody className="divide-y divide-[#F8FAFC]">
@@ -644,10 +644,10 @@ function DealsTab() {
                   const valueVal = e.attribute_values?.value?.[0]?.currency_value;
                   return (
                     <tr key={e.id.entry_id} className="hover:bg-[#F8FAFC] transition-colors group">
-                      <td className="px-4 py-3 font-medium text-[#0A0A0A]">{e.id.entry_id.slice(0, 8)}…</td>
+                      <td className="px-4 py-3 font-medium text-white">{e.id.entry_id.slice(0, 8)}…</td>
                       <td className="px-4 py-3">
                         {stage && (
-                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#eef2ff] text-[#4f46e5] border border-[#c7d2fe]">
                             {stage}
                           </span>
                         )}
@@ -657,7 +657,7 @@ function DealsTab() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button onClick={() => removeEntry(activeList.id.list_id, e.id.entry_id)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-red-50">
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-[rgba(239,68,68,.1)]">
                           <Trash2 className="w-3.5 h-3.5 text-red-400" />
                         </button>
                       </td>
@@ -671,7 +671,7 @@ function DealsTab() {
       )}
 
       {lists.length === 0 && (
-        <div className="text-center py-12 text-[#94A3B8] text-sm">
+        <div className="text-center py-12 text-[rgba(255,255,255,.35)] text-sm">
           No lists yet. Create one above to start tracking deals.
         </div>
       )}
@@ -699,20 +699,20 @@ function NotesTab() {
         </p>
       </div>
 
-      <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 space-y-3">
-        <h4 className="text-sm font-semibold text-[#0A0A0A]">Add Note to Contact</h4>
+      <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-2xl p-5 space-y-3">
+        <h4 className="text-sm font-semibold text-white">Add Note to Contact</h4>
         <input value={recordId} onChange={e => setRecordId(e.target.value)}
           placeholder="Attio Person record_id"
-          className="w-full px-3.5 py-2.5 text-sm bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl
-            focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]" />
+          className="w-full px-3.5 py-2.5 text-sm bg-[#F8FAFC] border border-[rgba(255,255,255,.08)] rounded-xl
+            focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/20 focus:border-[rgba(99,102,241,.7)]" />
         <input value={title} onChange={e => setTitle(e.target.value)}
           placeholder="Note title"
-          className="w-full px-3.5 py-2.5 text-sm bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl
-            focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]" />
+          className="w-full px-3.5 py-2.5 text-sm bg-[#F8FAFC] border border-[rgba(255,255,255,.08)] rounded-xl
+            focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/20 focus:border-[rgba(99,102,241,.7)]" />
         <textarea value={content} onChange={e => setContent(e.target.value)}
           placeholder="Note content…" rows={4}
-          className="w-full px-3.5 py-2.5 text-sm bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl
-            focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none" />
+          className="w-full px-3.5 py-2.5 text-sm bg-[#F8FAFC] border border-[rgba(255,255,255,.08)] rounded-xl
+            focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/20 focus:border-[rgba(99,102,241,.7)] resize-none" />
         <button
           disabled={saving || !recordId.trim() || !content.trim()}
           onClick={async () => {
@@ -728,8 +728,8 @@ function NotesTab() {
               setTitle(""); setContent(""); setRecordId("");
             } finally { setSaving(false); }
           }}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#2563EB] text-white
-            hover:bg-[#1D4ED8] disabled:opacity-50 transition-colors">
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#4f46e5] text-white
+            hover:bg-[#4338ca] disabled:opacity-50 transition-colors">
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
           {saving ? "Saving…" : "Add Note"}
         </button>
@@ -799,21 +799,21 @@ function TasksTab() {
   return (
     <div className="max-w-2xl space-y-4">
       {/* Create task */}
-      <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 space-y-3">
-        <h4 className="text-sm font-semibold text-[#0A0A0A]">New Task</h4>
+      <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-2xl p-5 space-y-3">
+        <h4 className="text-sm font-semibold text-white">New Task</h4>
         <input value={content} onChange={e => setContent(e.target.value)}
           onKeyDown={e => e.key === "Enter" && !e.shiftKey && addTask()}
           placeholder="Task description…"
-          className="w-full px-3.5 py-2.5 text-sm bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl
-            focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]" />
+          className="w-full px-3.5 py-2.5 text-sm bg-[#F8FAFC] border border-[rgba(255,255,255,.08)] rounded-xl
+            focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/20 focus:border-[rgba(99,102,241,.7)]" />
         <div className="flex items-center gap-3">
           <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)}
-            className="flex-1 px-3.5 py-2.5 text-sm bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl
-              focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]" />
+            className="flex-1 px-3.5 py-2.5 text-sm bg-[#F8FAFC] border border-[rgba(255,255,255,.08)] rounded-xl
+              focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/20 focus:border-[rgba(99,102,241,.7)]" />
           {members.length > 0 && (
             <select value={assigneeId} onChange={e => setAssigneeId(e.target.value)}
-              className="flex-1 px-3.5 py-2.5 text-sm bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl
-                focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]">
+              className="flex-1 px-3.5 py-2.5 text-sm bg-[#F8FAFC] border border-[rgba(255,255,255,.08)] rounded-xl
+                focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/20 focus:border-[rgba(99,102,241,.7)]">
               <option value="">Unassigned</option>
               {members.map(m => (
                 <option key={m.id.workspace_member_id} value={m.id.workspace_member_id}>
@@ -823,8 +823,8 @@ function TasksTab() {
             </select>
           )}
           <button onClick={addTask} disabled={saving || !content.trim()}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#2563EB] text-white
-              hover:bg-[#1D4ED8] disabled:opacity-50 transition-colors">
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#4f46e5] text-white
+              hover:bg-[#4338ca] disabled:opacity-50 transition-colors">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             Add
           </button>
@@ -832,26 +832,26 @@ function TasksTab() {
       </div>
 
       {/* Filter + list */}
-      <div className="bg-white border border-[#E2E8F0] rounded-2xl overflow-hidden">
+      <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-2xl overflow-hidden">
         <div className="flex items-center gap-1 p-3 border-b border-[#F1F5F9]">
           {(["all", "open", "done"] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)}
               className={`px-3 py-1 rounded-lg text-xs font-medium capitalize transition-colors
-                ${filter === f ? "bg-[#2563EB] text-white" : "text-[#64748B] hover:bg-[#F1F5F9]"}`}>
+                ${filter === f ? "bg-[#4f46e5] text-white" : "text-[rgba(255,255,255,.5)] hover:bg-[#F1F5F9]"}`}>
               {f}
             </button>
           ))}
           <button onClick={loadTasks} className="ml-auto p-1 rounded-lg hover:bg-[#F1F5F9] transition-colors">
-            <RefreshCw className="w-3.5 h-3.5 text-[#94A3B8]" />
+            <RefreshCw className="w-3.5 h-3.5 text-[rgba(255,255,255,.35)]" />
           </button>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-10">
-            <Loader2 className="w-5 h-5 animate-spin text-[#94A3B8]" />
+            <Loader2 className="w-5 h-5 animate-spin text-[rgba(255,255,255,.35)]" />
           </div>
         ) : tasks.length === 0 ? (
-          <p className="text-center text-sm text-[#94A3B8] py-10">No tasks</p>
+          <p className="text-center text-sm text-[rgba(255,255,255,.35)] py-10">No tasks</p>
         ) : (
           <div className="divide-y divide-[#F8FAFC]">
             {tasks.map(t => (
@@ -861,21 +861,21 @@ function TasksTab() {
                 <button onClick={() => !t.is_completed && completeTask(t.id.task_id)} className="mt-0.5">
                   {t.is_completed
                     ? <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />
-                    : <Circle className="w-4 h-4 text-[#CBD5E1] hover:text-[#2563EB] transition-colors" />}
+                    : <Circle className="w-4 h-4 text-[#CBD5E1] hover:text-[#4f46e5] transition-colors" />}
                 </button>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm text-[#0A0A0A] ${t.is_completed ? "line-through" : ""}`}>
+                  <p className={`text-sm text-white ${t.is_completed ? "line-through" : ""}`}>
                     {t.content}
                   </p>
                   {t.deadline_at && (
-                    <p className="text-xs text-[#94A3B8] flex items-center gap-1 mt-0.5">
+                    <p className="text-xs text-[rgba(255,255,255,.35)] flex items-center gap-1 mt-0.5">
                       <Calendar className="w-3 h-3" />
                       Due {new Date(t.deadline_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                     </p>
                   )}
                 </div>
                 <button onClick={() => deleteTask(t.id.task_id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-red-50">
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-[rgba(239,68,68,.1)]">
                   <Trash2 className="w-3.5 h-3.5 text-red-400" />
                 </button>
               </div>

@@ -23,10 +23,7 @@ export default function Login() {
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
-      localStorage.setItem(
-  "token",
-  data.token
-);
+      localStorage.setItem("token", data.token);
       if (!res.ok) throw new Error(data.error || "Login failed");
       setToken(data.token, data.refresh_token);
       setLocation("/dashboard");
@@ -46,9 +43,7 @@ export default function Login() {
     try {
       const { error } = await getSupabase().auth.signInWithOAuth({
         provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/api/auth/oauth/callback`,
-        },
+        options: { redirectTo: `${window.location.origin}/api/auth/oauth/callback` },
       });
       if (error) throw error;
     } catch (err: unknown) {
@@ -62,33 +57,38 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA] flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-8 h-8 bg-[#2563EB] rounded flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white" />
+    <div style={{ minHeight: "100vh", background: "#05101f", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px", fontFamily: "'Inter', system-ui, sans-serif", position: "relative", overflow: "hidden" }}>
+      {/* Orbs */}
+      <div style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle,rgba(79,70,229,.3) 0%,transparent 70%)", top: -160, left: "50%", transform: "translateX(-50%)", filter: "blur(80px)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle,rgba(6,182,212,.15) 0%,transparent 70%)", bottom: -60, right: -40, filter: "blur(80px)", pointerEvents: "none" }} />
+
+      <div style={{ width: "100%", maxWidth: 420, position: "relative", zIndex: 1 }}>
+        {/* Logo */}
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <Link href="/" style={{ display: "inline-flex", alignItems: "center", gap: 10, textDecoration: "none", marginBottom: 24 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg,#4f46e5,#7c3aed 50%,#06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 12px rgba(79,70,229,.5)" }}>
+              <Zap style={{ width: 16, height: 16, color: "#fff" }} />
             </div>
-            <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.4rem", letterSpacing: "0.08em" }} className="text-[#0A0A0A]">
-              HubCredo
-            </span>
+            <span style={{ color: "#fff", fontWeight: 800, fontSize: "1.15rem", letterSpacing: "-0.03em" }}>HubCredo</span>
           </Link>
-          <h1 className="text-2xl font-bold text-[#0A0A0A] mb-2">Welcome back</h1>
-          <p className="text-[#64748B] text-sm">Sign in to your account</p>
+          <h1 style={{ fontSize: "1.6rem", fontWeight: 800, color: "#fff", letterSpacing: "-0.03em", marginBottom: 6 }}>Welcome back</h1>
+          <p style={{ fontSize: ".9rem", color: "rgba(255,255,255,.45)" }}>Sign in to your account</p>
         </div>
 
-        <div className="bg-white border border-[#E2E8F0] rounded-xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+        {/* Card */}
+        <div style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 20, padding: 28, backdropFilter: "blur(16px)" }}>
+          {/* Google */}
           <button
             type="button"
             onClick={handleGoogle}
             disabled={googleLoading}
-            className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-[#E2E8F0] rounded-lg text-sm text-[#0A0A0A] hover:bg-[#F5F7FA] transition-colors mb-4 disabled:opacity-50"
             data-testid="button-google-signin"
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "11px 16px", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, fontSize: ".9rem", fontWeight: 500, color: "#fff", cursor: "pointer", marginBottom: 20, transition: "all .15s" }}
+            onMouseOver={e => { e.currentTarget.style.background = "rgba(255,255,255,.12)"; }}
+            onMouseOut={e => { e.currentTarget.style.background = "rgba(255,255,255,.07)"; }}
           >
-            {googleLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
+            {googleLoading ? <Loader2 style={{ width: 16, height: 16, animation: "spin 1s linear infinite" }} /> : (
+              <svg style={{ width: 16, height: 16 }} viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
@@ -98,56 +98,66 @@ export default function Login() {
             Continue with Google
           </button>
 
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex-1 h-px bg-[#E2E8F0]" />
-            <span className="text-xs text-[#64748B]">or</span>
-            <div className="flex-1 h-px bg-[#E2E8F0]" />
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.1)" }} />
+            <span style={{ fontSize: ".8rem", color: "rgba(255,255,255,.3)" }}>or</span>
+            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.1)" }} />
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
-              <label className="block text-sm font-medium text-[#0A0A0A] mb-1.5">Email</label>
+              <label style={{ display: "block", fontSize: ".84rem", fontWeight: 500, color: "rgba(255,255,255,.65)", marginBottom: 6 }}>Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="you@company.com"
-                className="w-full px-3 py-2.5 bg-white border border-[#E2E8F0] rounded-lg text-sm text-[#0A0A0A] placeholder:text-[#64748B] focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 transition-colors"
                 data-testid="input-email"
+                style={{ width: "100%", padding: "10px 14px", background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, fontSize: ".9rem", color: "#fff", outline: "none", transition: "border-color .15s", boxSizing: "border-box" }}
+                onFocus={e => { e.target.style.borderColor = "rgba(99,102,241,.6)"; e.target.style.boxShadow = "0 0 0 3px rgba(99,102,241,.12)"; }}
+                onBlur={e => { e.target.style.borderColor = "rgba(255,255,255,.12)"; e.target.style.boxShadow = "none"; }}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#0A0A0A] mb-1.5">Password</label>
+              <label style={{ display: "block", fontSize: ".84rem", fontWeight: 500, color: "rgba(255,255,255,.65)", marginBottom: 6 }}>Password</label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="••••••••"
-                className="w-full px-3 py-2.5 bg-white border border-[#E2E8F0] rounded-lg text-sm text-[#0A0A0A] placeholder:text-[#64748B] focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 transition-colors"
                 data-testid="input-password"
+                style={{ width: "100%", padding: "10px 14px", background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, fontSize: ".9rem", color: "#fff", outline: "none", transition: "border-color .15s", boxSizing: "border-box" }}
+                onFocus={e => { e.target.style.borderColor = "rgba(99,102,241,.6)"; e.target.style.boxShadow = "0 0 0 3px rgba(99,102,241,.12)"; }}
+                onBlur={e => { e.target.style.borderColor = "rgba(255,255,255,.12)"; e.target.style.boxShadow = "none"; }}
               />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#2563EB] text-white font-semibold rounded-lg hover:bg-[#1D4ED8] transition-colors text-sm disabled:opacity-50"
               data-testid="button-login"
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 16px", background: "#4f46e5", border: "none", borderRadius: 10, fontSize: ".95rem", fontWeight: 600, color: "#fff", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1, boxShadow: "0 2px 8px rgba(79,70,229,.4)", transition: "all .15s" }}
+              onMouseOver={e => { if (!loading) { e.currentTarget.style.background = "#4338ca"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(79,70,229,.5)"; }}}
+              onMouseOut={e => { e.currentTarget.style.background = "#4f46e5"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(79,70,229,.4)"; }}
             >
-              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+              {loading && <Loader2 style={{ width: 16, height: 16, animation: "spin 1s linear infinite" }} />}
               Sign in
             </button>
           </form>
         </div>
 
-        <p className="text-center text-sm text-[#64748B] mt-5">
+        <p style={{ textAlign: "center", fontSize: ".87rem", color: "rgba(255,255,255,.35)", marginTop: 20 }}>
           Don't have an account?{" "}
-          <Link href="/signup" className="text-[#2563EB] hover:text-[#1D4ED8] font-medium transition-colors">
-            Sign up
-          </Link>
+          <Link href="/signup" style={{ color: "#818cf8", fontWeight: 600, textDecoration: "none" }}>Sign up</Link>
         </p>
       </div>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        input::placeholder { color: rgba(255,255,255,.25); }
+      `}</style>
     </div>
   );
 }

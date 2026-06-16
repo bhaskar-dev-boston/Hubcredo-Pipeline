@@ -40,17 +40,17 @@ export function TagInput({ value, onChange, placeholder = "Type and press Enter"
 
   return (
     <div className="relative">
-      <div className="min-h-[44px] flex flex-wrap gap-2 p-2.5 bg-white border border-[#E2E8F0] rounded-md focus-within:border-[#2563EB] focus-within:ring-2 focus-within:ring-[#2563EB]/20 transition-colors">
+      <div className="min-h-[44px] flex flex-wrap gap-2 p-2.5 bg-white border border-[#E2E8F0] rounded-md focus-within:border-[#4f46e5] focus-within:ring-2 focus-within:ring-[#4f46e5]/20 transition-colors">
         {value.map((tag) => (
           <span
             key={tag}
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-[#EFF6FF] border border-[#BFDBFE] text-[#2563EB] text-xs rounded-full font-medium"
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-[#eef2ff] border border-[#c7d2fe] text-[#4f46e5] text-xs rounded-full font-medium"
           >
             {tag}
             <button
               type="button"
               onClick={() => removeTag(tag)}
-              className="text-[#2563EB]/60 hover:text-[#2563EB] transition-colors"
+              className="text-[#4f46e5]/60 hover:text-[#4f46e5] transition-colors"
             >
               <X className="w-3 h-3" />
             </button>

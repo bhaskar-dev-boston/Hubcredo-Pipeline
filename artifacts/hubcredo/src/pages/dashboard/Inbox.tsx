@@ -87,8 +87,8 @@ function MessageBubble({ msg, myEmail }: { msg: ThreadMessage; myEmail: string }
       <div
         className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
           isSent
-            ? "bg-gradient-to-br from-[#2563EB] to-[#7C3AED] text-white"
-            : "bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]"
+            ? "bg-gradient-to-br from-[#4f46e5] to-[#7C3AED] text-white"
+            : "bg-[#F1F5F9] text-[rgba(255,255,255,.5)] border border-[rgba(255,255,255,.08)]"
         }`}
       >
         {isSent ? (myEmail[0]?.toUpperCase() ?? "Y") : initial}
@@ -99,25 +99,25 @@ function MessageBubble({ msg, myEmail }: { msg: ThreadMessage; myEmail: string }
         <div className="flex items-center gap-2 mb-0.5">
           {isSent ? (
             <>
-              <span className="text-xs text-[#94A3B8]">{formatDateTime(msg.timestamp)}</span>
-              <span className="text-xs font-medium text-[#64748B]">You</span>
-              <ArrowUpRight className="w-3 h-3 text-[#2563EB]" />
+              <span className="text-xs text-[rgba(255,255,255,.35)]">{formatDateTime(msg.timestamp)}</span>
+              <span className="text-xs font-medium text-[rgba(255,255,255,.5)]">You</span>
+              <ArrowUpRight className="w-3 h-3 text-[#4f46e5]" />
             </>
           ) : (
             <>
               <ArrowDownLeft className="w-3 h-3 text-[#10B981]" />
-              <span className="text-xs font-medium text-[#64748B]">
+              <span className="text-xs font-medium text-[rgba(255,255,255,.5)]">
                 {msg.from_name || msg.from_email}
               </span>
-              <span className="text-xs text-[#94A3B8]">{formatDateTime(msg.timestamp)}</span>
+              <span className="text-xs text-[rgba(255,255,255,.35)]">{formatDateTime(msg.timestamp)}</span>
             </>
           )}
         </div>
         <div
           className={`px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
             isSent
-              ? "bg-[#2563EB] text-white rounded-tr-sm"
-              : "bg-[#F8FAFC] border border-[#E2E8F0] text-[#0A0A0A] rounded-tl-sm"
+              ? "bg-[#4f46e5] text-white rounded-tr-sm"
+              : "bg-[#F8FAFC] border border-[rgba(255,255,255,.08)] text-white rounded-tl-sm"
           }`}
         >
           {msg.body || <span className="opacity-50 italic">No content</span>}
@@ -193,34 +193,34 @@ function ReplyComposer({
   }
 
   return (
-    <div className="border-t border-[#E2E8F0]">
+    <div className="border-t border-[rgba(255,255,255,.08)]">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-5 py-3 hover:bg-[#F5F7FA] transition-colors"
+        className="w-full flex items-center justify-between px-5 py-3 hover:bg-[rgba(255,255,255,.04)] transition-colors"
       >
-        <div className="flex items-center gap-2 text-sm font-semibold text-[#0A0A0A]">
-          <CornerDownLeft className="w-4 h-4 text-[#2563EB]" />
+        <div className="flex items-center gap-2 text-sm font-semibold text-white">
+          <CornerDownLeft className="w-4 h-4 text-[#4f46e5]" />
           Reply to {selected.from_name || selected.from_email}
         </div>
         <ChevronDown
-          className={`w-4 h-4 text-[#94A3B8] transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          className={`w-4 h-4 text-[rgba(255,255,255,.35)] transition-transform duration-200 ${open ? "rotate-180" : ""}`}
         />
       </button>
 
       {open && (
         <div className="px-5 pb-4">
           {/* Meta row */}
-          <div className="flex flex-col gap-1 mb-3 text-xs text-[#64748B] bg-[#F5F7FA] rounded-lg px-3 py-2">
+          <div className="flex flex-col gap-1 mb-3 text-xs text-[rgba(255,255,255,.5)] bg-[rgba(255,255,255,.04)] rounded-lg px-3 py-2">
             <div className="flex items-center gap-2">
-              <span className="w-8 font-medium text-[#94A3B8]">From</span>
-              <span className="text-[#0A0A0A] font-medium">{myEmail}</span>
+              <span className="w-8 font-medium text-[rgba(255,255,255,.35)]">From</span>
+              <span className="text-white font-medium">{myEmail}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-8 font-medium text-[#94A3B8]">To</span>
+              <span className="w-8 font-medium text-[rgba(255,255,255,.35)]">To</span>
               <span>{selected.from_email}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-8 font-medium text-[#94A3B8]">Sub</span>
+              <span className="w-8 font-medium text-[rgba(255,255,255,.35)]">Sub</span>
               <span className="truncate">{replySubject}</span>
             </div>
           </div>
@@ -232,19 +232,19 @@ function ReplyComposer({
             onKeyDown={handleKeyDown}
             placeholder="Write your reply…"
             rows={3}
-            className="w-full resize-none rounded-lg border border-[#E2E8F0] px-4 py-3 text-sm text-[#0A0A0A] placeholder:text-[#CBD5E1] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all leading-relaxed"
+            className="w-full resize-none rounded-lg border border-[rgba(255,255,255,.08)] px-4 py-3 text-sm text-white placeholder:text-[#CBD5E1] focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/30 focus:border-[rgba(99,102,241,.7)] transition-all leading-relaxed"
             style={{ minHeight: 80 }}
           />
 
           <div className="flex items-center justify-between mt-3">
-            <span className="text-xs text-[#94A3B8]">
-              <kbd className="px-1.5 py-0.5 bg-[#F1F5F9] border border-[#E2E8F0] rounded text-[10px] font-mono">⌘ Enter</kbd>{" "}
+            <span className="text-xs text-[rgba(255,255,255,.35)]">
+              <kbd className="px-1.5 py-0.5 bg-[#F1F5F9] border border-[rgba(255,255,255,.08)] rounded text-[10px] font-mono">⌘ Enter</kbd>{" "}
               to send
             </span>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => { setBody(""); setOpen(false); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#64748B] hover:text-[#0A0A0A] rounded-lg hover:bg-[#F1F5F9] transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[rgba(255,255,255,.5)] hover:text-white rounded-lg hover:bg-[#F1F5F9] transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
                 Discard
@@ -252,7 +252,7 @@ function ReplyComposer({
               <button
                 onClick={handleSend}
                 disabled={sending || !body.trim()}
-                className="flex items-center gap-2 px-4 py-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-4 py-1.5 bg-[#4f46e5] hover:bg-[#4338ca] text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                 {sending ? "Sending…" : "Send Reply"}
@@ -366,25 +366,25 @@ export default function Inbox() {
         <div className="flex items-start justify-between mb-6 pt-2">
           <div>
             <h1
-              style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "2rem", letterSpacing: "0.04em" }}
-              className="text-[#0A0A0A] mb-1 flex items-center gap-3"
+              style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: "2rem", letterSpacing: "0.04em" }}
+              className="text-white mb-1 flex items-center gap-3"
             >
               Reply Inbox
               {unreadCount > 0 && (
                 <span
-                  className="text-base font-normal bg-[#2563EB] text-white px-2.5 py-0.5 rounded-full"
+                  className="text-base font-normal bg-[#4f46e5] text-white px-2.5 py-0.5 rounded-full"
                   style={{ fontFamily: "inherit" }}
                 >
                   {unreadCount}
                 </span>
               )}
             </h1>
-            <p className="text-[#64748B] text-sm">Full conversation history — sent & received</p>
+            <p className="text-[rgba(255,255,255,.5)] text-sm">Full conversation history — sent & received</p>
           </div>
           <button
             onClick={() => fetchReplies(true)}
             disabled={refreshing}
-            className="flex items-center gap-2 px-3 py-2 border border-[#E2E8F0] text-[#64748B] text-sm font-medium rounded-lg hover:bg-[#F5F7FA] transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] text-sm font-medium rounded-lg hover:bg-[rgba(255,255,255,.04)] transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
             Refresh
@@ -394,13 +394,13 @@ export default function Inbox() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
           {/* Left: Reply list */}
           <div className="lg:col-span-2">
-            <div className="flex items-center gap-1 mb-3 bg-[#F5F7FA] rounded-lg p-1">
+            <div className="flex items-center gap-1 mb-3 bg-[rgba(255,255,255,.04)] rounded-lg p-1">
               {(["all", "unread"] as const).map((f) => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
                   className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${
-                    filter === f ? "bg-white text-[#0A0A0A] shadow-sm" : "text-[#64748B] hover:text-[#0A0A0A]"
+                    filter === f ? "bg-[rgba(255,255,255,.04)] text-white shadow-sm" : "text-[rgba(255,255,255,.5)] hover:text-white"
                   }`}
                 >
                   {f === "unread" ? `Unread (${unreadCount})` : "All"}
@@ -410,15 +410,15 @@ export default function Inbox() {
 
             {loading ? (
               <div className="flex items-center justify-center py-16">
-                <Loader2 className="w-5 h-5 text-[#64748B] animate-spin" />
+                <Loader2 className="w-5 h-5 text-[rgba(255,255,255,.5)] animate-spin" />
               </div>
             ) : filtered.length === 0 ? (
-              <div className="bg-white border border-dashed border-[#E2E8F0] rounded-xl p-10 text-center">
+              <div className="bg-[rgba(255,255,255,.04)] border border-dashed border-[rgba(255,255,255,.08)] rounded-xl p-10 text-center">
                 <InboxIcon className="w-8 h-8 text-[#CBD5E1] mx-auto mb-2" />
-                <p className="text-sm font-medium text-[#0A0A0A]">
+                <p className="text-sm font-medium text-white">
                   {filter === "unread" ? "No unread replies" : "No replies yet"}
                 </p>
-                <p className="text-xs text-[#94A3B8] mt-1">
+                <p className="text-xs text-[rgba(255,255,255,.35)] mt-1">
                   {filter === "unread" ? "You're all caught up!" : "Replies from your campaigns will appear here"}
                 </p>
               </div>
@@ -430,36 +430,36 @@ export default function Inbox() {
                     onClick={() => handleOpen(reply)}
                     className={`w-full text-left p-3.5 rounded-xl border transition-all ${
                       selected?.id === reply.id
-                        ? "bg-[#EFF6FF] border-[#BFDBFE]"
+                        ? "bg-[#eef2ff] border-[#c7d2fe]"
                         : reply.is_read
-                        ? "bg-white border-[#E2E8F0] hover:border-[#CBD5E1] hover:bg-[#F5F7FA]"
-                        : "bg-white border-[#E2E8F0] hover:border-[#2563EB]/30"
+                        ? "bg-[rgba(255,255,255,.04)] border-[rgba(255,255,255,.08)] hover:border-[rgba(255,255,255,.15)] hover:bg-[rgba(255,255,255,.04)]"
+                        : "bg-[rgba(255,255,255,.04)] border-[rgba(255,255,255,.08)] hover:border-[#4f46e5]/30"
                     }`}
                   >
                     <div className="flex items-start gap-2.5">
                       <div className="shrink-0 mt-0.5">
                         {reply.is_read
-                          ? <MailOpen className="w-4 h-4 text-[#94A3B8]" />
-                          : <Mail className="w-4 h-4 text-[#2563EB]" />}
+                          ? <MailOpen className="w-4 h-4 text-[rgba(255,255,255,.35)]" />
+                          : <Mail className="w-4 h-4 text-[#4f46e5]" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <p className={`text-sm truncate ${reply.is_read ? "text-[#64748B]" : "text-[#0A0A0A] font-semibold"}`}>
+                          <p className={`text-sm truncate ${reply.is_read ? "text-[rgba(255,255,255,.5)]" : "text-white font-semibold"}`}>
                             {reply.from_name || reply.from_email}
                           </p>
-                          <span className="text-xs text-[#94A3B8] shrink-0">{timeAgo(reply.received_at)}</span>
+                          <span className="text-xs text-[rgba(255,255,255,.35)] shrink-0">{timeAgo(reply.received_at)}</span>
                         </div>
-                        <p className={`text-xs truncate mt-0.5 ${reply.is_read ? "text-[#94A3B8]" : "text-[#64748B]"}`}>
+                        <p className={`text-xs truncate mt-0.5 ${reply.is_read ? "text-[rgba(255,255,255,.35)]" : "text-[rgba(255,255,255,.5)]"}`}>
                           {reply.subject || "(no subject)"}
                         </p>
                         {reply.email_campaigns && (
-                          <p className="text-xs text-[#2563EB]/70 mt-0.5 truncate">
+                          <p className="text-xs text-[#4f46e5]/70 mt-0.5 truncate">
                             {reply.email_campaigns.name}
                           </p>
                         )}
                       </div>
                       {!reply.is_read && (
-                        <div className="w-2 h-2 bg-[#2563EB] rounded-full shrink-0 mt-1.5" />
+                        <div className="w-2 h-2 bg-[#4f46e5] rounded-full shrink-0 mt-1.5" />
                       )}
                     </div>
                   </button>
@@ -471,22 +471,22 @@ export default function Inbox() {
           {/* Right: Thread + composer */}
           <div className="lg:col-span-3 flex flex-col">
             {selected ? (
-              <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden flex flex-col" style={{ minHeight: 500 }}>
+              <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl overflow-hidden flex flex-col" style={{ minHeight: 500 }}>
                 {/* Thread header */}
-                <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-start justify-between">
+                <div className="px-5 py-4 border-b border-[rgba(255,255,255,.08)] flex items-start justify-between">
                   <div>
-                    <h2 className="text-base font-semibold text-[#0A0A0A] leading-tight">
+                    <h2 className="text-base font-semibold text-white leading-tight">
                       {selected.subject || "(no subject)"}
                     </h2>
                     <div className="flex items-center gap-3 mt-1">
-                      <span className="text-xs text-[#64748B]">
+                      <span className="text-xs text-[rgba(255,255,255,.5)]">
                         {selected.from_name || selected.from_email}
-                        <span className="text-[#94A3B8]"> · {selected.from_email}</span>
+                        <span className="text-[rgba(255,255,255,.35)]"> · {selected.from_email}</span>
                       </span>
                     </div>
                   </div>
                   {selected.email_campaigns && (
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg text-xs text-[#2563EB] font-medium shrink-0">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#eef2ff] border border-[#c7d2fe] rounded-lg text-xs text-[#4f46e5] font-medium shrink-0">
                       <Tag className="w-3 h-3" />
                       {selected.email_campaigns.name}
                     </div>
@@ -497,11 +497,11 @@ export default function Inbox() {
                 <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5" style={{ maxHeight: 420 }}>
                   {threadLoading ? (
                     <div className="flex items-center justify-center py-12">
-                      <Loader2 className="w-5 h-5 text-[#64748B] animate-spin" />
-                      <span className="ml-2 text-sm text-[#64748B]">Loading conversation…</span>
+                      <Loader2 className="w-5 h-5 text-[rgba(255,255,255,.5)] animate-spin" />
+                      <span className="ml-2 text-sm text-[rgba(255,255,255,.5)]">Loading conversation…</span>
                     </div>
                   ) : thread.length === 0 ? (
-                    <p className="text-sm text-[#94A3B8] text-center py-8 italic">No messages found</p>
+                    <p className="text-sm text-[rgba(255,255,255,.35)] text-center py-8 italic">No messages found</p>
                   ) : (
                     <>
                       {thread.map((msg) => (
@@ -524,10 +524,10 @@ export default function Inbox() {
                 />
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-64 text-center border border-dashed border-[#E2E8F0] rounded-xl bg-white">
+              <div className="flex flex-col items-center justify-center h-64 text-center border border-dashed border-[rgba(255,255,255,.08)] rounded-xl bg-[rgba(255,255,255,.04)]">
                 <InboxIcon className="w-10 h-10 text-[#CBD5E1] mb-3" />
-                <p className="text-[#64748B] font-medium">Select a conversation</p>
-                <p className="text-sm text-[#94A3B8] mt-1">Full sent & received history will appear here</p>
+                <p className="text-[rgba(255,255,255,.5)] font-medium">Select a conversation</p>
+                <p className="text-sm text-[rgba(255,255,255,.35)] mt-1">Full sent & received history will appear here</p>
               </div>
             )}
           </div>

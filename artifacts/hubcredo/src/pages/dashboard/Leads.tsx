@@ -136,7 +136,6 @@ export default function Leads() {
     const safeCount = Math.max(5, Math.floor(leadCount));
     const totalCost = Math.max(1, Math.ceil(safeCount / 25));
 
-    // Check balance upfront
     if (balance !== null && balance < totalCost) {
       toast({
         title: "Not enough credits",
@@ -150,7 +149,6 @@ export default function Leads() {
     deductOptimistic(totalCost);
 
     try {
-      // Always create a fresh list for every generation run
       const listNumber = lists.length + 1;
       const newList = await createLeadList.mutateAsync({
         data: { icp_id: currentIcp.id, label: `Lead List ${listNumber}` },
@@ -169,7 +167,7 @@ export default function Leads() {
       });
       setTimeout(() => refetchLeads(), 8000);
     } catch (err: unknown) {
-      fetchBalance(); // restore optimistic deduction
+      fetchBalance();
       const msg = err instanceof Error ? err.message : "Could not start lead scraping. Check your n8n workflow is active.";
       toast({ title: "Error", description: msg, variant: "destructive" });
     } finally {
@@ -181,7 +179,6 @@ export default function Leads() {
     try {
       await deleteLeadListMutation.mutateAsync({ id: list.id });
       setDeleteConfirmList(null);
-      // If the deleted list was selected, clear selection
       if (selectedListId === list.id) setSelectedListId(null);
       await refetchLists();
       toast({ title: "List deleted", description: `"${list.label}" and all its leads have been removed.` });
@@ -249,13 +246,13 @@ export default function Leads() {
         ) : (
           <div className="bg-[#4f46e5] rounded-xl p-6 mb-8">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-              <div className="w-12 h-12 bg-[rgba(255,255,255,.04)]/15 rounded-xl flex items-center justify-center shrink-0">
+              <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
                 <Zap className="w-6 h-6 text-white" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-white font-semibold text-base mb-0.5">Generate LinkedIn leads</p>
                 <p className="text-blue-100 text-sm leading-relaxed">
-                  Triggers your Engine with your ICP targeting It may take <b>upto 5 minutes</b> to give you the best results.
+                  Triggers your Engine with your ICP targeting. It may take <b>up to 5 minutes</b> to give you the best results.
                   {selectedList
                     ? <> Running against <span className="font-semibold text-white">"{selectedList.label}"</span>.</>
                     : lists.length === 0
@@ -263,10 +260,11 @@ export default function Leads() {
                     : " Using your most recent list."}
                 </p>
               </div>
+              {/* ✅ FIXED: was invisible (indigo text on transparent bg on indigo card) */}
               <button
                 onClick={handleGenerateLeads}
                 disabled={scraping}
-                className="flex items-center gap-2.5 px-6 py-3 bg-[rgba(255,255,255,.04)] text-[#4f46e5] font-bold rounded-lg hover:bg-[rgba(99,102,241,.15)] transition-colors disabled:opacity-50 shrink-0 text-sm"
+                className="flex items-center gap-2.5 px-6 py-3 bg-white text-[#4f46e5] font-bold rounded-lg hover:bg-[#e0e7ff] transition-colors disabled:opacity-50 shrink-0 text-sm shadow-sm"
               >
                 {scraping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
                 {scraping ? "Scraping…" : "Generate leads"}
@@ -277,11 +275,16 @@ export default function Leads() {
             <div className="mt-4 pt-4 border-t border-white/20 flex flex-wrap items-center gap-3">
               <span className="text-blue-100 text-xs font-medium">Number of leads:</span>
               <div className="flex items-center gap-2">
+                {/* ✅ FIXED: active pill was invisible (indigo text on near-transparent bg on indigo card) */}
                 {[5, 10, 25, 50].map((n) => (
                   <button
                     key={n}
                     onClick={() => setLeadCount(n)}
-                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${leadCount === n ? "bg-[rgba(255,255,255,.04)] text-[#4f46e5]" : "bg-[rgba(255,255,255,.04)]/15 text-white hover:bg-[rgba(255,255,255,.04)]/25"}`}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
+                      leadCount === n
+                        ? "bg-white text-[#4f46e5] shadow-sm"
+                        : "bg-white/20 text-white hover:bg-white/30"
+                    }`}
                   >
                     {n}
                   </button>
@@ -296,7 +299,7 @@ export default function Leads() {
                       const v = parseInt(e.target.value, 10);
                       if (!isNaN(v)) setLeadCount(Math.max(5, Math.min(500, v)));
                     }}
-                    className="w-16 px-2 py-1 rounded-md text-xs font-semibold bg-[rgba(255,255,255,.04)]/15 text-white border border-white/30 focus:outline-none focus:border-white text-center"
+                    className="w-16 px-2 py-1 rounded-md text-xs font-semibold bg-white/20 text-white border border-white/30 focus:outline-none focus:border-white focus:bg-white/30 text-center placeholder:text-white/60 transition-colors"
                     placeholder="Custom"
                   />
                 </div>
@@ -340,7 +343,7 @@ export default function Leads() {
                   className={`group relative flex items-center rounded-lg border transition-colors ${
                     activeListId === list.id
                       ? "bg-[#eef2ff] border-[#c7d2fe]"
-                      : "bg-[rgba(255,255,255,.04)] border-[rgba(255,255,255,.08)] hover:border-[rgba(255,255,255,.15)] hover:bg-[rgba(255,255,255,.04)]"
+                      : "bg-[rgba(255,255,255,.04)] border-[rgba(255,255,255,.08)] hover:border-[rgba(255,255,255,.15)] hover:bg-[rgba(255,255,255,.06)]"
                   }`}
                 >
                   <button
@@ -364,14 +367,14 @@ export default function Leads() {
             )}
 
             {showNewList && (
-              <div className="bg-[rgba(255,255,255,.04)] border border-[#4f46e5]/30 rounded-xl p-4 space-y-3 shadow-none">
+              <div className="bg-[rgba(255,255,255,.04)] border border-[#4f46e5]/30 rounded-xl p-4 space-y-3">
                 <input
                   autoFocus
                   value={listLabel}
                   onChange={(e) => setListLabel(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleCreateList()}
                   placeholder="List name"
-                  className="w-full px-3 py-2 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg text-sm text-white placeholder:text-[rgba(255,255,255,.5)] focus:outline-none focus:border-[rgba(99,102,241,.7)] focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/20 transition-colors"
+                  className="w-full px-3 py-2 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg text-sm text-white placeholder:text-[rgba(255,255,255,.5)] focus:outline-none focus:border-[rgba(99,102,241,.7)] focus:ring-2 focus:ring-[rgba(79,70,229,.2)] transition-colors"
                 />
                 <div className="flex gap-2">
                   <button
@@ -448,7 +451,7 @@ export default function Leads() {
               <div className="bg-[rgba(255,255,255,.04)] border border-dashed border-[rgba(255,255,255,.08)] rounded-xl p-16 text-center">
                 <Users className="w-10 h-10 text-[#CBD5E1] mx-auto mb-3" />
                 <p className="text-white font-medium mb-1">No leads yet</p>
-                <p className="text-sm text-[rgba(255,255,255,.5)] mb-4">Click the blue "Generate leads" button above to kick off your n8n workflow.</p>
+                <p className="text-sm text-[rgba(255,255,255,.5)] mb-4">Click the "Generate leads" button above to kick off your n8n workflow.</p>
                 <button
                   onClick={handleGenerateLeads}
                   disabled={scraping || !currentIcp}
@@ -585,19 +588,17 @@ export default function Leads() {
         const linkedinStatus = (lead as Lead & { linkedin_status?: string }).linkedin_status;
         return (
           <>
-            {/* Backdrop */}
             <div
               className="fixed inset-0 bg-black/30 z-40 backdrop-blur-[1px]"
               onClick={() => setProfileLead(null)}
             />
-            {/* Panel */}
-            <div className="fixed top-0 right-0 h-full w-full max-w-md bg-[rgba(255,255,255,.04)] z-50 shadow-2xl flex flex-col overflow-hidden">
+            <div className="fixed top-0 right-0 h-full w-full max-w-md bg-[#1a1a2e] border-l border-[rgba(255,255,255,.08)] z-50 shadow-2xl flex flex-col overflow-hidden">
               {/* Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-[rgba(255,255,255,.08)]">
                 <p className="text-xs font-semibold text-[rgba(255,255,255,.5)] uppercase tracking-widest">Lead profile</p>
                 <button
                   onClick={() => setProfileLead(null)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[rgba(255,255,255,.04)] text-[rgba(255,255,255,.5)] transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -661,21 +662,21 @@ export default function Leads() {
                         {lead.email && (
                           <div className="flex items-center gap-3">
                             <Mail className="w-4 h-4 text-[rgba(255,255,255,.5)] shrink-0" />
-                            <a href={`mailto:${lead.email}`} className="text-sm text-[#4f46e5] hover:underline truncate">{lead.email}</a>
+                            <a href={`mailto:${lead.email}`} className="text-sm text-[#818cf8] hover:text-[#4f46e5] hover:underline truncate transition-colors">{lead.email}</a>
                           </div>
                         )}
-                       {lead.phone && (
-  <div className="flex items-center gap-3">
-    <Phone className="w-4 h-4 text-[rgba(255,255,255,.5)] shrink-0" />
-    <a href={`tel:${lead.phone}`} className="text-sm text-[#4f46e5] hover:underline truncate">
-      {lead.phone}
-    </a>
-  </div>
-)}
+                        {lead.phone && (
+                          <div className="flex items-center gap-3">
+                            <Phone className="w-4 h-4 text-[rgba(255,255,255,.5)] shrink-0" />
+                            <a href={`tel:${lead.phone}`} className="text-sm text-[#818cf8] hover:text-[#4f46e5] hover:underline truncate transition-colors">
+                              {lead.phone}
+                            </a>
+                          </div>
+                        )}
                         {lead.linkedin_url && (
                           <div className="flex items-center gap-3">
                             <ExternalLink className="w-4 h-4 text-[rgba(255,255,255,.5)] shrink-0" />
-                            <a href={lead.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-sm text-[#4f46e5] hover:underline truncate">
+                            <a href={lead.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-sm text-[#818cf8] hover:text-[#4f46e5] hover:underline truncate transition-colors">
                               LinkedIn profile
                             </a>
                           </div>
@@ -719,7 +720,7 @@ export default function Leads() {
                         {lead.company_domain && (
                           <div className="flex items-center gap-3">
                             <Globe className="w-4 h-4 text-[rgba(255,255,255,.5)] shrink-0" />
-                            <a href={`https://${lead.company_domain}`} target="_blank" rel="noopener noreferrer" className="text-sm text-[#4f46e5] hover:underline">{lead.company_domain}</a>
+                            <a href={`https://${lead.company_domain}`} target="_blank" rel="noopener noreferrer" className="text-sm text-[#818cf8] hover:text-[#4f46e5] hover:underline transition-colors">{lead.company_domain}</a>
                           </div>
                         )}
                         {lead.company_size && (
@@ -765,8 +766,8 @@ export default function Leads() {
               {hasCrm && lead.review_status === "approved" && (
                 <div className="px-6 py-3 border-t border-[rgba(255,255,255,.08)]">
                   <div className={`flex items-center justify-between p-3 rounded-lg border ${
-                    lead.crm_sync_status === "synced" ? "bg-[rgba(16,185,129,.1)] border-[rgba(52,211,153,.25)]" :
-                    lead.crm_sync_status === "error"  ? "bg-[rgba(239,68,68,.1)] border-[rgba(248,113,113,.3)]" :
+                    lead.crm_sync_status === "synced" ? "bg-[rgba(16,185,129,.08)] border-[rgba(52,211,153,.2)]" :
+                    lead.crm_sync_status === "error"  ? "bg-[rgba(239,68,68,.08)] border-[rgba(248,113,113,.2)]" :
                     "bg-[rgba(255,255,255,.04)] border-[rgba(255,255,255,.08)]"
                   }`}>
                     <div className="flex items-center gap-2">
@@ -775,8 +776,8 @@ export default function Leads() {
                        <Clock className="w-4 h-4 text-[rgba(255,255,255,.5)]" />}
                       <div>
                         <p className={`text-xs font-medium ${
-                          lead.crm_sync_status === "synced" ? "text-green-800" :
-                          lead.crm_sync_status === "error"  ? "text-red-800" : "text-white"
+                          lead.crm_sync_status === "synced" ? "text-[#34d399]" :
+                          lead.crm_sync_status === "error"  ? "text-[#f87171]" : "text-white"
                         }`}>
                           {lead.crm_sync_status === "synced" ? "Synced to Attio" :
                            lead.crm_sync_status === "error"  ? "Sync failed" : "Not synced to CRM"}
@@ -785,14 +786,14 @@ export default function Leads() {
                           <p className="text-xs text-[#f87171] mt-0.5 truncate max-w-[200px]">{lead.crm_sync_error}</p>
                         )}
                         {lead.crm_sync_status === "synced" && lead.crm_synced_at && (
-                          <p className="text-xs text-[#34d399] mt-0.5">{new Date(lead.crm_synced_at).toLocaleString()}</p>
+                          <p className="text-xs text-[#34d399]/70 mt-0.5">{new Date(lead.crm_synced_at).toLocaleString()}</p>
                         )}
                       </div>
                     </div>
                     <button
                       onClick={(e) => handleSyncLeadToCrm(lead.id, e)}
                       disabled={syncingLeadId === lead.id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.04)] text-[rgba(255,255,255,.5)] rounded-lg hover:border-[#4f46e5]/40 hover:text-[#4f46e5] transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.04)] text-[rgba(255,255,255,.5)] rounded-lg hover:border-[#4f46e5]/40 hover:text-[#818cf8] transition-colors disabled:opacity-50"
                     >
                       {syncingLeadId === lead.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                       {lead.crm_sync_status === "synced" ? "Re-sync" : "Sync now"}
@@ -806,7 +807,7 @@ export default function Leads() {
                 <div className="px-6 py-4 border-t border-[rgba(255,255,255,.08)] flex gap-3">
                   <button
                     onClick={() => { handleReview(lead.id, "approved"); setProfileLead(null); }}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-colors"
                   >
                     <ThumbsUp className="w-4 h-4" /> Approve
                   </button>
@@ -831,8 +832,7 @@ export default function Leads() {
             onClick={() => setDeleteConfirmList(null)}
           />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-[rgba(255,255,255,.04)] rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
-              {/* Icon + title */}
+            <div className="bg-[#1a1a2e] border border-[rgba(255,255,255,.08)] rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 bg-[rgba(239,68,68,.1)] rounded-xl flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-5 h-5 text-red-500" />
@@ -844,8 +844,6 @@ export default function Leads() {
                   </p>
                 </div>
               </div>
-
-              {/* Actions */}
               <div className="flex gap-3">
                 <button
                   onClick={() => setDeleteConfirmList(null)}

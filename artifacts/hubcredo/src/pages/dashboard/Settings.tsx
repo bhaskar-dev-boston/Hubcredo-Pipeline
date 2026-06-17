@@ -45,18 +45,17 @@ const ATTIO_API_KEY_URL =
 type TabId = "profile" | "icp" | "outreach" | "crm";
 
 const CRM_FIELDS: { key: string; label: string; description: string }[] = [
-  { key: "first_name",    label: "First Name",    description: "Maps to Attio name.first_name" },
-  { key: "last_name",     label: "Last Name",     description: "Maps to Attio name.last_name" },
-  { key: "email",         label: "Email",         description: "Maps to Attio email_addresses" },
-  { key: "job_title",     label: "Job Title",     description: "Maps to Attio job_title" },
-  { key: "company_name",  label: "Company Name",  description: "Maps to Attio company_name" },
-  { key: "linkedin_url",  label: "LinkedIn URL",  description: "Maps to Attio linkedin" },
+  { key: "first_name",   label: "First Name",   description: "Maps to Attio name.first_name" },
+  { key: "last_name",    label: "Last Name",     description: "Maps to Attio name.last_name" },
+  { key: "email",        label: "Email",         description: "Maps to Attio email_addresses" },
+  { key: "job_title",    label: "Job Title",     description: "Maps to Attio job_title" },
+  { key: "company_name", label: "Company Name",  description: "Maps to Attio company_name" },
+  { key: "linkedin_url", label: "LinkedIn URL",  description: "Maps to Attio linkedin" },
 ];
 
 export default function Settings() {
   const { toast } = useToast();
 
-  // Read ?tab= from URL on mount to support sidebar "CRM Connect" deep-link
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab") as TabId | null;
@@ -231,11 +230,11 @@ export default function Settings() {
     { id: "crm",      label: "CRM" },
   ];
 
-  const chipBase    = "px-3 py-2 rounded-lg text-sm transition-colors border cursor-pointer";
-  const chipActive  = "bg-[#eef2ff] border-[#c7d2fe] text-[#4f46e5]";
-  const chipInactive= "border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] hover:text-white hover:border-[rgba(255,255,255,.15)] hover:bg-[rgba(255,255,255,.04)]";
-  const inputClass  = "w-full px-3 py-2.5 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg text-sm text-white placeholder:text-[rgba(255,255,255,.5)] focus:outline-none focus:border-[rgba(99,102,241,.7)] focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/20 transition-colors";
-  const saveBtn     = "flex items-center gap-2 px-4 py-2.5 bg-[#4f46e5] text-white text-sm font-semibold rounded-lg hover:bg-[#4338ca] transition-colors disabled:opacity-50";
+  const chipBase     = "px-3 py-2 rounded-lg text-sm transition-colors border cursor-pointer";
+  const chipActive   = "bg-[rgba(79,70,229,.2)] border-[rgba(99,102,241,.4)] text-[#818cf8]";
+  const chipInactive = "border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] hover:text-white hover:border-[rgba(255,255,255,.15)] hover:bg-[rgba(255,255,255,.04)]";
+  const inputClass   = "w-full px-3 py-2.5 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg text-sm text-white placeholder:text-[rgba(255,255,255,.3)] focus:outline-none focus:border-[rgba(99,102,241,.7)] focus:ring-2 focus:ring-[rgba(79,70,229,.2)] transition-colors";
+  const saveBtn      = "flex items-center gap-2 px-4 py-2.5 bg-[#4f46e5] text-white text-sm font-semibold rounded-lg hover:bg-[#4338ca] transition-colors disabled:opacity-50";
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -260,7 +259,7 @@ export default function Settings() {
               onClick={() => setActiveTab(id)}
               className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
                 activeTab === id
-                  ? "bg-[rgba(255,255,255,.04)] text-white shadow-none border border-[rgba(255,255,255,.08)]"
+                  ? "bg-[rgba(255,255,255,.08)] text-white border border-[rgba(255,255,255,.12)]"
                   : "text-[rgba(255,255,255,.5)] hover:text-white"
               }`}
             >
@@ -271,7 +270,7 @@ export default function Settings() {
 
         {/* ── Profile tab ── */}
         {activeTab === "profile" && (
-          <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-6 space-y-5 shadow-none">
+          <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-6 space-y-5">
             <h2 className="text-white font-semibold">Profile details</h2>
             <div>
               <label className="block text-sm font-medium text-white mb-1.5">Full name</label>
@@ -280,7 +279,7 @@ export default function Settings() {
             <div>
               <label className="block text-sm font-medium text-white mb-1.5">Email</label>
               <input value={profile?.email ?? ""} disabled className={`${inputClass} opacity-50 cursor-not-allowed`} />
-              <p className="text-xs text-[rgba(255,255,255,.5)] mt-1.5">Email cannot be changed here.</p>
+              <p className="text-xs text-[rgba(255,255,255,.4)] mt-1.5">Email cannot be changed here.</p>
             </div>
             <button onClick={handleSaveProfile} disabled={updateProfile.isPending} className={saveBtn}>
               {updateProfile.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
@@ -291,7 +290,7 @@ export default function Settings() {
 
         {/* ── ICP tab ── */}
         {activeTab === "icp" && (
-          <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-6 space-y-6 shadow-none">
+          <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-6 space-y-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-white font-semibold">Ideal Customer Profile</h2>
@@ -346,7 +345,7 @@ export default function Settings() {
 
         {/* ── Outreach tab ── */}
         {activeTab === "outreach" && (
-          <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-6 space-y-6 shadow-none">
+          <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-6 space-y-6">
             <h2 className="text-white font-semibold">Outreach settings</h2>
             <div className="space-y-3">
               {[
@@ -356,14 +355,14 @@ export default function Settings() {
                 <div key={label} className="flex items-center justify-between p-4 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg">
                   <div>
                     <p className="text-sm font-medium text-white">{label}</p>
-                    <p className="text-xs text-[rgba(255,255,255,.5)]">{sub}</p>
+                    <p className="text-xs text-[rgba(255,255,255,.4)]">{sub}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => set((v) => !v)}
-                    className={`w-11 h-6 rounded-full transition-colors relative ${val ? "bg-[#4f46e5]" : "bg-[#CBD5E1]"}`}
+                    className={`w-11 h-6 rounded-full transition-colors relative ${val ? "bg-[#4f46e5]" : "bg-[rgba(255,255,255,.15)]"}`}
                   >
-                    <span className={`block w-4 h-4 bg-[rgba(255,255,255,.04)] rounded-full absolute top-1 shadow-sm transition-transform ${val ? "translate-x-6" : "translate-x-1"}`} />
+                    <span className={`block w-4 h-4 bg-white rounded-full absolute top-1 shadow-sm transition-transform ${val ? "translate-x-6" : "translate-x-1"}`} />
                   </button>
                 </div>
               ))}
@@ -402,12 +401,40 @@ export default function Settings() {
             {/* ── How sync works — info cards ── */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
-                { icon: <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />, title: "On approval",         desc: "Lead synced as Attio People contact" },
-                { icon: <RefreshCw    className="w-4 h-4 text-[#4f46e5]" />, title: "On reply/connection", desc: "Note pushed to Attio contact" },
-                { icon: <Link2        className="w-4 h-4 text-[#7C3AED]" />, title: "Sync badge",          desc: "Shows synced, error, or pending" },
-                { icon: <Clock        className="w-4 h-4 text-[#EA580C]" />, title: "Manual sync",         desc: "Force re-sync from any lead card" },
-              ].map(({ icon, title, desc }) => (
-                <div key={title} className="p-3.5 bg-[#F8FAFC] border border-[rgba(255,255,255,.08)] rounded-xl">
+                {
+                  icon: <CheckCircle2 className="w-4 h-4 text-[#4ade80]" />,
+                  title: "On approval",
+                  desc: "Lead synced as Attio People contact",
+                  bg: "rgba(22,163,74,.12)",
+                  border: "rgba(22,163,74,.25)",
+                },
+                {
+                  icon: <RefreshCw className="w-4 h-4 text-[#818cf8]" />,
+                  title: "On reply/connection",
+                  desc: "Note pushed to Attio contact",
+                  bg: "rgba(79,70,229,.12)",
+                  border: "rgba(99,102,241,.25)",
+                },
+                {
+                  icon: <Link2 className="w-4 h-4 text-[#c084fc]" />,
+                  title: "Sync badge",
+                  desc: "Shows synced, error, or pending",
+                  bg: "rgba(124,58,237,.12)",
+                  border: "rgba(167,139,250,.25)",
+                },
+                {
+                  icon: <Clock className="w-4 h-4 text-[#fb923c]" />,
+                  title: "Manual sync",
+                  desc: "Force re-sync from any lead card",
+                  bg: "rgba(234,88,12,.12)",
+                  border: "rgba(251,146,60,.25)",
+                },
+              ].map(({ icon, title, desc, bg, border }) => (
+                <div
+                  key={title}
+                  className="p-3.5 rounded-xl"
+                  style={{ background: bg, border: `1px solid ${border}` }}
+                >
                   <div className="mb-2">{icon}</div>
                   <p className="text-xs font-semibold text-white">{title}</p>
                   <p className="text-[11px] text-[rgba(255,255,255,.5)] mt-0.5 leading-tight">{desc}</p>
@@ -416,9 +443,9 @@ export default function Settings() {
             </div>
 
             {/* ── Connection card ── */}
-            <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-6 shadow-none">
+            <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-6">
               <div className="flex items-start gap-4 mb-5">
-                <div className="w-10 h-10 rounded-lg bg-[#eef2ff] border border-[#c7d2fe] flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-lg bg-[rgba(124,58,237,.15)] border border-[rgba(124,58,237,.3)] flex items-center justify-center shrink-0">
                   <svg viewBox="0 0 32 32" className="w-5 h-5" fill="none">
                     <rect width="32" height="32" rx="8" fill="#1A1A2E"/>
                     <circle cx="10" cy="16" r="3" fill="#7C3AED"/>
@@ -449,11 +476,11 @@ export default function Settings() {
                   <div className="p-3 bg-[rgba(16,185,129,.1)] border border-[rgba(52,211,153,.25)] rounded-lg flex items-center gap-3">
                     <CheckCircle className="w-4 h-4 text-[#34d399] shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-green-800">Attio is connected</p>
+                      <p className="text-sm font-medium text-[#34d399]">Attio is connected</p>
                       {crmConnection?.workspace_id && (
-                        <p className="text-xs text-[#34d399] truncate">Workspace: {crmConnection.workspace_id}</p>
+                        <p className="text-xs text-[rgba(52,211,153,.7)] truncate">Workspace: {crmConnection.workspace_id}</p>
                       )}
-                      <p className="text-xs text-[#34d399] mt-0.5">
+                      <p className="text-xs text-[rgba(52,211,153,.7)] mt-0.5">
                         Connected{" "}
                         {crmConnection?.connected_at
                           ? new Date(crmConnection.connected_at).toLocaleDateString()
@@ -477,9 +504,9 @@ export default function Settings() {
                 <div className="space-y-5">
 
                   {/* Step-by-step guide */}
-                  <div className="bg-[#F8FAFC] border border-[rgba(255,255,255,.08)] rounded-xl p-4">
+                  <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-3">
-                      <Key className="w-4 h-4 text-[rgba(255,255,255,.5)]" />
+                      <Key className="w-4 h-4 text-[rgba(255,255,255,.4)]" />
                       <h4 className="text-sm font-semibold text-white">How to get your Attio API key</h4>
                     </div>
                     <ol className="space-y-3">
@@ -498,21 +525,27 @@ export default function Settings() {
                           text: (
                             <>
                               Click <strong className="font-semibold text-white">+ New access token</strong>, name it{" "}
-                              <span className="font-mono text-xs bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] px-1.5 py-0.5 rounded">
+                              <span className="font-mono text-xs bg-[rgba(255,255,255,.08)] border border-[rgba(255,255,255,.12)] px-1.5 py-0.5 rounded text-[rgba(255,255,255,.8)]">
                                 HubCredo
                               </span>
-                              , and set scopes to <em>read/write People &amp; Notes</em>.
+                              , and set scopes to <em className="text-[rgba(255,255,255,.6)]">read/write People &amp; Notes</em>.
                             </>
                           ),
                         },
-                        { step: "3", text: "Copy the token immediately — it's only shown once." },
-                        { step: "4", text: "Paste it in the field below and click Connect Attio." },
+                        {
+                          step: "3",
+                          text: <span className="text-[rgba(255,255,255,.6)]">Copy the token immediately — it's only shown once.</span>,
+                        },
+                        {
+                          step: "4",
+                          text: <span className="text-[rgba(255,255,255,.6)]">Paste it in the field below and click Connect Attio.</span>,
+                        },
                       ].map(({ step, text }) => (
                         <li key={step} className="flex gap-3">
                           <span className="w-6 h-6 rounded-full bg-[#4f46e5] text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
                             {step}
                           </span>
-                          <p className="text-sm text-[#475569] leading-relaxed">{text}</p>
+                          <p className="text-sm text-[rgba(255,255,255,.6)] leading-relaxed">{text}</p>
                         </li>
                       ))}
                     </ol>
@@ -523,30 +556,30 @@ export default function Settings() {
                         Direct link to your token page
                       </p>
                       <div className="flex items-center gap-2 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl px-3 py-2.5">
-                        <span className="flex-1 text-xs font-mono text-[#475569] truncate select-all">
+                        <span className="flex-1 text-xs font-mono text-[rgba(255,255,255,.5)] truncate select-all">
                           {ATTIO_API_KEY_URL}
                         </span>
                         <button
                           onClick={copyAttioUrl}
-                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border border-[rgba(255,255,255,.08)] bg-[#F8FAFC] hover:bg-[#eef2ff] transition-colors"
+                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.06)] hover:bg-[rgba(255,255,255,.1)] transition-colors"
                           title="Copy URL"
                         >
                           {urlCopied
-                            ? <Check className="w-3.5 h-3.5 text-[#16A34A]" />
+                            ? <Check className="w-3.5 h-3.5 text-[#4ade80]" />
                             : <Copy className="w-3.5 h-3.5 text-[rgba(255,255,255,.5)]" />}
                         </button>
                         <a
                           href={ATTIO_API_KEY_URL}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border border-[rgba(255,255,255,.08)] bg-[#F8FAFC] hover:bg-[#eef2ff] transition-colors"
+                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.06)] hover:bg-[rgba(255,255,255,.1)] transition-colors"
                           title="Open in Attio"
                         >
                           <ExternalLink className="w-3.5 h-3.5 text-[rgba(255,255,255,.5)]" />
                         </a>
                       </div>
                       <p className="text-[11px] text-[rgba(255,255,255,.35)] mt-1.5">
-                        You must be a workspace <strong>Admin</strong> to create API keys.
+                        You must be a workspace <strong className="text-[rgba(255,255,255,.5)]">Admin</strong> to create API keys.
                       </p>
                     </div>
                   </div>
@@ -577,11 +610,11 @@ export default function Settings() {
                   </button>
 
                   {/* Security notice */}
-                  <div className="flex items-start gap-3 px-4 py-3 bg-[#FFFBEB] border border-[#FDE68A] rounded-xl">
-                    <ShieldCheck className="w-4 h-4 text-[#D97706] shrink-0 mt-0.5" />
-                    <p className="text-xs text-[#92400E] leading-relaxed">
-                      <strong>Keep your API key safe.</strong> Treat it like a password. If compromised, delete it on the{" "}
-                      <a href={ATTIO_API_KEY_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-[#78350F]">
+                  <div className="flex items-start gap-3 px-4 py-3 bg-[rgba(217,119,6,.1)] border border-[rgba(217,119,6,.25)] rounded-xl">
+                    <ShieldCheck className="w-4 h-4 text-[#fbbf24] shrink-0 mt-0.5" />
+                    <p className="text-xs text-[rgba(251,191,36,.8)] leading-relaxed">
+                      <strong className="text-[#fbbf24]">Keep your API key safe.</strong> Treat it like a password. If compromised, delete it on the{" "}
+                      <a href={ATTIO_API_KEY_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-[#fbbf24]">
                         Developers page
                       </a>{" "}
                       and generate a new one. Attio support will never ask for your token.
@@ -593,7 +626,7 @@ export default function Settings() {
 
             {/* ── Field mapper (connected only) ── */}
             {isConnected && (
-              <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-6 shadow-none">
+              <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-6">
                 <div className="mb-4">
                   <h2 className="text-white font-semibold">Field mapping</h2>
                   <p className="text-xs text-[rgba(255,255,255,.5)] mt-0.5">
@@ -604,24 +637,24 @@ export default function Settings() {
                   {CRM_FIELDS.map(({ key, label, description }) => (
                     <div
                       key={key}
-                      className="flex items-center justify-between p-3 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg hover:bg-[rgba(255,255,255,.04)] hover:border-[#4f46e5]/30 transition-colors"
+                      className="flex items-center justify-between p-3 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg hover:border-[rgba(79,70,229,.3)] transition-colors"
                     >
                       <div>
                         <p className="text-sm font-medium text-white">{label}</p>
-                        <p className="text-xs text-[rgba(255,255,255,.5)]">{description}</p>
+                        <p className="text-xs text-[rgba(255,255,255,.4)]">{description}</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setFieldMapping((m) => ({ ...m, [key]: !m[key] }))}
-                        className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${fieldMapping[key] ? "bg-[#4f46e5]" : "bg-[#CBD5E1]"}`}
+                        className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${fieldMapping[key] ? "bg-[#4f46e5]" : "bg-[rgba(255,255,255,.15)]"}`}
                       >
-                        <span className={`block w-4 h-4 bg-[rgba(255,255,255,.04)] rounded-full absolute top-1 shadow-sm transition-transform ${fieldMapping[key] ? "translate-x-6" : "translate-x-1"}`} />
+                        <span className={`block w-4 h-4 bg-white rounded-full absolute top-1 shadow-sm transition-transform ${fieldMapping[key] ? "translate-x-6" : "translate-x-1"}`} />
                       </button>
                     </div>
                   ))}
                 </div>
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 flex items-start gap-2 mb-4">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <div className="p-3 bg-[rgba(217,119,6,.1)] border border-[rgba(217,119,6,.25)] rounded-lg text-xs text-[rgba(251,191,36,.8)] flex items-start gap-2 mb-4">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[#fbbf24]" />
                   <span>
                     Email is used to match contacts in Attio. Disabling it means new records will be created every sync instead of updating existing ones.
                   </span>

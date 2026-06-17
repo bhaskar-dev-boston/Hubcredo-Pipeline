@@ -88,7 +88,7 @@ function MessageBubble({ msg, myEmail }: { msg: ThreadMessage; myEmail: string }
         className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
           isSent
             ? "bg-gradient-to-br from-[#4f46e5] to-[#7C3AED] text-white"
-            : "bg-[#F1F5F9] text-[rgba(255,255,255,.5)] border border-[rgba(255,255,255,.08)]"
+            : "bg-[#1e293b] text-[rgba(255,255,255,.6)] border border-[rgba(255,255,255,.08)]"
         }`}
       >
         {isSent ? (myEmail[0]?.toUpperCase() ?? "Y") : initial}
@@ -117,7 +117,7 @@ function MessageBubble({ msg, myEmail }: { msg: ThreadMessage; myEmail: string }
           className={`px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
             isSent
               ? "bg-[#4f46e5] text-white rounded-tr-sm"
-              : "bg-[#F8FAFC] border border-[rgba(255,255,255,.08)] text-white rounded-tl-sm"
+              : "bg-[#1e293b] border border-[rgba(255,255,255,.08)] text-white rounded-tl-sm"
           }`}
         >
           {msg.body || <span className="opacity-50 italic">No content</span>}
@@ -225,6 +225,7 @@ function ReplyComposer({
             </div>
           </div>
 
+          {/* FIX: explicit dark bg + white text on textarea */}
           <textarea
             ref={textareaRef}
             value={body}
@@ -232,19 +233,20 @@ function ReplyComposer({
             onKeyDown={handleKeyDown}
             placeholder="Write your reply…"
             rows={3}
-            className="w-full resize-none rounded-lg border border-[rgba(255,255,255,.08)] px-4 py-3 text-sm text-white placeholder:text-[#CBD5E1] focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/30 focus:border-[rgba(99,102,241,.7)] transition-all leading-relaxed"
+            className="w-full resize-none rounded-lg border border-[rgba(255,255,255,.08)] bg-[#0f172a] px-4 py-3 text-sm text-white placeholder:text-[rgba(255,255,255,.35)] focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.3)] focus:border-[rgba(99,102,241,.7)] transition-all leading-relaxed"
             style={{ minHeight: 80 }}
           />
 
           <div className="flex items-center justify-between mt-3">
             <span className="text-xs text-[rgba(255,255,255,.35)]">
-              <kbd className="px-1.5 py-0.5 bg-[#F1F5F9] border border-[rgba(255,255,255,.08)] rounded text-[10px] font-mono">⌘ Enter</kbd>{" "}
+              {/* FIX: dark bg kbd so it's visible on dark background */}
+              <kbd className="px-1.5 py-0.5 bg-[rgba(255,255,255,.1)] border border-[rgba(255,255,255,.15)] rounded text-[10px] font-mono text-[rgba(255,255,255,.6)]">⌘ Enter</kbd>{" "}
               to send
             </span>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => { setBody(""); setOpen(false); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[rgba(255,255,255,.5)] hover:text-white rounded-lg hover:bg-[#F1F5F9] transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[rgba(255,255,255,.5)] hover:text-white rounded-lg hover:bg-[rgba(255,255,255,.08)] transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
                 Discard
@@ -287,7 +289,6 @@ export default function Inbox() {
         const data = await res.json();
         const arr: InboxReply[] = Array.isArray(data) ? data : [];
         setReplies(arr);
-        // Derive myEmail from the first known eaccount
         const first = arr.find((r) => r.eaccount);
         if (first?.eaccount) setMyEmail(first.eaccount);
       } else {
@@ -305,7 +306,6 @@ export default function Inbox() {
 
   useEffect(() => { fetchReplies(); }, [fetchReplies]);
 
-  // Scroll to bottom of thread when it updates
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [thread]);
@@ -318,12 +318,10 @@ export default function Inbox() {
       if (res.ok) {
         const data = await res.json();
         setThread(data.messages ?? []);
-        // Update myEmail from thread if we can
         const sentMsg = (data.messages ?? []).find((m: ThreadMessage) => m.direction === "sent");
         if (sentMsg?.eaccount) setMyEmail(sentMsg.eaccount);
         else if (sentMsg?.from_email) setMyEmail(sentMsg.from_email);
       } else {
-        // Fallback: show just the received email
         setThread([{
           id: reply.id,
           direction: "received",
@@ -400,7 +398,7 @@ export default function Inbox() {
                   key={f}
                   onClick={() => setFilter(f)}
                   className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${
-                    filter === f ? "bg-[rgba(255,255,255,.04)] text-white shadow-sm" : "text-[rgba(255,255,255,.5)] hover:text-white"
+                    filter === f ? "bg-[rgba(255,255,255,.08)] text-white shadow-sm" : "text-[rgba(255,255,255,.5)] hover:text-white"
                   }`}
                 >
                   {f === "unread" ? `Unread (${unreadCount})` : "All"}
@@ -424,46 +422,64 @@ export default function Inbox() {
               </div>
             ) : (
               <div className="space-y-1">
-                {filtered.map((reply) => (
-                  <button
-                    key={reply.id}
-                    onClick={() => handleOpen(reply)}
-                    className={`w-full text-left p-3.5 rounded-xl border transition-all ${
-                      selected?.id === reply.id
-                        ? "bg-[#eef2ff] border-[#c7d2fe]"
-                        : reply.is_read
-                        ? "bg-[rgba(255,255,255,.04)] border-[rgba(255,255,255,.08)] hover:border-[rgba(255,255,255,.15)] hover:bg-[rgba(255,255,255,.04)]"
-                        : "bg-[rgba(255,255,255,.04)] border-[rgba(255,255,255,.08)] hover:border-[#4f46e5]/30"
-                    }`}
-                  >
-                    <div className="flex items-start gap-2.5">
-                      <div className="shrink-0 mt-0.5">
-                        {reply.is_read
-                          ? <MailOpen className="w-4 h-4 text-[rgba(255,255,255,.35)]" />
-                          : <Mail className="w-4 h-4 text-[#4f46e5]" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className={`text-sm truncate ${reply.is_read ? "text-[rgba(255,255,255,.5)]" : "text-white font-semibold"}`}>
-                            {reply.from_name || reply.from_email}
-                          </p>
-                          <span className="text-xs text-[rgba(255,255,255,.35)] shrink-0">{timeAgo(reply.received_at)}</span>
+                {filtered.map((reply) => {
+                  const isSelected = selected?.id === reply.id;
+                  return (
+                    <button
+                      key={reply.id}
+                      onClick={() => handleOpen(reply)}
+                      className={`w-full text-left p-3.5 rounded-xl border transition-all ${
+                        isSelected
+                          ? "bg-[#1e1b4b] border-[#4f46e5]/50"
+                          : reply.is_read
+                          ? "bg-[rgba(255,255,255,.04)] border-[rgba(255,255,255,.08)] hover:border-[rgba(255,255,255,.15)] hover:bg-[rgba(255,255,255,.06)]"
+                          : "bg-[rgba(255,255,255,.04)] border-[rgba(255,255,255,.08)] hover:border-[#4f46e5]/30 hover:bg-[rgba(255,255,255,.06)]"
+                      }`}
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <div className="shrink-0 mt-0.5">
+                          {reply.is_read
+                            ? <MailOpen className={`w-4 h-4 ${isSelected ? "text-[#818cf8]" : "text-[rgba(255,255,255,.35)]"}`} />
+                            : <Mail className="w-4 h-4 text-[#4f46e5]" />}
                         </div>
-                        <p className={`text-xs truncate mt-0.5 ${reply.is_read ? "text-[rgba(255,255,255,.35)]" : "text-[rgba(255,255,255,.5)]"}`}>
-                          {reply.subject || "(no subject)"}
-                        </p>
-                        {reply.email_campaigns && (
-                          <p className="text-xs text-[#4f46e5]/70 mt-0.5 truncate">
-                            {reply.email_campaigns.name}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            {/* FIX: always white text on dark bg — selected is now dark purple not light */}
+                            <p className={`text-sm truncate ${
+                              isSelected
+                                ? "text-white font-semibold"
+                                : reply.is_read
+                                ? "text-[rgba(255,255,255,.5)]"
+                                : "text-white font-semibold"
+                            }`}>
+                              {reply.from_name || reply.from_email}
+                            </p>
+                            <span className={`text-xs shrink-0 ${isSelected ? "text-[#818cf8]" : "text-[rgba(255,255,255,.35)]"}`}>
+                              {timeAgo(reply.received_at)}
+                            </span>
+                          </div>
+                          <p className={`text-xs truncate mt-0.5 ${
+                            isSelected
+                              ? "text-[#a5b4fc]"
+                              : reply.is_read
+                              ? "text-[rgba(255,255,255,.35)]"
+                              : "text-[rgba(255,255,255,.5)]"
+                          }`}>
+                            {reply.subject || "(no subject)"}
                           </p>
+                          {reply.email_campaigns && (
+                            <p className={`text-xs mt-0.5 truncate ${isSelected ? "text-[#818cf8]" : "text-[#4f46e5]/70"}`}>
+                              {reply.email_campaigns.name}
+                            </p>
+                          )}
+                        </div>
+                        {!reply.is_read && (
+                          <div className="w-2 h-2 bg-[#4f46e5] rounded-full shrink-0 mt-1.5" />
                         )}
                       </div>
-                      {!reply.is_read && (
-                        <div className="w-2 h-2 bg-[#4f46e5] rounded-full shrink-0 mt-1.5" />
-                      )}
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -486,7 +502,7 @@ export default function Inbox() {
                     </div>
                   </div>
                   {selected.email_campaigns && (
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#eef2ff] border border-[#c7d2fe] rounded-lg text-xs text-[#4f46e5] font-medium shrink-0">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#1e1b4b] border border-[#4f46e5]/40 rounded-lg text-xs text-[#818cf8] font-medium shrink-0">
                       <Tag className="w-3 h-3" />
                       {selected.email_campaigns.name}
                     </div>

@@ -4,13 +4,12 @@ import { CreditCostBadge } from "@/components/ui/CreditCostBadge";
 import {
   Globe, Search, Loader2, Briefcase, Sparkles, AlertCircle,
   ExternalLink, RefreshCw, ShoppingCart, User, Plus, Check,
-  Trash2, Link, Copy, CheckCheck, Wallet, Tag, Zap,  // ← add Zap here
+  Trash2, Link, Copy, CheckCheck, Wallet, Tag, Zap,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getToken } from "@/lib/auth";
 import { useCreditStore } from "@/store/creditStore";
 
-// ₹380 = 3000 credits (Growth tier rate); $1 = ₹95 → $1 = 95 * (3000/380) = 750 credits
 const USD_TO_CREDITS = 750;
 
 function domainPriceToCredits(registrationPrice: number | null | undefined): number {
@@ -57,7 +56,6 @@ async function apiFetch(path: string, opts?: RequestInit) {
 
 const USD_TO_INR = 95;
 
-// Format price — handles both cents (int > 500) and dollars (float)
 function formatPrice(value: number | null | undefined, currency: "INR" | "USD" = "INR"): string | null {
   if (value == null) return null;
   const dollars = value > 500 ? value / 100 : value;
@@ -139,12 +137,13 @@ function ConnectExistingDomain({ onConnected }: { onConnected?: (domain: string)
     <div className="space-y-3">
       {step === "idle" && (
         <div className="flex gap-2">
+          {/* FIX: explicit dark bg + white text on input */}
           <input
             value={domain}
             onChange={e => setDomain(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleGetNameservers()}
             placeholder="yourdomain.com"
-            className="flex-1 px-3 py-2.5 border border-[rgba(255,255,255,.08)] rounded-xl text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+            className="flex-1 px-3 py-2.5 bg-[#0f172a] border border-[rgba(255,255,255,.08)] rounded-xl text-sm text-white placeholder:text-[rgba(255,255,255,.35)] focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
           />
           <button
             onClick={handleGetNameservers}
@@ -159,22 +158,22 @@ function ConnectExistingDomain({ onConnected }: { onConnected?: (domain: string)
 
       {step === "nameservers" && (
         <div className="space-y-3">
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-            <p className="text-xs font-bold text-amber-800 mb-1">Step 1 — Copy these nameservers</p>
-            <p className="text-[11px] text-amber-700 mb-3">
+          <div className="bg-amber-950/40 border border-amber-700/50 rounded-xl p-4">
+            <p className="text-xs font-bold text-amber-400 mb-1">Step 1 — Copy these nameservers</p>
+            <p className="text-[11px] text-amber-500 mb-3">
               Go to your registrar (GoDaddy / Namecheap / etc.) → DNS Settings → Replace nameservers with:
             </p>
             {nameservers.map((ns, i) => (
-              <div key={i} className="flex items-center justify-between bg-[rgba(255,255,255,.04)] border border-amber-200 rounded-lg px-3 py-2 mb-1.5">
+              <div key={i} className="flex items-center justify-between bg-[rgba(255,255,255,.06)] border border-amber-700/30 rounded-lg px-3 py-2 mb-1.5">
                 <span className="text-sm font-mono text-white">{ns}</span>
                 <button onClick={() => copyNs(ns)}
-                  className="flex items-center gap-1 text-xs text-amber-700 hover:text-amber-900 font-semibold ml-2 shrink-0">
-                  {copied === ns ? <CheckCheck className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 font-semibold ml-2 shrink-0">
+                  {copied === ns ? <CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                   {copied === ns ? "Copied!" : "Copy"}
                 </button>
               </div>
             ))}
-            <p className="text-[10px] text-amber-600 mt-2">
+            <p className="text-[10px] text-amber-500/70 mt-2">
               ⏱ Propagation takes <strong>1–4 hours</strong>. Come back and click "Check Status" after waiting.
             </p>
           </div>
@@ -205,26 +204,26 @@ function ConnectExistingDomain({ onConnected }: { onConnected?: (domain: string)
 
       {step === "done" && (
         <div className={`rounded-xl p-4 border text-sm ${propagated
-          ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-          : "bg-amber-50 border-amber-200 text-amber-800"}`}>
+          ? "bg-emerald-950/40 border-emerald-700/50 text-emerald-400"
+          : "bg-amber-950/40 border-amber-700/50 text-amber-400"}`}>
           {propagated ? (
             <div className="flex items-center gap-2">
               <Check className="w-4 h-4 shrink-0" />
               <div>
                 <p className="font-semibold">Domain connected!</p>
-                <p className="text-xs mt-0.5">SPF, DKIM & DMARC are now live on <strong>{domain}</strong>. You can now create a mailbox.</p>
+                <p className="text-xs mt-0.5 text-emerald-500">SPF, DKIM & DMARC are now live on <strong>{domain}</strong>. You can now create a mailbox.</p>
               </div>
             </div>
           ) : (
             <div>
               <p className="font-semibold">Not yet propagated</p>
-              <p className="text-xs mt-0.5">DNS changes can take 1–4 hours. Check again shortly.</p>
+              <p className="text-xs mt-0.5 text-amber-500">DNS changes can take 1–4 hours. Check again shortly.</p>
               <div className="flex gap-2 mt-3">
                 <button onClick={handleCheckPropagation} disabled={loading}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-700 text-white text-xs font-semibold rounded-lg hover:bg-amber-800 disabled:opacity-50">
                   {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : null} Retry
                 </button>
-                <button onClick={reset} className="px-3 py-1.5 border border-amber-300 text-amber-800 text-xs rounded-lg hover:bg-amber-100">
+                <button onClick={reset} className="px-3 py-1.5 border border-amber-700/50 text-amber-400 text-xs rounded-lg hover:bg-amber-950/40">
                   Start over
                 </button>
               </div>
@@ -325,7 +324,6 @@ export default function DomainFinder() {
     e.preventDefault();
     if (!keyword.trim()) return;
 
-    // Check balance upfront before hitting the server
     if (balance !== null && balance < 10) {
       toast({
         title: "Not enough credits",
@@ -349,10 +347,7 @@ export default function DomainFinder() {
       });
       const data = await res.json();
 
-      // Sync real balance from server response
-      if (typeof data.newBalance === "number") {
-        setBalance(data.newBalance);
-      }
+      if (typeof data.newBalance === "number") setBalance(data.newBalance);
 
       if (res.status === 402) {
         toast({
@@ -360,7 +355,7 @@ export default function DomainFinder() {
           description: `Domain search costs 10 credits but you only have ${data.balance ?? 0}. Top up in Billing.`,
           variant: "destructive",
         });
-        fetchBalance(); // restore optimistic deduction
+        fetchBalance();
         return;
       }
 
@@ -371,7 +366,7 @@ export default function DomainFinder() {
       setTimeout(() => fetchDomains(true), 10000);
       setTimeout(() => fetchDomains(true), 18000);
     } catch (err: unknown) {
-      fetchBalance(); // restore optimistic deduction on error
+      fetchBalance();
       toast({
         title: "Search failed",
         description: err instanceof Error ? err.message : "Could not reach domain finder service.",
@@ -439,11 +434,9 @@ export default function DomainFinder() {
     const contact = contacts.find(c => c.id === selectedContactId);
     if (!contact) return;
 
-    // Calculate credit cost based on domain registration price
     const domainData = storedDomains.find(d => (d.domain || d.website) === pendingDomain);
     const creditsRequired = domainPriceToCredits(domainData?.registration_price);
 
-    // Check balance upfront if we have it
     if (creditsRequired > 0 && balance !== null && balance < creditsRequired) {
       toast({
         title: "Not enough credits",
@@ -456,14 +449,13 @@ export default function DomainFinder() {
     setShowContactModal(false);
     setBuyingDomain(pendingDomain);
 
-    // Optimistic deduction
     if (creditsRequired > 0) deductOptimistic(creditsRequired);
 
     try {
       const checkRes = await apiFetch(`/api/inboxkit/check?domain=${encodeURIComponent(pendingDomain)}`);
       const checkData = await checkRes.json();
       if (checkData.available === false) {
-        if (creditsRequired > 0) fetchBalance(); // restore optimistic
+        if (creditsRequired > 0) fetchBalance();
         toast({ title: "Domain unavailable", variant: "destructive" }); return;
       }
 
@@ -487,7 +479,6 @@ export default function DomainFinder() {
       const purchaseData = await purchaseRes.json();
       if (!purchaseRes.ok) throw new Error(purchaseData.error ?? "Purchase failed");
 
-      // Confirm credit deduction server-side
       if (creditsRequired > 0) {
         const spendRes = await apiFetch("/api/billing/spend-fixed", {
           method: "POST",
@@ -500,26 +491,14 @@ export default function DomainFinder() {
         if (spendRes.ok && typeof spendData.newBalance === "number") {
           setBalance(spendData.newBalance);
         } else {
-          fetchBalance(); // sync real balance
+          fetchBalance();
         }
       }
 
-      // Extract domain ID - backend now ensures it's in domain_id or domains[0].id
       const domainId = purchaseData?.domain_id || purchaseData?.domains?.[0]?.id;
-      
-      if (!domainId) {
-        throw new Error("Failed to extract domain ID from purchase response");
-      }
-      
-      setPurchasedDomain({
-        id: String(domainId),
-        name: pendingDomain,
-      });
+      if (!domainId) throw new Error("Failed to extract domain ID from purchase response");
 
-      console.log("Purchased Domain SET:", {
-        id: String(domainId),
-        name: pendingDomain,
-      });
+      setPurchasedDomain({ id: String(domainId), name: pendingDomain });
 
       toast({
         title: "Domain purchased!",
@@ -527,7 +506,7 @@ export default function DomainFinder() {
       });
       setShowMailboxModal(true);
     } catch (err) {
-      if (creditsRequired > 0) fetchBalance(); // restore optimistic on failure
+      if (creditsRequired > 0) fetchBalance();
       toast({
         title: "Purchase failed",
         description: err instanceof Error ? err.message : "Could not purchase domain.",
@@ -540,56 +519,26 @@ export default function DomainFinder() {
   }
 
   async function handleCreateMailbox() {
-  if (!purchasedDomain?.id || !mailboxUsername.trim()) {
-    toast({
-      title: "Missing information",
-      description: "Domain ID and username are required.",
-      variant: "destructive",
-    });
-    return;
-  }
-
-  setCreatingMailbox(true);
-
-  try {
-    console.log("Purchased Domain:", purchasedDomain);
-
-    const res = await apiFetch("/api/inboxkit/mailbox", {
-      method: "POST",
-      body: JSON.stringify({
-        domain_id: purchasedDomain.id,
-        username: mailboxUsername.trim(),
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.error ?? "Mailbox creation failed");
+    if (!purchasedDomain?.id || !mailboxUsername.trim()) {
+      toast({ title: "Missing information", description: "Domain ID and username are required.", variant: "destructive" });
+      return;
     }
-
-    toast({
-      title: "Mailbox created!",
-      description: `${mailboxUsername}@${purchasedDomain.name} is ready. Warmup started.`,
-    });
-
-    setShowMailboxModal(false);
-
-    setMailboxUsername("");
-
-    setPurchasedDomain(null);
-
-  } catch (err) {
-    toast({
-      title: "Mailbox creation failed",
-      description:
-        err instanceof Error ? err.message : "Try again.",
-      variant: "destructive",
-    });
-  } finally {
-    setCreatingMailbox(false);
+    setCreatingMailbox(true);
+    try {
+      const res = await apiFetch("/api/inboxkit/mailbox", {
+        method: "POST",
+        body: JSON.stringify({ domain_id: purchasedDomain.id, username: mailboxUsername.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Mailbox creation failed");
+      toast({ title: "Mailbox created!", description: `${mailboxUsername}@${purchasedDomain.name} is ready. Warmup started.` });
+      setShowMailboxModal(false);
+      setMailboxUsername("");
+      setPurchasedDomain(null);
+    } catch (err) {
+      toast({ title: "Mailbox creation failed", description: err instanceof Error ? err.message : "Try again.", variant: "destructive" });
+    } finally { setCreatingMailbox(false); }
   }
-}
 
   function Field({ label, required, placeholder, value, onChange, hint, type = "text" }: {
     label: string; required?: boolean; placeholder: string;
@@ -600,8 +549,9 @@ export default function DomainFinder() {
         <label className="text-xs font-semibold text-white mb-1 block">
           {label} {required && <span className="text-red-500">*</span>}
         </label>
+        {/* FIX: dark bg + white text on form inputs */}
         <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-          className="w-full px-3 py-2.5 border border-[rgba(255,255,255,.08)] rounded-xl text-sm focus:outline-none focus:border-[rgba(99,102,241,.7)] focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/20 transition-all" />
+          className="w-full px-3 py-2.5 bg-[#0f172a] border border-[rgba(255,255,255,.08)] rounded-xl text-sm text-white placeholder:text-[rgba(255,255,255,.3)] focus:outline-none focus:border-[rgba(99,102,241,.7)] focus:ring-2 focus:ring-[rgba(79,70,229,.2)] transition-all" />
         {hint && <p className="text-[10px] text-[rgba(255,255,255,.35)] mt-0.5">{hint}</p>}
       </div>
     );
@@ -612,7 +562,6 @@ export default function DomainFinder() {
   const canProceed = !!selectedContactId;
   const requiredFilled = nc.first_name && nc.last_name && nc.email && nc.phone && nc.address1 && nc.city && nc.postal_code;
 
-  // ── Find the pending domain's price for contact modal ──────────────
   const pendingDomainData = storedDomains.find(d => (d.domain || d.website) === pendingDomain);
   const pendingRegPrice = formatPrice(pendingDomainData?.registration_price, currency);
   const pendingCredits = domainPriceToCredits(pendingDomainData?.registration_price);
@@ -634,8 +583,8 @@ export default function DomainFinder() {
         {walletBalance !== null && (
           <div className={`mb-5 flex items-center justify-between gap-3 px-4 py-3 rounded-xl border text-sm ${
             walletBalance > 0
-              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-              : "bg-amber-50 border-amber-200 text-amber-700"
+              ? "bg-emerald-950/40 border-emerald-700/50 text-emerald-400"
+              : "bg-amber-950/40 border-amber-700/50 text-amber-400"
           }`}>
             <div className="flex items-center gap-2">
               <Wallet className="w-4 h-4 shrink-0" />
@@ -660,13 +609,13 @@ export default function DomainFinder() {
         {/* Connect Existing Domain (FREE) */}
         <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-2xl p-5 sm:p-6 mb-5">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center shrink-0">
-              <Link className="w-4 h-4 text-emerald-600" />
+            <div className="w-9 h-9 bg-emerald-950/40 border border-emerald-700/50 rounded-xl flex items-center justify-center shrink-0">
+              <Link className="w-4 h-4 text-emerald-400" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <p className="font-semibold text-white text-sm">Connect an existing domain</p>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">FREE</span>
+                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-700/50 px-1.5 py-0.5 rounded-full">FREE</span>
               </div>
               <p className="text-xs text-[rgba(255,255,255,.5)]">Already own a domain? Point it to InboxKit — SPF/DKIM/DMARC auto-configured at no cost.</p>
             </div>
@@ -684,7 +633,7 @@ export default function DomainFinder() {
           }} />
           <div className="relative">
             <div className="flex items-center gap-3 mb-4 sm:mb-5">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-[rgba(255,255,255,.04)]/20 rounded-xl flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
                 <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
               <div>
@@ -697,22 +646,23 @@ export default function DomainFinder() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
                 <input value={keyword} onChange={e => setKeyword(e.target.value)}
                   placeholder='Keyword — e.g. "fitness app", "saas crm" *' required
-                  className="w-full pl-9 pr-4 py-3 bg-[rgba(255,255,255,.04)]/15 border border-white/25 rounded-xl text-white placeholder:text-white/40 text-sm focus:outline-none focus:bg-[rgba(255,255,255,.04)]/20 focus:border-white/50 transition-all" />
+                  className="w-full pl-9 pr-4 py-3 bg-white/10 border border-white/25 rounded-xl text-white placeholder:text-white/50 text-sm focus:outline-none focus:bg-white/15 focus:border-white/50 transition-all" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="relative">
                   <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
                   <input value={industry} onChange={e => setIndustry(e.target.value)} placeholder="Industry — optional"
-                    className="w-full pl-9 pr-4 py-3 bg-[rgba(255,255,255,.04)]/15 border border-white/25 rounded-xl text-white placeholder:text-white/40 text-sm focus:outline-none focus:bg-[rgba(255,255,255,.04)]/20 focus:border-white/50 transition-all" />
+                    className="w-full pl-9 pr-4 py-3 bg-white/10 border border-white/25 rounded-xl text-white placeholder:text-white/50 text-sm focus:outline-none focus:bg-white/15 focus:border-white/50 transition-all" />
                 </div>
                 <div className="relative">
                   <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
                   <input value={purpose} onChange={e => setPurpose(e.target.value)} placeholder="Purpose — optional"
-                    className="w-full pl-9 pr-4 py-3 bg-[rgba(255,255,255,.04)]/15 border border-white/25 rounded-xl text-white placeholder:text-white/40 text-sm focus:outline-none focus:bg-[rgba(255,255,255,.04)]/20 focus:border-white/50 transition-all" />
+                    className="w-full pl-9 pr-4 py-3 bg-white/10 border border-white/25 rounded-xl text-white placeholder:text-white/50 text-sm focus:outline-none focus:bg-white/15 focus:border-white/50 transition-all" />
                 </div>
               </div>
+              {/* FIX: button was white bg with white text → now white text on dark bg */}
               <button type="submit" disabled={searching || !keyword.trim()}
-                className="flex items-center justify-center gap-2 px-6 py-3 bg-[rgba(255,255,255,.04)] text-[#4f46e5] font-bold rounded-xl hover:bg-[rgba(99,102,241,.15)] transition-all disabled:opacity-50 shadow-lg active:scale-95 text-sm">
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-white/15 hover:bg-white/25 text-white font-bold rounded-xl transition-all disabled:opacity-50 shadow-lg active:scale-95 text-sm border border-white/20">
                 {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                 {searching ? "Searching…" : "Find domains"}
                 {!searching && <CreditCostBadge action="domain_check" variant="dark" />}
@@ -724,8 +674,8 @@ export default function DomainFinder() {
         {/* Searching spinner */}
         {searching && (
           <div className="flex flex-col items-center justify-center py-16 sm:py-20 gap-4">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-[#eef2ff] rounded-2xl flex items-center justify-center">
-              <Globe className="w-6 h-6 sm:w-7 sm:h-7 text-[#4f46e5] animate-pulse" />
+            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-[#1e1b4b] rounded-2xl flex items-center justify-center">
+              <Globe className="w-6 h-6 sm:w-7 sm:h-7 text-[#818cf8] animate-pulse" />
             </div>
             <div className="text-center">
               <p className="text-white font-semibold mb-1">AI is finding domains…</p>
@@ -743,10 +693,10 @@ export default function DomainFinder() {
         {!searching && loadingStored && (
           <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-2xl overflow-hidden">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className={`flex items-center gap-3 px-4 sm:px-5 py-3.5 ${i < 4 ? "border-b border-[#F1F5F9]" : ""}`}>
-                <div className="w-7 h-7 rounded-lg bg-[#F1F5F9] animate-pulse shrink-0" />
-                <div className="flex-1 h-4 bg-[#F1F5F9] rounded animate-pulse" />
-                <div className="w-16 h-4 bg-[#F1F5F9] rounded animate-pulse shrink-0" />
+              <div key={i} className={`flex items-center gap-3 px-4 sm:px-5 py-3.5 ${i < 4 ? "border-b border-[rgba(255,255,255,.08)]" : ""}`}>
+                <div className="w-7 h-7 rounded-lg bg-[rgba(255,255,255,.08)] animate-pulse shrink-0" />
+                <div className="flex-1 h-4 bg-[rgba(255,255,255,.08)] rounded animate-pulse" />
+                <div className="w-16 h-4 bg-[rgba(255,255,255,.08)] rounded animate-pulse shrink-0" />
               </div>
             ))}
           </div>
@@ -754,11 +704,11 @@ export default function DomainFinder() {
 
         {/* New domains banner */}
         {newDomainsAdded && !searching && (
-          <div className="mb-4 flex items-center justify-between gap-3 px-4 py-3 bg-[#eef2ff] border border-[#c7d2fe] rounded-xl">
-            <div className="flex items-center gap-2 text-sm text-[#4338ca] font-medium">
+          <div className="mb-4 flex items-center justify-between gap-3 px-4 py-3 bg-[#1e1b4b] border border-[#4f46e5]/40 rounded-xl">
+            <div className="flex items-center gap-2 text-sm text-[#818cf8] font-medium">
               <Sparkles className="w-4 h-4 shrink-0" /><span>New domains were added!</span>
             </div>
-            <button onClick={() => setNewDomainsAdded(false)} className="text-xs text-[#4f46e5] font-semibold">Dismiss</button>
+            <button onClick={() => setNewDomainsAdded(false)} className="text-xs text-[#818cf8] font-semibold">Dismiss</button>
           </div>
         )}
 
@@ -770,25 +720,25 @@ export default function DomainFinder() {
                 {storedDomains.length} domain{storedDomains.length !== 1 ? "s" : ""} saved
               </p>
               <div className="flex items-center gap-2">
-                {/* Currency toggle */}
-                <div className="flex items-center gap-0.5 bg-[#F1F5F9] rounded-lg p-0.5 text-xs font-semibold select-none">
+                {/* FIX: currency toggle — dark bg so text is visible */}
+                <div className="flex items-center gap-0.5 bg-[rgba(255,255,255,.06)] border border-[rgba(255,255,255,.08)] rounded-lg p-0.5 text-xs font-semibold select-none">
                   <button
                     onClick={() => setCurrency("INR")}
-                    className={`px-2.5 py-1 rounded-md transition-all ${currency === "INR" ? "bg-[rgba(255,255,255,.04)] text-white shadow-sm" : "text-[rgba(255,255,255,.5)] hover:text-white"}`}
+                    className={`px-2.5 py-1 rounded-md transition-all ${currency === "INR" ? "bg-[#4f46e5] text-white shadow-sm" : "text-[rgba(255,255,255,.5)] hover:text-white"}`}
                   >₹ INR</button>
                   <button
                     onClick={() => setCurrency("USD")}
-                    className={`px-2.5 py-1 rounded-md transition-all ${currency === "USD" ? "bg-[rgba(255,255,255,.04)] text-white shadow-sm" : "text-[rgba(255,255,255,.5)] hover:text-white"}`}
+                    className={`px-2.5 py-1 rounded-md transition-all ${currency === "USD" ? "bg-[#4f46e5] text-white shadow-sm" : "text-[rgba(255,255,255,.5)] hover:text-white"}`}
                   >$ USD</button>
                 </div>
                 <button onClick={handleRefresh} disabled={refreshing || searching}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl text-xs font-semibold text-[#475569] hover:bg-[rgba(255,255,255,.04)] hover:border-[rgba(255,255,255,.15)] transition-all disabled:opacity-50 shadow-sm active:scale-95 shrink-0">
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl text-xs font-semibold text-[rgba(255,255,255,.5)] hover:bg-[rgba(255,255,255,.08)] hover:text-white transition-all disabled:opacity-50 shadow-sm active:scale-95 shrink-0">
                   <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
                   <span className="hidden xs:inline">{refreshing ? "Refreshing…" : "Refresh"}</span>
                 </button>
               </div>
             </div>
-            <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-2xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+            <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-2xl overflow-hidden">
               {storedDomains.map((d, i) => {
                 const domainVal = d.domain || d.website || null;
                 const href = domainVal ? (domainVal.startsWith("http") ? domainVal : `https://${domainVal}`) : null;
@@ -801,10 +751,10 @@ export default function DomainFinder() {
 
                 return (
                   <div key={d.id ?? i}
-                    className={`flex items-center gap-2 sm:gap-3 px-4 sm:px-5 py-3 sm:py-3.5 hover:bg-[rgba(255,255,255,.04)] transition-colors ${i < storedDomains.length - 1 ? "border-b border-[#F1F5F9]" : ""}`}>
+                    className={`flex items-center gap-2 sm:gap-3 px-4 sm:px-5 py-3 sm:py-3.5 hover:bg-[rgba(255,255,255,.04)] transition-colors ${i < storedDomains.length - 1 ? "border-b border-[rgba(255,255,255,.08)]" : ""}`}>
 
                     {/* Avatar */}
-                    <div className="w-7 h-7 rounded-lg bg-[#eef2ff] border border-[#c7d2fe] flex items-center justify-center text-[#4f46e5] font-bold text-xs shrink-0">
+                    <div className="w-7 h-7 rounded-lg bg-[#1e1b4b] border border-[#4f46e5]/30 flex items-center justify-center text-[#818cf8] font-bold text-xs shrink-0">
                       {label[0]?.toUpperCase() ?? "?"}
                     </div>
 
@@ -816,11 +766,11 @@ export default function DomainFinder() {
                       <span className="text-xs text-[rgba(255,255,255,.5)] bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] px-2 py-0.5 rounded-full shrink-0">{d.keyword}</span>
                     )}
 
-                    {/* ── Price badge ── */}
+                    {/* Price badge */}
                     {regPrice && (
                       <div className="flex flex-col items-end shrink-0 min-w-[72px]">
                         <div className="flex items-center gap-1">
-                          <Tag className="w-3 h-3 text-[#4f46e5]" />
+                          <Tag className="w-3 h-3 text-[#818cf8]" />
                           <span className="text-xs font-bold text-white">{regPrice}<span className="font-normal text-[rgba(255,255,255,.35)]">/yr</span></span>
                         </div>
                         {renPrice && renPrice !== regPrice && (
@@ -833,7 +783,7 @@ export default function DomainFinder() {
                     <div className="flex items-center gap-2 shrink-0">
                       {href && (
                         <a href={href} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-xs text-[#4f46e5] hover:text-[#4338ca] px-2 py-1 rounded-lg hover:bg-[#eef2ff]">
+                          className="flex items-center gap-1 text-xs text-[#818cf8] hover:text-[#a5b4fc] px-2 py-1 rounded-lg hover:bg-[#1e1b4b] transition-colors">
                           <ExternalLink className="w-3.5 h-3.5" />
                           <span>Visit</span>
                         </a>
@@ -845,7 +795,7 @@ export default function DomainFinder() {
                             className={`flex items-center gap-1 text-xs font-semibold border px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50 active:scale-95 ${
                               notEnough
                                 ? "text-[#f87171] border-[rgba(248,113,113,.3)] hover:bg-[rgba(239,68,68,.1)]"
-                                : "text-emerald-600 hover:text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                                : "text-emerald-400 hover:text-emerald-300 border-emerald-700/50 hover:bg-emerald-950/40"
                             }`}>
                             {buyingDomain === domainVal
                               ? <Loader2 className="w-3 h-3 animate-spin" />
@@ -891,10 +841,11 @@ export default function DomainFinder() {
       {/* ── Contact Modal ─────────────────────────────────────────────── */}
       {showContactModal && pendingDomain && (
         <>
-          <div className="fixed inset-0 bg-black/40 z-40 backdrop-blur-sm" onClick={() => setShowContactModal(false)} />
+          <div className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm" onClick={() => setShowContactModal(false)} />
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-            <div className="bg-[rgba(255,255,255,.04)] rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-[rgba(255,255,255,.04)] border-b border-[#F1F5F9] px-5 sm:px-6 py-4 rounded-t-2xl z-10">
+            {/* FIX: modal bg was inheriting light — now explicit dark */}
+            <div className="bg-[#0f172a] border border-[rgba(255,255,255,.08)] rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-[#0f172a] border-b border-[rgba(255,255,255,.08)] px-5 sm:px-6 py-4 rounded-t-2xl z-10">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 bg-[rgba(99,102,241,.15)] border border-[rgba(129,140,248,.3)] rounded-xl flex items-center justify-center shrink-0">
                     <ShoppingCart className="w-4 h-4 text-[#818cf8]" />
@@ -902,10 +853,9 @@ export default function DomainFinder() {
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-white text-sm">Registrant Contact</p>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-xs text-[rgba(255,255,255,.5)] truncate">Purchasing <span className="font-medium text-[#4f46e5]">{pendingDomain}</span></p>
-                      {/* ── Show price in modal header ── */}
+                      <p className="text-xs text-[rgba(255,255,255,.5)] truncate">Purchasing <span className="font-medium text-[#818cf8]">{pendingDomain}</span></p>
                       {pendingRegPrice && (
-                        <span className="flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">
+                        <span className="flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-700/50 px-2 py-0.5 rounded-full shrink-0">
                           <Tag className="w-3 h-3" />
                           {pendingRegPrice}/yr
                         </span>
@@ -926,30 +876,38 @@ export default function DomainFinder() {
                   <div>
                     <p className="text-xs font-semibold text-[rgba(255,255,255,.5)] uppercase tracking-wider mb-2">Saved contacts</p>
                     <div className="space-y-2">
-                      {contacts.map(c => (
-                        <div key={c.id} onClick={() => { setSelectedContactId(c.id); setShowNewContactForm(false); }}
-                          className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-all ${selectedContactId === c.id ? "border-[#4f46e5] bg-[#eef2ff]" : "border-[rgba(255,255,255,.08)] hover:border-[rgba(255,255,255,.15)] hover:bg-[rgba(255,255,255,.04)]"}`}>
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${selectedContactId === c.id ? "bg-[#4f46e5]" : "bg-[#F1F5F9]"}`}>
-                            {selectedContactId === c.id ? <Check className="w-4 h-4 text-white" /> : <User className="w-4 h-4 text-[rgba(255,255,255,.5)]" />}
+                      {contacts.map(c => {
+                        const isSel = selectedContactId === c.id;
+                        return (
+                          <div key={c.id} onClick={() => { setSelectedContactId(c.id); setShowNewContactForm(false); }}
+                            className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-all ${
+                              isSel
+                                ? "border-[#4f46e5]/60 bg-[#1e1b4b]"
+                                : "border-[rgba(255,255,255,.08)] hover:border-[rgba(255,255,255,.15)] hover:bg-[rgba(255,255,255,.04)]"
+                            }`}>
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isSel ? "bg-[#4f46e5]" : "bg-[rgba(255,255,255,.08)]"}`}>
+                              {isSel ? <Check className="w-4 h-4 text-white" /> : <User className="w-4 h-4 text-[rgba(255,255,255,.5)]" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              {/* FIX: text was invisible on light selected bg — now dark bg so white text is visible */}
+                              <p className="text-sm font-semibold text-white truncate">{c.first_name} {c.last_name}</p>
+                              <p className="text-xs text-[rgba(255,255,255,.5)] truncate">{c.email} · {c.phone}</p>
+                              <p className="text-xs text-[rgba(255,255,255,.35)] truncate">{c.address1}, {c.city}, {c.country}</p>
+                            </div>
+                            {c.is_default && (
+                              <span className="text-[10px] font-semibold text-[#818cf8] bg-[#1e1b4b] border border-[#4f46e5]/40 px-1.5 py-0.5 rounded-full shrink-0">Default</span>
+                            )}
+                            <button onClick={e => { e.stopPropagation(); handleDeleteContact(c.id); }}
+                              className="p-1 rounded-lg text-[rgba(255,255,255,.35)] hover:text-red-400 hover:bg-[rgba(239,68,68,.1)] transition-colors shrink-0">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-white truncate">{c.first_name} {c.last_name}</p>
-                            <p className="text-xs text-[rgba(255,255,255,.5)] truncate">{c.email} · {c.phone}</p>
-                            <p className="text-xs text-[rgba(255,255,255,.35)] truncate">{c.address1}, {c.city}, {c.country}</p>
-                          </div>
-                          {c.is_default && (
-                            <span className="text-[10px] font-semibold text-[#4f46e5] bg-[#eef2ff] border border-[#c7d2fe] px-1.5 py-0.5 rounded-full shrink-0">Default</span>
-                          )}
-                          <button onClick={e => { e.stopPropagation(); handleDeleteContact(c.id); }}
-                            className="p-1 rounded-lg text-[rgba(255,255,255,.35)] hover:text-red-500 hover:bg-[rgba(239,68,68,.1)] transition-colors shrink-0">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                     {!showNewContactForm && (
                       <button onClick={() => { setShowNewContactForm(true); setSelectedContactId(null); }}
-                        className="mt-3 flex items-center gap-1.5 text-xs text-[#4f46e5] hover:text-[#4338ca] font-semibold">
+                        className="mt-3 flex items-center gap-1.5 text-xs text-[#818cf8] hover:text-[#a5b4fc] font-semibold">
                         <Plus className="w-3.5 h-3.5" /> Add new contact
                       </button>
                     )}
@@ -977,11 +935,11 @@ export default function DomainFinder() {
                     <label className="flex items-center gap-2 cursor-pointer mt-1">
                       <input type="checkbox" checked={saveAsDefault} onChange={e => setSaveAsDefault(e.target.checked)}
                         className="w-3.5 h-3.5 rounded accent-[#4f46e5]" />
-                      <span className="text-xs text-[#475569]">Save as default contact</span>
+                      <span className="text-xs text-[rgba(255,255,255,.5)]">Save as default contact</span>
                     </label>
                     <div className="flex gap-2 pt-1">
                       <button onClick={handleSaveNewContact} disabled={savingContact || !requiredFilled}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-[#0A0A0A] text-white text-xs font-semibold rounded-xl hover:bg-[#1a1a1a] disabled:opacity-50 transition-colors active:scale-95">
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-[#4f46e5] text-white text-xs font-semibold rounded-xl hover:bg-[#4338ca] disabled:opacity-50 transition-colors active:scale-95">
                         {savingContact ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
                         {savingContact ? "Saving…" : "Save & Select"}
                       </button>
@@ -995,13 +953,14 @@ export default function DomainFinder() {
                   </div>
                 )}
 
-                {/* ── Price summary before confirming ── */}
+                {/* Price summary */}
                 {pendingRegPrice && (
                   <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl overflow-hidden">
                     <div className="flex items-center justify-between px-4 py-2.5">
                       <div className="flex items-center gap-2">
                         <Tag className="w-3.5 h-3.5 text-[rgba(255,255,255,.5)]" />
-                        <span className="text-xs text-[#475569] font-medium">Registration</span>
+                        {/* FIX: was text-[#475569] (dark on dark) → now light */}
+                        <span className="text-xs text-[rgba(255,255,255,.5)] font-medium">Registration</span>
                       </div>
                       <div className="text-right">
                         <span className="text-sm font-bold text-white">{pendingRegPrice}</span>
@@ -1014,11 +973,11 @@ export default function DomainFinder() {
                     {pendingCredits > 0 && (
                       <div className="flex items-center justify-between px-4 py-2.5 border-t border-[rgba(255,255,255,.08)]">
                         <div className="flex items-center gap-2">
-                          <Zap className="w-3.5 h-3.5 text-[#4f46e5]" />
-                          <span className="text-xs font-medium text-[#475569]">Credits charged</span>
+                          <Zap className="w-3.5 h-3.5 text-[#818cf8]" />
+                          <span className="text-xs font-medium text-[rgba(255,255,255,.5)]">Credits charged</span>
                         </div>
                         <div className="text-right">
-                          <span className="text-sm font-bold text-[#4f46e5]">{pendingCredits.toLocaleString()} cr</span>
+                          <span className="text-sm font-bold text-[#818cf8]">{pendingCredits.toLocaleString()} cr</span>
                           {balance !== null && (
                             <p className="text-[10px] text-[rgba(255,255,255,.35)]">your balance: {balance.toLocaleString()} cr</p>
                           )}
@@ -1028,20 +987,20 @@ export default function DomainFinder() {
                   </div>
                 )}
 
-                {/* ── Insufficient credits warning banner ── */}
+                {/* Insufficient credits warning */}
                 {insufficientCredits && (
                   <div className="flex items-start gap-3 px-4 py-3.5 bg-[rgba(239,68,68,.1)] border border-[rgba(248,113,113,.3)] rounded-xl">
-                    <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-[#f87171]">Not enough credits</p>
-                      <p className="text-xs text-[#f87171] mt-0.5">
+                      <p className="text-xs text-[#f87171]/80 mt-0.5">
                         This domain costs <strong>{pendingCredits.toLocaleString()} credits</strong> but you only have{" "}
                         <strong>{(balance ?? 0).toLocaleString()}</strong>.{" "}
                         You need <strong>{shortfall.toLocaleString()} more credits</strong> to proceed.
                       </p>
                       <button
                         onClick={() => { setShowContactModal(false); window.location.href = "/billing"; }}
-                        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#f87171] underline underline-offset-2 hover:text-red-800">
+                        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#f87171] underline underline-offset-2 hover:text-red-300">
                         Top up credits →
                       </button>
                     </div>
@@ -1074,28 +1033,30 @@ export default function DomainFinder() {
       {/* ── Mailbox Modal ─────────────────────────────────────────────── */}
       {showMailboxModal && purchasedDomain && (
         <>
-          <div className="fixed inset-0 bg-black/40 z-40 backdrop-blur-sm" onClick={() => setShowMailboxModal(false)} />
+          <div className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm" onClick={() => setShowMailboxModal(false)} />
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-            <div className="bg-[rgba(255,255,255,.04)] rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
+            {/* FIX: explicit dark modal bg */}
+            <div className="bg-[#0f172a] border border-[rgba(255,255,255,.08)] rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center shrink-0">
-                  <Globe className="w-5 h-5 text-emerald-600" />
+                <div className="w-10 h-10 bg-emerald-950/40 border border-emerald-700/50 rounded-xl flex items-center justify-center shrink-0">
+                  <Globe className="w-5 h-5 text-emerald-400" />
                 </div>
                 <div className="min-w-0">
                   <p className="font-semibold text-white text-sm sm:text-base">Setup Email Mailbox</p>
                   <p className="text-xs text-[rgba(255,255,255,.5)] truncate">{purchasedDomain.name} · SPF/DKIM/DMARC configured ✓</p>
                 </div>
               </div>
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-5 flex items-start gap-2">
-                <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                <p className="text-xs text-emerald-700 font-medium">DNS records auto-configured. Propagates in 1–4 hours.</p>
+              <div className="bg-emerald-950/40 border border-emerald-700/50 rounded-xl p-3 mb-5 flex items-start gap-2">
+                <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-emerald-400 font-medium">DNS records auto-configured. Propagates in 1–4 hours.</p>
               </div>
               <div className="space-y-3 mb-5">
                 <div>
                   <label className="text-xs font-semibold text-white mb-1 block">Username <span className="text-red-500">*</span></label>
-                  <div className="flex items-center border border-[rgba(255,255,255,.08)] rounded-xl overflow-hidden focus-within:border-[#4f46e5] focus-within:ring-2 focus-within:ring-[#4f46e5]/20 transition-all">
+                  {/* FIX: mailbox input dark bg */}
+                  <div className="flex items-center bg-[#0f172a] border border-[rgba(255,255,255,.08)] rounded-xl overflow-hidden focus-within:border-[#4f46e5] focus-within:ring-2 focus-within:ring-[#4f46e5]/20 transition-all">
                     <input value={mailboxUsername} onChange={e => setMailboxUsername(e.target.value)} placeholder="john.smith"
-                      className="flex-1 px-3 py-2.5 text-sm text-white focus:outline-none min-w-0" />
+                      className="flex-1 px-3 py-2.5 bg-transparent text-sm text-white placeholder:text-[rgba(255,255,255,.3)] focus:outline-none min-w-0" />
                     <span className="px-2 sm:px-3 py-2.5 bg-[rgba(255,255,255,.04)] text-xs text-[rgba(255,255,255,.5)] border-l border-[rgba(255,255,255,.08)] shrink-0 truncate max-w-[140px]">
                       @{purchasedDomain.name}
                     </span>

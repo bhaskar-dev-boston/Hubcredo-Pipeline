@@ -138,12 +138,12 @@ async function apiFetch(path: string, opts?: RequestInit) {
 
 function CurrencyToggle({ currency, onChange }: { currency: Currency; onChange: (c: Currency) => void }) {
   return (
-    <div className="flex items-center gap-1 bg-[#F1F5F9] rounded-xl p-1 text-sm font-semibold select-none">
+    <div className="flex items-center gap-1 bg-[rgba(255,255,255,.06)] border border-[rgba(255,255,255,.1)] rounded-xl p-1 text-sm font-semibold select-none">
       <button
         onClick={() => onChange("INR")}
         className={`px-3 py-1.5 rounded-lg transition-all ${
           currency === "INR"
-            ? "bg-[rgba(255,255,255,.04)] text-white shadow-sm"
+            ? "bg-[rgba(255,255,255,.12)] text-white shadow-sm"
             : "text-[rgba(255,255,255,.5)] hover:text-white"
         }`}
       >
@@ -153,7 +153,7 @@ function CurrencyToggle({ currency, onChange }: { currency: Currency; onChange: 
         onClick={() => onChange("USD")}
         className={`px-3 py-1.5 rounded-lg transition-all ${
           currency === "USD"
-            ? "bg-[rgba(255,255,255,.04)] text-white shadow-sm"
+            ? "bg-[rgba(255,255,255,.12)] text-white shadow-sm"
             : "text-[rgba(255,255,255,.5)] hover:text-white"
         }`}
       >
@@ -295,14 +295,14 @@ export default function Billing() {
           </div>
 
           {balance < 5 && (
-            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 mb-4 text-sm text-amber-800">
+            <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-2.5 mb-4 text-sm text-amber-300">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>Low balance — less than 5 credits remaining. Top up to keep working.</span>
             </div>
           )}
 
           {/* Action cost reference */}
-          <div className="mb-5 bg-[#F8FAFC] border border-[rgba(255,255,255,.08)] rounded-xl p-4">
+          <div className="mb-5 bg-[rgba(255,255,255,.03)] border border-[rgba(255,255,255,.08)] rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <Info className="w-3.5 h-3.5 text-[rgba(255,255,255,.5)]" />
               <span className="text-xs font-semibold text-[rgba(255,255,255,.5)] uppercase tracking-wider">Credit costs per action</span>
@@ -310,7 +310,7 @@ export default function Billing() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {ACTION_COSTS.map((a) => (
                 <div key={a.action} className="flex items-center justify-between gap-2 text-xs">
-                  <span className="text-[#475569]">{a.action}</span>
+                  <span className="text-[rgba(255,255,255,.65)]">{a.action}</span>
                   <span className="font-semibold text-white whitespace-nowrap">
                     {a.credits} cr <span className="text-[rgba(255,255,255,.35)] font-normal">({a.note})</span>
                   </span>
@@ -322,7 +322,7 @@ export default function Billing() {
           {status?.transactions && status.transactions.length > 0 && (
             <div>
               <h3 className="text-xs font-semibold text-[rgba(255,255,255,.35)] uppercase tracking-widest mb-3">Recent Transactions</h3>
-              <div className="border border-[#F1F5F9] rounded-xl overflow-hidden">
+              <div className="border border-[rgba(255,255,255,.08)] rounded-xl overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-[rgba(255,255,255,.04)] text-xs text-[rgba(255,255,255,.5)] uppercase tracking-wide">
@@ -334,14 +334,14 @@ export default function Billing() {
                   </thead>
                   <tbody>
                     {status.transactions.map((tx) => (
-                      <tr key={tx.id} className="border-t border-[#F1F5F9] hover:bg-[rgba(255,255,255,.04)]">
+                      <tr key={tx.id} className="border-t border-[rgba(255,255,255,.08)] hover:bg-[rgba(255,255,255,.04)]">
                         <td className="px-4 py-2.5 text-[rgba(255,255,255,.5)] text-xs whitespace-nowrap">
                           {new Date(tx.created_at).toLocaleDateString()}
                         </td>
                         <td className="px-4 py-2.5 text-white capitalize">
                           {tx.description?.replace(/_/g, " ")}
                         </td>
-                        <td className={`px-4 py-2.5 text-right font-semibold tabular-nums ${tx.amount >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                        <td className={`px-4 py-2.5 text-right font-semibold tabular-nums ${tx.amount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                           <span className="flex items-center justify-end gap-1">
                             {tx.amount >= 0 ? <ArrowUpCircle className="w-3.5 h-3.5" /> : <ArrowDownCircle className="w-3.5 h-3.5" />}
                             {tx.amount > 0 ? "+" : ""}{tx.amount.toLocaleString()}
@@ -397,13 +397,13 @@ export default function Billing() {
                   <p className="text-2xl font-bold text-white mb-0.5 transition-all">
                     {currency === "INR" ? plan.priceINR : plan.priceUSD}
                   </p>
-                  <p className="text-xs font-medium text-[#4f46e5] mb-0.5">{plan.creditsLabel}</p>
+                  <p className="text-xs font-medium text-[#818cf8] mb-0.5">{plan.creditsLabel}</p>
                   {plan.note && <p className="text-xs text-[rgba(255,255,255,.35)] mb-3">{plan.note}</p>}
 
                   <ul className="space-y-2 flex-1 mb-5">
                     {plan.features.map((f) => (
-                      <li key={f} className="flex items-start gap-2 text-xs text-[#475569]">
-                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                      <li key={f} className="flex items-start gap-2 text-xs text-[rgba(255,255,255,.65)]">
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
                         {f}
                       </li>
                     ))}
@@ -413,7 +413,7 @@ export default function Billing() {
                     <button
                       onClick={handleCancel}
                       disabled={cancelLoading || isCancelling}
-                      className="w-full py-2 text-sm text-red-500 border border-[rgba(248,113,113,.3)] rounded-xl hover:bg-[rgba(239,68,68,.1)] disabled:opacity-50 transition-colors"
+                      className="w-full py-2 text-sm text-red-400 border border-[rgba(248,113,113,.3)] rounded-xl hover:bg-[rgba(239,68,68,.1)] disabled:opacity-50 transition-colors"
                     >
                       {cancelLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : isCancelling ? "Cancelled" : "Cancel subscription"}
                     </button>
@@ -453,7 +453,7 @@ export default function Billing() {
                     <span className="font-bold text-white">{pack.name}</span>
                   </div>
                   {pack.bonus && (
-                    <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold bg-emerald-500/15 text-emerald-300 px-2 py-0.5 rounded-full">
                       {pack.bonus}
                     </span>
                   )}
@@ -461,7 +461,7 @@ export default function Billing() {
                 <p className="text-2xl font-bold text-white mb-0.5 transition-all">
                   {currency === "INR" ? pack.priceINR : pack.priceUSD}
                 </p>
-                <p className="text-sm font-medium text-[#4f46e5] mb-1">{pack.credits} credits</p>
+                <p className="text-sm font-medium text-[#818cf8] mb-1">{pack.credits} credits</p>
                 <p className="text-xs text-[rgba(255,255,255,.35)] mb-5 flex-1">{pack.description}</p>
                 <button
                   onClick={() => startPayment(`topup_${pack.id}`, "topup", { pack_id: pack.id })}

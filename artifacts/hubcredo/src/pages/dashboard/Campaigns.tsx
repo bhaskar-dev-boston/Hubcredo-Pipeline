@@ -1488,7 +1488,7 @@ export default function Campaigns() {
                               Status
                             </span>
                           </div>
-                          <div className="divide-y divide-[#F1F5F9]">
+                          <div className="divide-y divide-[rgba(255,255,255,.06)]">
                             {leads.map((lead) => {
                               const statusInfo =
                                 lead.status !== undefined
@@ -1497,7 +1497,7 @@ export default function Campaigns() {
                               return (
                                 <div
                                   key={lead.id}
-                                  className="grid grid-cols-[2fr_2fr_1.5fr_1.2fr] gap-3 px-4 py-3 hover:bg-[#F8FAFC] transition-colors"
+                                  className="grid grid-cols-[2fr_2fr_1.5fr_1.2fr] gap-3 px-4 py-3 hover:bg-[rgba(255,255,255,.04)] transition-colors"
                                 >
                                   <span className="text-xs text-white truncate font-mono">
                                     {lead.email || "—"}

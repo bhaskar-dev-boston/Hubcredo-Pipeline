@@ -109,11 +109,9 @@ export default function LinkedIn() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [refreshingAnalytics, setRefreshingAnalytics] = useState<Record<string, boolean>>({});
 
-  // Inbox state
   const [inbox, setInbox] = useState<InboxChat[]>([]);
   const [loadingInbox, setLoadingInbox] = useState(false);
 
-  // Chat panel state
   const [openChat, setOpenChat] = useState<InboxChat | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -129,7 +127,6 @@ export default function LinkedIn() {
     { name: "Industry peer", connection_message: "Hi {{firstName}}, we're both in the B2B space and I'd love to stay connected. I work on GTM infrastructure and outreach automation.", followup_message: "Hey {{firstName}}, great to be connected! Would you be open to a 15-min call to explore if what I do could help your team?" },
   ];
 
-  /* ── URL params ─────────────────────────────────────────────────────── */
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const connected = params.get("li_connected");
@@ -144,7 +141,6 @@ export default function LinkedIn() {
     }
   }, []);
 
-  /* ── Load account + sequences ───────────────────────────────────────── */
   async function loadData() {
     setLoading(true);
     try {
@@ -162,21 +158,18 @@ export default function LinkedIn() {
   }
   useEffect(() => { loadData(); }, [me]);
 
-  /* ── Scroll to bottom of chat ───────────────────────────────────────── */
   useEffect(() => {
     if (chatMessages.length > 0) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [chatMessages]);
 
-  /* ── Analytics ──────────────────────────────────────────────────────── */
-  // ✅ FIX: was using `await res.json()` inside a non-async setState callback
   async function loadAnalytics(seqId: string) {
     setLoadingAnalytics((prev) => ({ ...prev, [seqId]: true }));
     try {
       const res = await fetch(apiUrl(`/linkedin/sequences/${seqId}/analytics`), { headers: authHeaders() });
       if (res.ok) {
-        const data = await res.json(); // ← await BEFORE setState
+        const data = await res.json();
         setAnalyticsMap((prev) => ({ ...prev, [seqId]: data }));
       }
     } catch {
@@ -192,7 +185,6 @@ export default function LinkedIn() {
     if (nowExpanded && !analyticsMap[seqId]) loadAnalytics(seqId);
   }
 
-  /* ── Connect ────────────────────────────────────────────────────────── */
   async function handleConnectLinkedIn() {
     setConnecting(true);
     try {
@@ -237,7 +229,6 @@ export default function LinkedIn() {
     }
   }
 
-  /* ── Inbox ──────────────────────────────────────────────────────────── */
   async function loadInbox() {
     setLoadingInbox(true);
     try {
@@ -255,7 +246,6 @@ export default function LinkedIn() {
     }
   }
 
-  /* ── Open chat & load messages ──────────────────────────────────────── */
   async function openChatPanel(chat: InboxChat) {
     setOpenChat(chat);
     setChatMessages([]);
@@ -277,7 +267,6 @@ export default function LinkedIn() {
     }
   }
 
-  /* ── Refresh messages inside open chat ──────────────────────────────── */
   async function refreshMessages() {
     if (!openChat) return;
     setLoadingMessages(true);
@@ -292,15 +281,11 @@ export default function LinkedIn() {
     }
   }
 
-  /* ── Send message ───────────────────────────────────────────────────── */
   async function handleSendMessage() {
     if (!openChat || !messageInput.trim() || sendingMessage) return;
-
     const text = messageInput.trim();
     setMessageInput("");
     setSendingMessage(true);
-
-    // Optimistic UI
     const optimisticMsg: ChatMessage = {
       id: `optimistic-${Date.now()}`,
       text,
@@ -308,20 +293,16 @@ export default function LinkedIn() {
       timestamp: new Date().toISOString(),
     };
     setChatMessages((prev) => [...prev, optimisticMsg]);
-
     try {
       const res = await fetch(apiUrl(`/linkedin/inbox/${openChat.id}/messages`), {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({ text }),
       });
-
       if (!res.ok) {
         const d = await res.json();
         throw new Error(d.error || "Failed to send");
       }
-
-      // Update inbox preview
       setInbox((prev) =>
         prev.map((c) =>
           c.id === openChat.id
@@ -346,7 +327,6 @@ export default function LinkedIn() {
     }
   }
 
-  /* ── Analytics refresh ──────────────────────────────────────────────── */
   async function refreshAnalyticsFromLinkedIn(seqId: string) {
     setRefreshingAnalytics((prev) => ({ ...prev, [seqId]: true }));
     try {
@@ -366,7 +346,6 @@ export default function LinkedIn() {
     }
   }
 
-  /* ── AI prefill ─────────────────────────────────────────────────────── */
   async function handlePrefill() {
     setPrefilling(true);
     try {
@@ -383,7 +362,6 @@ export default function LinkedIn() {
     }
   }
 
-  /* ── Sequence builder ───────────────────────────────────────────────── */
   function openBuilder(seq?: Sequence) {
     if (seq) {
       setEditingSeq(seq); setSeqName(seq.name); setConnMsg(seq.connection_message);
@@ -423,7 +401,6 @@ export default function LinkedIn() {
     }
   }
 
-  /* ── Launch/pause/delete ────────────────────────────────────────────── */
   async function handleLaunch(seq: Sequence) {
     if (!account || account.status !== "connected") { toast({ title: "Connect LinkedIn first", variant: "destructive" }); return; }
     setLaunchingId(seq.id);
@@ -470,7 +447,6 @@ export default function LinkedIn() {
     }
   }
 
-  /* ── Helpers ────────────────────────────────────────────────────────── */
   function getAcceptanceRate(a: Analytics) { return !a.total_contacted ? 0 : Math.round((a.connected / a.total_contacted) * 100); }
   function getReplyRate(a: Analytics) { return !a.connected ? 0 : Math.round((a.replied / a.connected) * 100); }
 
@@ -493,7 +469,7 @@ export default function LinkedIn() {
     catch { return ""; }
   }
 
-  const inputClass = "w-full px-3 py-2.5 text-sm bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg text-white placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.2)]/30 focus:border-[rgba(99,102,241,.7)] transition-colors";
+  const inputClass = "w-full px-3 py-2.5 text-sm bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg text-white placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.2)] focus:border-[rgba(99,102,241,.7)] transition-colors";
   const lists = leadLists as LeadList[];
 
   return (
@@ -533,7 +509,7 @@ export default function LinkedIn() {
               <Loader2 className="w-5 h-5 animate-spin text-[rgba(255,255,255,.35)]" />
             </div>
           ) : account && account.status === "connected" ? (
-            <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+            <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-5">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-[rgba(99,102,241,.15)] rounded-xl flex items-center justify-center">
@@ -565,7 +541,7 @@ export default function LinkedIn() {
                 <div className="flex justify-between text-xs text-[rgba(255,255,255,.5)] mb-1.5">
                   <span>Sends today</span><span>{account.sends_today ?? 0} / {account.daily_limit}</span>
                 </div>
-                <div className="w-full bg-[#F1F5F9] rounded-full h-1.5">
+                <div className="w-full bg-[rgba(255,255,255,.08)] rounded-full h-1.5">
                   <div className="bg-[#0077B5] h-1.5 rounded-full transition-all" style={{ width: `${Math.min(100, ((account.sends_today ?? 0) / account.daily_limit) * 100)}%` }} />
                 </div>
               </div>
@@ -578,7 +554,7 @@ export default function LinkedIn() {
                   </div>
                   <p className="text-xs text-[rgba(255,255,255,.35)]">We recommend 15 sends/day to stay below LinkedIn's detection threshold.</p>
                   <div className="flex gap-2">
-                    <button onClick={handleUpdateLimit} disabled={savingLimit} className="flex items-center gap-1.5 px-4 py-2 bg-[#0A0A0A] text-white text-sm font-semibold rounded-lg hover:bg-[#1a1a1a] transition-colors disabled:opacity-50">
+                    <button onClick={handleUpdateLimit} disabled={savingLimit} className="flex items-center gap-1.5 px-4 py-2 bg-[#4f46e5] text-white text-sm font-semibold rounded-lg hover:bg-[#4338ca] transition-colors disabled:opacity-50">
                       {savingLimit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                       {savingLimit ? "Saving…" : "Save"}
                     </button>
@@ -588,7 +564,7 @@ export default function LinkedIn() {
               )}
             </div>
           ) : (
-            <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+            <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-6">
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 bg-[rgba(255,255,255,.04)] rounded-xl flex items-center justify-center shrink-0">
                   <Linkedin className="w-5 h-5 text-[rgba(255,255,255,.35)]" />
@@ -639,11 +615,10 @@ export default function LinkedIn() {
         {activeTab === "inbox" && (
           <section className="pt-2">
             {openChat ? (
-              /* ── Chat view ── */
               <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-2xl overflow-hidden flex flex-col" style={{ height: "560px" }}>
                 {/* Chat header */}
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.04)] shrink-0">
-                  <button onClick={() => setOpenChat(null)} className="p-1.5 text-[rgba(255,255,255,.5)] hover:text-white hover:bg-[rgba(255,255,255,.04)] rounded-lg transition-colors">
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.03)] shrink-0">
+                  <button onClick={() => setOpenChat(null)} className="p-1.5 text-[rgba(255,255,255,.5)] hover:text-white hover:bg-[rgba(255,255,255,.08)] rounded-lg transition-colors">
                     <ArrowLeft className="w-4 h-4" />
                   </button>
                   <div className="w-8 h-8 rounded-full bg-[#0077B5] flex items-center justify-center text-white text-sm font-bold shrink-0">
@@ -653,13 +628,13 @@ export default function LinkedIn() {
                     <p className="text-sm font-semibold text-white truncate">{openChat.display_name ?? "Unknown contact"}</p>
                     <p className="text-xs text-[rgba(255,255,255,.35)]">LinkedIn · via Unipile</p>
                   </div>
-                  <button onClick={refreshMessages} className="p-1.5 text-[rgba(255,255,255,.5)] hover:text-white hover:bg-[rgba(255,255,255,.04)] rounded-lg transition-colors">
+                  <button onClick={refreshMessages} className="p-1.5 text-[rgba(255,255,255,.5)] hover:text-white hover:bg-[rgba(255,255,255,.08)] rounded-lg transition-colors">
                     <RefreshCcw className={`w-3.5 h-3.5 ${loadingMessages ? "animate-spin" : ""}`} />
                   </button>
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[#F8FAFC]">
+                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[rgba(255,255,255,.02)]">
                   {loadingMessages ? (
                     <div className="flex flex-col items-center justify-center h-full gap-2">
                       <Loader2 className="w-5 h-5 animate-spin text-[#0077B5]" />
@@ -667,7 +642,7 @@ export default function LinkedIn() {
                     </div>
                   ) : chatMessages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full gap-2">
-                      <MessageCircle className="w-8 h-8 text-[#CBD5E1]" />
+                      <MessageCircle className="w-8 h-8 text-[rgba(255,255,255,.2)]" />
                       <p className="text-sm text-[rgba(255,255,255,.35)]">No messages yet</p>
                     </div>
                   ) : (
@@ -683,7 +658,7 @@ export default function LinkedIn() {
                             <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${
                               msg.is_sender
                                 ? "bg-[#0077B5] text-white rounded-br-sm"
-                                : "bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] text-white rounded-bl-sm shadow-sm"
+                                : "bg-[rgba(255,255,255,.08)] border border-[rgba(255,255,255,.1)] text-white rounded-bl-sm"
                             }`}>
                               {msg.text ?? <span className="italic opacity-60">📎 Attachment</span>}
                             </div>
@@ -699,7 +674,7 @@ export default function LinkedIn() {
                 </div>
 
                 {/* Input */}
-                <div className="px-4 py-3 border-t border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.04)] shrink-0">
+                <div className="px-4 py-3 border-t border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.03)] shrink-0">
                   <div className="flex items-end gap-2">
                     <textarea
                       ref={inputRef}
@@ -708,7 +683,7 @@ export default function LinkedIn() {
                       onKeyDown={handleInputKeyDown}
                       placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
                       rows={2}
-                      className="flex-1 px-3 py-2.5 text-sm bg-[#F8FAFC] border border-[rgba(255,255,255,.08)] rounded-xl text-white placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0077B5]/30 focus:border-[#0077B5] transition-colors resize-none"
+                      className="flex-1 px-3 py-2.5 text-sm bg-[rgba(255,255,255,.06)] border border-[rgba(255,255,255,.1)] rounded-xl text-white placeholder-[rgba(255,255,255,.3)] focus:outline-none focus:ring-2 focus:ring-[#0077B5]/30 focus:border-[#0077B5] transition-colors resize-none"
                     />
                     <button
                       onClick={handleSendMessage}
@@ -718,14 +693,13 @@ export default function LinkedIn() {
                       {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizonal className="w-4 h-4" />}
                     </button>
                   </div>
-                  <p className="text-[10px] text-[rgba(255,255,255,.35)] mt-1.5 px-1">Sent via Unipile · Delivered to LinkedIn</p>
+                  <p className="text-[10px] text-[rgba(255,255,255,.25)] mt-1.5 px-1">Sent via Unipile · Delivered to LinkedIn</p>
                 </div>
               </div>
             ) : (
-              /* ── Inbox list ── */
               !account ? (
                 <div className="bg-[rgba(255,255,255,.04)] border border-dashed border-[rgba(255,255,255,.08)] rounded-xl p-10 text-center">
-                  <Linkedin className="w-8 h-8 text-[#CBD5E1] mx-auto mb-3" />
+                  <Linkedin className="w-8 h-8 text-[rgba(255,255,255,.2)] mx-auto mb-3" />
                   <p className="text-sm font-medium text-white">LinkedIn not connected</p>
                   <p className="text-xs text-[rgba(255,255,255,.5)] mt-1">Connect your account above to see your inbox.</p>
                 </div>
@@ -736,7 +710,7 @@ export default function LinkedIn() {
                 </div>
               ) : inbox.length === 0 ? (
                 <div className="bg-[rgba(255,255,255,.04)] border border-dashed border-[rgba(255,255,255,.08)] rounded-xl p-10 text-center">
-                  <Mail className="w-8 h-8 text-[#CBD5E1] mx-auto mb-3" />
+                  <Mail className="w-8 h-8 text-[rgba(255,255,255,.2)] mx-auto mb-3" />
                   <p className="text-sm font-medium text-white">No messages yet</p>
                   <p className="text-xs text-[rgba(255,255,255,.5)] mt-1">LinkedIn replies will appear here once your connections start responding.</p>
                   <button onClick={loadInbox} className="mt-4 inline-flex items-center gap-1.5 text-xs text-[#4f46e5] hover:text-[#4338ca] transition-colors">
@@ -757,7 +731,7 @@ export default function LinkedIn() {
                       <button
                         key={chat.id}
                         onClick={() => openChatPanel(chat)}
-                        className={`w-full text-left bg-[rgba(255,255,255,.04)] border rounded-xl p-4 transition-all hover:shadow-sm hover:border-[#0077B5]/30 ${hasUnread ? "border-[#0077B5]/30 bg-[rgba(99,102,241,.15)]/30" : "border-[rgba(255,255,255,.08)]"}`}
+                        className={`w-full text-left bg-[rgba(255,255,255,.04)] border rounded-xl p-4 transition-all hover:shadow-sm hover:border-[#0077B5]/30 ${hasUnread ? "border-[#0077B5]/30 bg-[rgba(0,119,181,.08)]" : "border-[rgba(255,255,255,.08)]"}`}
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-[#0077B5] flex items-center justify-center text-white text-sm font-bold shrink-0">
@@ -781,12 +755,12 @@ export default function LinkedIn() {
                                 )}
                               </div>
                             </div>
-                            <p className={`text-xs mt-0.5 truncate ${hasUnread ? "text-[#374151]" : "text-[rgba(255,255,255,.5)]"}`}>
+                            <p className={`text-xs mt-0.5 truncate ${hasUnread ? "text-[rgba(255,255,255,.7)]" : "text-[rgba(255,255,255,.5)]"}`}>
                               {chat.last_message_sender_is_me && <span className="text-[rgba(255,255,255,.35)]">You: </span>}
-                              {chat.last_message_text ?? <span className="text-[#CBD5E1] italic">Tap to open</span>}
+                              {chat.last_message_text ?? <span className="text-[rgba(255,255,255,.25)] italic">Tap to open</span>}
                             </p>
                           </div>
-                          <MessageCircle className="w-4 h-4 text-[#CBD5E1] shrink-0" />
+                          <MessageCircle className="w-4 h-4 text-[rgba(255,255,255,.2)] shrink-0" />
                         </div>
                       </button>
                     );
@@ -817,7 +791,7 @@ export default function LinkedIn() {
                   const isExpanded = expandedAnalytics[seq.id];
                   const isLoadingA = loadingAnalytics[seq.id];
                   return (
-                    <div key={seq.id} className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.06)] overflow-hidden">
+                    <div key={seq.id} className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl overflow-hidden">
                       <div className="p-5">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
@@ -853,7 +827,7 @@ export default function LinkedIn() {
                                 {pausingId === seq.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pause className="w-3.5 h-3.5" />} Pause
                               </button>
                             )}
-                            <button onClick={() => openBuilder(seq)} className="p-1.5 text-[rgba(255,255,255,.35)] hover:text-white hover:bg-[rgba(255,255,255,.04)] rounded-lg transition-colors">
+                            <button onClick={() => openBuilder(seq)} className="p-1.5 text-[rgba(255,255,255,.35)] hover:text-white hover:bg-[rgba(255,255,255,.08)] rounded-lg transition-colors">
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
                             <button onClick={() => handleDelete(seq.id)} disabled={deletingId === seq.id} className="p-1.5 text-[rgba(255,255,255,.35)] hover:text-red-500 hover:bg-[rgba(239,68,68,.1)] rounded-lg transition-colors disabled:opacity-50">
@@ -862,44 +836,58 @@ export default function LinkedIn() {
                           </div>
                         </div>
                       </div>
-                      <button onClick={() => toggleAnalytics(seq.id)} className="w-full flex items-center justify-between px-5 py-2.5 bg-[#F8FAFC] border-t border-[rgba(255,255,255,.08)] text-xs font-medium text-[rgba(255,255,255,.5)] hover:bg-[#F1F5F9] transition-colors">
-                        <span className="flex items-center gap-1.5"><BarChart2 className="w-3.5 h-3.5 text-[#4f46e5]" /> Analytics</span>
+
+                      {/* ✅ FIXED: Analytics toggle button — was bg-[#F8FAFC] (white) on dark UI */}
+                      <button
+                        onClick={() => toggleAnalytics(seq.id)}
+                        className="w-full flex items-center justify-between px-5 py-2.5 bg-[rgba(255,255,255,.03)] border-t border-[rgba(255,255,255,.08)] text-xs font-medium text-[rgba(255,255,255,.5)] hover:bg-[rgba(255,255,255,.06)] hover:text-white transition-colors"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <BarChart2 className="w-3.5 h-3.5 text-[#4f46e5]" /> Analytics
+                        </span>
                         {isLoadingA ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                       </button>
+
+                      {/* ✅ FIXED: Analytics expanded panel — was bg-[#F8FAFC] (white), now fully dark */}
                       {isExpanded && (
-                        <div className="px-5 py-4 border-t border-[rgba(255,255,255,.08)] bg-[#F8FAFC]">
+                        <div className="px-5 py-4 border-t border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.02)]">
                           {isLoadingA ? (
-                            <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-[rgba(255,255,255,.35)]" /></div>
+                            <div className="flex justify-center py-4">
+                              <Loader2 className="w-5 h-5 animate-spin text-[rgba(255,255,255,.35)]" />
+                            </div>
                           ) : analytics ? (
                             <div className="space-y-4">
+                              {/* Stat cards */}
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                 {[
                                   { label: "Contacted", value: analytics.total_contacted, icon: <Send className="w-3.5 h-3.5 text-[rgba(255,255,255,.5)]" />, color: "text-white", sub: undefined },
                                   { label: "Connected", value: analytics.connected, icon: <UserCheck className="w-3.5 h-3.5 text-[#0077B5]" />, color: "text-[#0077B5]", sub: analytics.total_contacted > 0 ? `${getAcceptanceRate(analytics)}% rate` : undefined },
                                   { label: "Replied", value: analytics.replied, icon: <MessageCircle className="w-3.5 h-3.5 text-[#34d399]" />, color: "text-[#34d399]", sub: analytics.connected > 0 ? `${getReplyRate(analytics)}% rate` : undefined },
-                                  { label: "Follow-ups", value: analytics.followups_pending, icon: <Clock className="w-3.5 h-3.5 text-amber-500" />, color: "text-amber-500", sub: `${analytics.followups_sent} sent` },
+                                  { label: "Follow-ups", value: analytics.followups_pending, icon: <Clock className="w-3.5 h-3.5 text-amber-400" />, color: "text-amber-400", sub: `${analytics.followups_sent} sent` },
                                 ].map((stat) => (
-                                  <div key={stat.label} className="bg-[rgba(255,255,255,.04)] rounded-xl border border-[rgba(255,255,255,.08)] p-3">
+                                  <div key={stat.label} className="bg-[rgba(255,255,255,.05)] rounded-xl border border-[rgba(255,255,255,.08)] p-3">
                                     <div className="flex items-center gap-1.5 mb-1">{stat.icon}<span className="text-xs text-[rgba(255,255,255,.5)]">{stat.label}</span></div>
                                     <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
                                     {stat.sub && <p className="text-xs text-[rgba(255,255,255,.35)] mt-0.5">{stat.sub}</p>}
                                   </div>
                                 ))}
                               </div>
+
+                              {/* Funnel */}
                               {analytics.total_contacted > 0 && (
-                                <div className="bg-[rgba(255,255,255,.04)] rounded-xl border border-[rgba(255,255,255,.08)] p-4">
+                                <div className="bg-[rgba(255,255,255,.05)] rounded-xl border border-[rgba(255,255,255,.08)] p-4">
                                   <p className="text-xs font-semibold text-white mb-3">Funnel</p>
                                   <div className="space-y-2.5">
                                     {[
-                                      { label: "Contacted", value: analytics.total_contacted, pct: 100, color: "bg-[#64748B]", textColor: "text-[rgba(255,255,255,.5)]" },
+                                      { label: "Contacted", value: analytics.total_contacted, pct: 100, color: "bg-[rgba(255,255,255,.3)]", textColor: "text-[rgba(255,255,255,.5)]" },
                                       { label: "Connected", value: analytics.connected, pct: getAcceptanceRate(analytics), color: "bg-[#0077B5]", textColor: "text-[#0077B5]" },
-                                      { label: "Replied", value: analytics.replied, pct: analytics.total_contacted > 0 ? Math.round((analytics.replied / analytics.total_contacted) * 100) : 0, color: "bg-[rgba(16,185,129,.1)]0", textColor: "text-[#34d399]" },
+                                      { label: "Replied", value: analytics.replied, pct: analytics.total_contacted > 0 ? Math.round((analytics.replied / analytics.total_contacted) * 100) : 0, color: "bg-[#34d399]", textColor: "text-[#34d399]" },
                                     ].map((bar) => (
                                       <div key={bar.label}>
                                         <div className={`flex justify-between text-xs ${bar.textColor} mb-1`}>
                                           <span>{bar.label}</span><span>{bar.value}{bar.pct !== 100 ? ` (${bar.pct}%)` : ""}</span>
                                         </div>
-                                        <div className="w-full bg-[#F1F5F9] rounded-full h-2">
+                                        <div className="w-full bg-[rgba(255,255,255,.08)] rounded-full h-2">
                                           <div className={`${bar.color} h-2 rounded-full transition-all`} style={{ width: `${bar.pct}%` }} />
                                         </div>
                                       </div>
@@ -907,9 +895,10 @@ export default function LinkedIn() {
                                   </div>
                                 </div>
                               )}
-                              <div className="flex items-center gap-3">
-                                <button onClick={() => loadAnalytics(seq.id)} className="text-xs text-[#4f46e5] hover:text-[#4338ca] transition-colors">Refresh analytics</button>
-                                <button onClick={() => refreshAnalyticsFromLinkedIn(seq.id)} disabled={refreshingAnalytics[seq.id]} className="flex items-center gap-1 text-xs text-[#0077B5] hover:text-[#005e93] transition-colors disabled:opacity-50">
+
+                              <div className="flex items-center gap-3 pt-1">
+                                <button onClick={() => loadAnalytics(seq.id)} className="text-xs text-[#4f46e5] hover:text-[#818cf8] transition-colors">Refresh analytics</button>
+                                <button onClick={() => refreshAnalyticsFromLinkedIn(seq.id)} disabled={refreshingAnalytics[seq.id]} className="flex items-center gap-1 text-xs text-[#0077B5] hover:text-[#38bdf8] transition-colors disabled:opacity-50">
                                   {refreshingAnalytics[seq.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCcw className="w-3 h-3" />} Sync from LinkedIn
                                 </button>
                               </div>
@@ -930,11 +919,11 @@ export default function LinkedIn() {
 
       {/* ── Sequence builder modal ── */}
       {showBuilder && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-[rgba(255,255,255,.04)] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-[rgba(255,255,255,.04)] border-b border-[rgba(255,255,255,.08)] px-6 py-4 flex items-center justify-between rounded-t-2xl">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-[#12121f] border border-[rgba(255,255,255,.08)] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-[#12121f] border-b border-[rgba(255,255,255,.08)] px-6 py-4 flex items-center justify-between rounded-t-2xl">
               <h2 className="text-base font-bold text-white">{editingSeq ? "Edit sequence" : "New sequence"}</h2>
-              <button onClick={() => setShowBuilder(false)} className="p-1.5 text-[rgba(255,255,255,.35)] hover:text-white hover:bg-[rgba(255,255,255,.04)] rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+              <button onClick={() => setShowBuilder(false)} className="p-1.5 text-[rgba(255,255,255,.35)] hover:text-white hover:bg-[rgba(255,255,255,.08)] rounded-lg transition-colors"><X className="w-4 h-4" /></button>
             </div>
             <div className="p-6 space-y-5">
               <div>
@@ -954,7 +943,7 @@ export default function LinkedIn() {
                     Connection request message <span className="text-[rgba(255,255,255,.35)] font-normal">(max 300 chars)</span>
                   </label>
                   <div className="flex items-center gap-2">
-                    <button onClick={handlePrefill} disabled={prefilling} className="flex items-center gap-1 text-xs text-[#4f46e5] hover:text-[#4338ca] transition-colors disabled:opacity-50">
+                    <button onClick={handlePrefill} disabled={prefilling} className="flex items-center gap-1 text-xs text-[#4f46e5] hover:text-[#818cf8] transition-colors disabled:opacity-50">
                       {prefilling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} AI fill
                     </button>
                     <div className="relative">
@@ -962,9 +951,9 @@ export default function LinkedIn() {
                         <FileText className="w-3 h-3" /> Templates
                       </button>
                       {showTemplates && (
-                        <div className="absolute right-0 top-6 z-20 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl shadow-lg w-72 p-1.5">
+                        <div className="absolute right-0 top-6 z-20 bg-[#1a1a2e] border border-[rgba(255,255,255,.1)] rounded-xl shadow-lg w-72 p-1.5">
                           {LINKEDIN_TEMPLATES.map((t, i) => (
-                            <button key={i} onClick={() => { setConnMsg(t.connection_message); if (t.followup_message) setFollowupMsg(t.followup_message); setShowTemplates(false); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-[rgba(255,255,255,.04)] transition-colors">
+                            <button key={i} onClick={() => { setConnMsg(t.connection_message); if (t.followup_message) setFollowupMsg(t.followup_message); setShowTemplates(false); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-[rgba(255,255,255,.08)] transition-colors">
                               <p className="text-xs font-semibold text-white">{t.name}</p>
                               <p className="text-xs text-[rgba(255,255,255,.5)] truncate mt-0.5">{t.connection_message.slice(0, 65)}…</p>
                             </button>
@@ -977,7 +966,7 @@ export default function LinkedIn() {
                 <textarea value={connMsg} onChange={(e) => setConnMsg(e.target.value)} placeholder="Hi {{firstName}}, I noticed you work in… Open to connecting?" rows={4} maxLength={300} className={`${inputClass} resize-none`} />
                 <div className="flex justify-between mt-1">
                   <p className="text-xs text-[rgba(255,255,255,.35)]">Use {"{{firstName}}"} as a personalisation token.</p>
-                  <span className={`text-xs ${connMsg.length > 280 ? "text-amber-600" : "text-[rgba(255,255,255,.35)]"}`}>{connMsg.length}/300</span>
+                  <span className={`text-xs ${connMsg.length > 280 ? "text-amber-400" : "text-[rgba(255,255,255,.35)]"}`}>{connMsg.length}/300</span>
                 </div>
               </div>
               <div>
@@ -1000,7 +989,7 @@ export default function LinkedIn() {
                 </div>
               </div>
             </div>
-            <div className="sticky bottom-0 bg-[rgba(255,255,255,.04)] border-t border-[rgba(255,255,255,.08)] px-6 py-4 flex gap-3 rounded-b-2xl">
+            <div className="sticky bottom-0 bg-[#12121f] border-t border-[rgba(255,255,255,.08)] px-6 py-4 flex gap-3 rounded-b-2xl">
               <button onClick={handleSaveSeq} disabled={savingSeq} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#4f46e5] text-white text-sm font-semibold rounded-xl hover:bg-[#4338ca] transition-colors disabled:opacity-50">
                 {savingSeq ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                 {savingSeq ? "Saving…" : editingSeq ? "Update sequence" : "Create sequence"}

@@ -17,6 +17,7 @@ import campaignsRouter from "./campaigns";
 import linkedinRouter from "./linkedin";
 import crmRouter from "./crm";
 import inboxRouter from "./inbox";
+import replyioRouter from "./replyio";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use(campaignsRouter);
 router.use(linkedinRouter);
 router.use(crmRouter);
 router.use(inboxRouter);
+router.use(replyioRouter);
 
 export default router;

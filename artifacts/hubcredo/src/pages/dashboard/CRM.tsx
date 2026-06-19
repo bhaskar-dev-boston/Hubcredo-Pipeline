@@ -74,12 +74,12 @@ interface Member { id: { workspace_member_id: string }; first_name: string; last
 // ─── Avatar colour helpers ────────────────────────────────────────────────────
 
 const AVATAR_COLORS = [
-  "bg-[rgba(99,102,241,.2)] text-[#818cf8]",
-  "bg-[rgba(52,211,153,.15)] text-[#34d399]",
-  "bg-[rgba(167,139,250,.2)] text-[#c084fc]",
-  "bg-[rgba(251,191,36,.15)] text-[#fbbf24]",
-  "bg-[rgba(248,113,113,.15)] text-[#f87171]",
-  "bg-[rgba(34,211,238,.15)] text-[#22d3ee]",
+  "bg-[rgba(107,92,231,.15)] text-[#6B5CE7]",
+  "bg-[rgba(0,188,212,.15)] text-[#0891b2]",
+  "bg-[rgba(107,92,231,.2)] text-[#7C6FE0]",
+  "bg-[rgba(8,145,178,.15)] text-[#0891b2]",
+  "bg-[rgba(124,111,224,.2)] text-[#6B5CE7]",
+  "bg-[rgba(0,188,212,.2)] text-[#06b6d4]",
 ];
 function avatarColor(str: string) {
   let h = 0;
@@ -87,20 +87,20 @@ function avatarColor(str: string) {
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
 }
 
-// ─── Shared dark-theme tokens ─────────────────────────────────────────────────
+// ─── Shared light-theme tokens ─────────────────────────────────────────────────
 
-const inputCls = `w-full px-3.5 py-2.5 text-sm text-white
-  bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl
-  placeholder:text-[rgba(255,255,255,.3)]
-  focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.25)] focus:border-[rgba(99,102,241,.7)]
+const inputCls = `w-full px-3.5 py-2.5 text-sm text-gray-800
+  bg-white border border-gray-200 rounded-xl
+  placeholder:text-gray-400
+  focus:outline-none focus:ring-2 focus:ring-[rgba(107,92,231,.2)] focus:border-[#6B5CE7]
   transition-colors`;
 
-const divider = "divide-y divide-[rgba(255,255,255,.06)]";
-const rowHover = "hover:bg-[rgba(255,255,255,.04)] transition-colors";
-const theadCls = "border-b border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.03)]";
-const thCls    = "text-left px-4 py-3 text-[11px] font-semibold text-[rgba(255,255,255,.35)] uppercase tracking-widest";
-const tdMuted  = "px-4 py-3 text-[rgba(255,255,255,.5)] text-sm";
-const panelBorder = "border-[rgba(255,255,255,.08)]";
+const divider = "divide-y divide-gray-100";
+const rowHover = "hover:bg-gray-50 transition-colors";
+const theadCls = "border-b border-gray-100 bg-gray-50";
+const thCls    = "text-left px-4 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-widest";
+const tdMuted  = "px-4 py-3 text-gray-500 text-sm";
+const panelBorder = "border-gray-100";
 
 // ═════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
@@ -110,10 +110,9 @@ export default function CRM() {
   const [tab, setTab] = useState<Tab>("contacts");
   const [connected, setConnected] = useState<boolean | null>(null);
 
-  // Force dark background on the page shell so no white bleeds below our component
   useEffect(() => {
     const prev = document.body.style.background;
-    document.body.style.background = "#0f0f1a";
+    document.body.style.background = "#f8f8fc";
     return () => { document.body.style.background = prev; };
   }, []);
 
@@ -122,16 +121,16 @@ export default function CRM() {
   }, []);
 
   if (connected === null) return (
-    <div className="flex items-center justify-center h-64 bg-[#0f0f1a]">
-      <Loader2 className="w-6 h-6 animate-spin text-[#818cf8]" />
+    <div className="flex items-center justify-center h-64 bg-[#f8f8fc]">
+      <Loader2 className="w-6 h-6 animate-spin text-[#6B5CE7]" />
     </div>
   );
 
   if (!connected) return (
-    <div className="flex flex-col items-center justify-center h-64 gap-3 text-center bg-[#0f0f1a]">
-      <AlertCircle className="w-10 h-10 text-[rgba(255,255,255,.25)]" />
-      <p className="font-semibold text-white">Attio not connected</p>
-      <p className="text-sm text-[rgba(255,255,255,.45)]">
+    <div className="flex flex-col items-center justify-center h-64 gap-3 text-center bg-[#f8f8fc]">
+      <AlertCircle className="w-10 h-10 text-gray-300" />
+      <p className="font-semibold text-gray-800">Attio not connected</p>
+      <p className="text-sm text-gray-500">
         Go to Settings → CRM to connect your Attio workspace.
       </p>
     </div>
@@ -146,12 +145,12 @@ export default function CRM() {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#0f0f1a] text-white">
+    <div className="flex flex-col min-h-screen bg-[#f8f8fc] text-gray-800">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 pt-5 pb-0 border-b border-[rgba(255,255,255,.08)]">
+      <div className="flex items-center justify-between px-6 pt-5 pb-0 border-b border-gray-100 bg-white">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-white tracking-tight">CRM</h1>
-          <span className="text-[11px] text-[rgba(255,255,255,.35)] border border-[rgba(255,255,255,.08)] rounded px-1.5 py-0.5">
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight">CRM</h1>
+          <span className="text-[11px] text-[#7C6FE0] border border-[rgba(107,92,231,.2)] bg-[rgba(107,92,231,.06)] rounded px-1.5 py-0.5 font-medium">
             Powered by Attio
           </span>
         </div>
@@ -162,8 +161,8 @@ export default function CRM() {
               onClick={() => setTab(t.id)}
               className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-all -mb-px
                 ${tab === t.id
-                  ? "border-[#818cf8] text-[#818cf8] bg-[rgba(99,102,241,.1)]"
-                  : "border-transparent text-[rgba(255,255,255,.45)] hover:text-white hover:bg-[rgba(255,255,255,.04)]"
+                  ? "border-[#6B5CE7] text-[#6B5CE7] bg-[rgba(107,92,231,.06)]"
+                  : "border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50"
                 }`}
             >
               {t.icon}{t.label}
@@ -173,7 +172,7 @@ export default function CRM() {
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 overflow-auto p-6 bg-[#0f0f1a]">
+      <div className="flex-1 overflow-auto p-6 bg-[#f8f8fc]">
         {tab === "contacts"  && <ContactsTab />}
         {tab === "companies" && <CompaniesTab />}
         {tab === "deals"     && <DealsTab />}
@@ -218,24 +217,24 @@ function ContactsTab() {
         {/* Search bar */}
         <div className="flex items-center gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgba(255,255,255,.3)]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Search by name or email…"
-              className={`${inputCls} pl-9 text-white`}
+              className={`${inputCls} pl-9`}
             />
           </div>
           <button
             onClick={() => load(query, 0)}
-            className="p-2.5 rounded-xl border border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.04)] hover:bg-[rgba(255,255,255,.08)] transition-colors"
+            className="p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors shadow-sm"
           >
-            <RefreshCw className="w-4 h-4 text-[rgba(255,255,255,.45)]" />
+            <RefreshCw className="w-4 h-4 text-gray-400" />
           </button>
         </div>
 
         {/* Table */}
-        <div className="bg-[rgba(255,255,255,.03)] border border-[rgba(255,255,255,.08)] rounded-2xl overflow-hidden">
+        <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
           <table className="w-full text-sm">
             <thead>
               <tr className={theadCls}>
@@ -248,10 +247,10 @@ function ContactsTab() {
             <tbody className={divider}>
               {loading && people.length === 0 ? (
                 <tr><td colSpan={4} className="text-center py-12">
-                  <Loader2 className="w-5 h-5 animate-spin mx-auto text-[rgba(255,255,255,.35)]" />
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto text-gray-300" />
                 </td></tr>
               ) : people.length === 0 ? (
-                <tr><td colSpan={4} className="text-center py-12 text-[rgba(255,255,255,.35)] text-sm">
+                <tr><td colSpan={4} className="text-center py-12 text-gray-400 text-sm">
                   No contacts found
                 </td></tr>
               ) : people.map(p => {
@@ -267,7 +266,7 @@ function ContactsTab() {
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${avatarColor(name)}`}>
                           {initials(name)}
                         </div>
-                        <span className="font-medium text-white truncate">{name}</span>
+                        <span className="font-medium text-gray-800 truncate">{name}</span>
                       </div>
                     </td>
                     <td className={tdMuted}>{email}</td>
@@ -284,7 +283,7 @@ function ContactsTab() {
               <button
                 onClick={() => { const next = offset + LIMIT; setOffset(next); load(query, next); }}
                 disabled={loading}
-                className="text-sm text-[#818cf8] font-medium hover:underline disabled:opacity-50"
+                className="text-sm text-[#6B5CE7] font-medium hover:underline disabled:opacity-50"
               >
                 {loading ? "Loading…" : "Load more"}
               </button>
@@ -368,53 +367,53 @@ function ContactDetail({ person, onClose }: { person: Person; onClose: () => voi
     setNotes(prev => prev.filter(n => n.id.note_id !== noteId));
   }
 
-  const panelInputCls = `w-full px-3 py-2 text-xs text-white
-    bg-[rgba(255,255,255,.06)] border border-[rgba(255,255,255,.1)] rounded-xl
-    placeholder:text-[rgba(255,255,255,.3)]
-    focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.25)] focus:border-[rgba(99,102,241,.7)]`;
+  const panelInputCls = `w-full px-3 py-2 text-xs text-gray-800
+    bg-gray-50 border border-gray-200 rounded-xl
+    placeholder:text-gray-400
+    focus:outline-none focus:ring-2 focus:ring-[rgba(107,92,231,.2)] focus:border-[#6B5CE7]`;
 
   return (
-    <div className="w-80 shrink-0 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-2xl flex flex-col overflow-hidden">
+    <div className="w-80 shrink-0 bg-white border border-gray-100 rounded-2xl flex flex-col overflow-hidden shadow-sm">
       {/* Header */}
-      <div className="flex items-start justify-between p-4 border-b border-[rgba(255,255,255,.08)]">
+      <div className="flex items-start justify-between p-4 border-b border-gray-100">
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${avatarColor(name)}`}>
             {initials(name)}
           </div>
           <div>
-            <p className="font-semibold text-white text-sm leading-tight">{name}</p>
-            <p className="text-xs text-[rgba(255,255,255,.45)]">{title !== "—" ? title : email}</p>
+            <p className="font-semibold text-gray-900 text-sm leading-tight">{name}</p>
+            <p className="text-xs text-gray-500">{title !== "—" ? title : email}</p>
           </div>
         </div>
-        <button onClick={onClose} className="p-1 rounded-lg hover:bg-[rgba(255,255,255,.08)] transition-colors">
-          <X className="w-4 h-4 text-[rgba(255,255,255,.45)]" />
+        <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 transition-colors">
+          <X className="w-4 h-4 text-gray-400" />
         </button>
       </div>
 
       {/* Quick info */}
-      <div className="p-4 border-b border-[rgba(255,255,255,.08)] space-y-1.5">
+      <div className="p-4 border-b border-gray-100 space-y-1.5">
         {email !== "—" && (
-          <div className="flex items-center gap-2 text-xs text-[rgba(255,255,255,.5)]">
-            <Mail className="w-3.5 h-3.5 text-[rgba(255,255,255,.3)]" />{email}
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <Mail className="w-3.5 h-3.5 text-gray-400" />{email}
           </div>
         )}
         {linkedin !== "—" && (
           <div className="flex items-center gap-2 text-xs">
-            <ExternalLink className="w-3.5 h-3.5 text-[rgba(255,255,255,.3)]" />
+            <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
             <a href={linkedin} target="_blank" rel="noopener noreferrer"
-              className="text-[#818cf8] hover:underline truncate">LinkedIn</a>
+              className="text-[#6B5CE7] hover:underline truncate">LinkedIn</a>
           </div>
         )}
       </div>
 
       {/* Panel toggle */}
-      <div className="flex border-b border-[rgba(255,255,255,.08)]">
+      <div className="flex border-b border-gray-100">
         {(["notes", "tasks"] as const).map(p => (
           <button key={p} onClick={() => setActivePanel(p)}
             className={`flex-1 py-2 text-xs font-semibold capitalize transition-colors
               ${activePanel === p
-                ? "text-[#818cf8] border-b-2 border-[#818cf8]"
-                : "text-[rgba(255,255,255,.4)] hover:text-white"}`}>
+                ? "text-[#6B5CE7] border-b-2 border-[#6B5CE7] bg-[rgba(107,92,231,.04)]"
+                : "text-gray-400 hover:text-gray-700"}`}>
             {p} {p === "notes" ? `(${notes.length})` : `(${tasks.filter(t => !t.is_completed).length})`}
           </button>
         ))}
@@ -425,24 +424,24 @@ function ContactDetail({ person, onClose }: { person: Person; onClose: () => voi
         <div className="flex flex-col flex-1 min-h-0">
           <div className={`flex-1 overflow-y-auto p-3 space-y-2 ${divider}`}>
             {notes.length === 0 && (
-              <p className="text-xs text-[rgba(255,255,255,.3)] text-center pt-4">No notes yet</p>
+              <p className="text-xs text-gray-400 text-center pt-4">No notes yet</p>
             )}
             {notes.map(n => (
-              <div key={n.id.note_id} className="group bg-[rgba(255,255,255,.05)] rounded-xl p-3">
+              <div key={n.id.note_id} className="group bg-gray-50 rounded-xl p-3 border border-gray-100">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-xs text-[rgba(255,255,255,.75)] leading-relaxed flex-1">{n.content_plaintext}</p>
+                  <p className="text-xs text-gray-700 leading-relaxed flex-1">{n.content_plaintext}</p>
                   <button onClick={() => deleteNote(n.id.note_id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-[rgba(239,68,68,.15)]">
-                    <Trash2 className="w-3 h-3 text-[#f87171]" />
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50">
+                    <Trash2 className="w-3 h-3 text-red-400" />
                   </button>
                 </div>
-                <p className="text-[10px] text-[rgba(255,255,255,.3)] mt-1">
+                <p className="text-[10px] text-gray-400 mt-1">
                   {new Date(n.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                 </p>
               </div>
             ))}
           </div>
-          <div className="p-3 border-t border-[rgba(255,255,255,.08)]">
+          <div className="p-3 border-t border-gray-100">
             <textarea
               value={noteText}
               onChange={e => setNoteText(e.target.value)}
@@ -451,8 +450,8 @@ function ContactDetail({ person, onClose }: { person: Person; onClose: () => voi
               className={`${panelInputCls} resize-none`}
             />
             <button onClick={addNote} disabled={savingNote || !noteText.trim()}
-              className="mt-1.5 w-full py-1.5 rounded-lg text-xs font-semibold bg-[#4f46e5] text-white
-                hover:bg-[#4338ca] disabled:opacity-50 transition-colors">
+              className="mt-1.5 w-full py-1.5 rounded-lg text-xs font-semibold bg-[#6B5CE7] text-white
+                hover:bg-[#5a4bd6] disabled:opacity-50 transition-colors">
               {savingNote ? "Saving…" : "Add Note"}
             </button>
           </div>
@@ -464,25 +463,25 @@ function ContactDetail({ person, onClose }: { person: Person; onClose: () => voi
         <div className="flex flex-col flex-1 min-h-0">
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {tasks.length === 0 && (
-              <p className="text-xs text-[rgba(255,255,255,.3)] text-center pt-4">No tasks yet</p>
+              <p className="text-xs text-gray-400 text-center pt-4">No tasks yet</p>
             )}
             {tasks.map(t => (
               <div key={t.id.task_id}
                 className={`flex items-start gap-2 p-2.5 rounded-xl border
                   ${t.is_completed
-                    ? "opacity-40 bg-[rgba(255,255,255,.03)] border-[rgba(255,255,255,.06)]"
-                    : "bg-[rgba(255,255,255,.05)] border-[rgba(255,255,255,.1)]"}`}>
+                    ? "opacity-40 bg-gray-50 border-gray-100"
+                    : "bg-white border-gray-200 shadow-sm"}`}>
                 <button onClick={() => !t.is_completed && completeTask(t.id.task_id)}>
                   {t.is_completed
-                    ? <CheckCircle2 className="w-4 h-4 text-[#34d399] shrink-0" />
-                    : <Circle className="w-4 h-4 text-[rgba(255,255,255,.3)] shrink-0 hover:text-[#818cf8] transition-colors" />}
+                    ? <CheckCircle2 className="w-4 h-4 text-[#0891b2] shrink-0" />
+                    : <Circle className="w-4 h-4 text-gray-300 shrink-0 hover:text-[#6B5CE7] transition-colors" />}
                 </button>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-xs leading-relaxed ${t.is_completed ? "line-through text-[rgba(255,255,255,.3)]" : "text-white"}`}>
+                  <p className={`text-xs leading-relaxed ${t.is_completed ? "line-through text-gray-400" : "text-gray-800"}`}>
                     {t.content}
                   </p>
                   {t.deadline_at && (
-                    <p className="text-[10px] text-[rgba(255,255,255,.35)] flex items-center gap-1 mt-0.5">
+                    <p className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
                       <Calendar className="w-3 h-3" />
                       {new Date(t.deadline_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                     </p>
@@ -491,15 +490,15 @@ function ContactDetail({ person, onClose }: { person: Person; onClose: () => voi
               </div>
             ))}
           </div>
-          <div className="p-3 border-t border-[rgba(255,255,255,.08)] space-y-1.5">
+          <div className="p-3 border-t border-gray-100 space-y-1.5">
             <input value={taskText} onChange={e => setTaskText(e.target.value)}
               placeholder="Add a task…"
               className={panelInputCls} />
             <input type="date" value={taskDeadline} onChange={e => setTaskDeadline(e.target.value)}
               className={panelInputCls} />
             <button onClick={addTask} disabled={savingTask || !taskText.trim()}
-              className="w-full py-1.5 rounded-lg text-xs font-semibold bg-[#4f46e5] text-white
-                hover:bg-[#4338ca] disabled:opacity-50 transition-colors">
+              className="w-full py-1.5 rounded-lg text-xs font-semibold bg-[#6B5CE7] text-white
+                hover:bg-[#5a4bd6] disabled:opacity-50 transition-colors">
               {savingTask ? "Saving…" : "Add Task"}
             </button>
           </div>
@@ -524,7 +523,7 @@ function CompaniesTab() {
   }, []);
 
   return (
-    <div className="bg-[rgba(255,255,255,.03)] border border-[rgba(255,255,255,.08)] rounded-2xl overflow-hidden">
+    <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
       <table className="w-full text-sm">
         <thead>
           <tr className={theadCls}>
@@ -536,10 +535,10 @@ function CompaniesTab() {
         <tbody className={divider}>
           {loading ? (
             <tr><td colSpan={3} className="text-center py-12">
-              <Loader2 className="w-5 h-5 animate-spin mx-auto text-[rgba(255,255,255,.35)]" />
+              <Loader2 className="w-5 h-5 animate-spin mx-auto text-gray-300" />
             </td></tr>
           ) : companies.length === 0 ? (
-            <tr><td colSpan={3} className="text-center py-12 text-[rgba(255,255,255,.35)] text-sm">
+            <tr><td colSpan={3} className="text-center py-12 text-gray-400 text-sm">
               No companies found
             </td></tr>
           ) : companies.map(c => {
@@ -553,13 +552,13 @@ function CompaniesTab() {
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${avatarColor(name)}`}>
                       {initials(name)}
                     </div>
-                    <span className="font-medium text-white">{name}</span>
+                    <span className="font-medium text-gray-800">{name}</span>
                   </div>
                 </td>
                 <td className={tdMuted}>
                   {domain !== "—" ? (
                     <a href={`https://${domain}`} target="_blank" rel="noopener noreferrer"
-                      className="text-[#818cf8] hover:underline flex items-center gap-1">
+                      className="text-[#6B5CE7] hover:underline flex items-center gap-1">
                       {domain}<ExternalLink className="w-3 h-3" />
                     </a>
                   ) : "—"}
@@ -622,7 +621,7 @@ function DealsTab() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-40">
-      <Loader2 className="w-5 h-5 animate-spin text-[rgba(255,255,255,.35)]" />
+      <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
     </div>
   );
 
@@ -633,8 +632,8 @@ function DealsTab() {
           <button key={l.id.list_id} onClick={() => setActiveList(l)}
             className={`px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all
               ${activeList?.id.list_id === l.id.list_id
-                ? "bg-[#4f46e5] text-white shadow-sm"
-                : "bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.6)] hover:border-[rgba(99,102,241,.5)] hover:text-[#818cf8]"
+                ? "bg-[#6B5CE7] text-white shadow-sm"
+                : "bg-white border border-gray-200 text-gray-600 hover:border-[#6B5CE7] hover:text-[#6B5CE7]"
               }`}>
             {l.name}
           </button>
@@ -645,29 +644,29 @@ function DealsTab() {
             onChange={e => setNewListName(e.target.value)}
             onKeyDown={e => e.key === "Enter" && createList()}
             placeholder="New list…"
-            className="px-3 py-1.5 text-sm text-white bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl
-              placeholder:text-[rgba(255,255,255,.3)]
-              focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.25)] focus:border-[rgba(99,102,241,.7)] w-32"
+            className="px-3 py-1.5 text-sm text-gray-800 bg-white border border-gray-200 rounded-xl
+              placeholder:text-gray-400
+              focus:outline-none focus:ring-2 focus:ring-[rgba(107,92,231,.2)] focus:border-[#6B5CE7] w-32"
           />
           <button onClick={createList} disabled={creatingList || !newListName.trim()}
-            className="p-1.5 rounded-xl bg-[#4f46e5] text-white hover:bg-[#4338ca] disabled:opacity-50 transition-colors">
+            className="p-1.5 rounded-xl bg-[#6B5CE7] text-white hover:bg-[#5a4bd6] disabled:opacity-50 transition-colors">
             {creatingList ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
           </button>
         </div>
       </div>
 
       {activeList && (
-        <div className="bg-[rgba(255,255,255,.03)] border border-[rgba(255,255,255,.08)] rounded-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(255,255,255,.08)]">
-            <h3 className="text-sm font-semibold text-white">{activeList.name}</h3>
-            <span className="text-xs text-[rgba(255,255,255,.35)]">{entries.length} entries</span>
+        <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-800">{activeList.name}</h3>
+            <span className="text-xs text-gray-400">{entries.length} entries</span>
           </div>
           {loadingEntries ? (
             <div className="flex items-center justify-center py-10">
-              <Loader2 className="w-5 h-5 animate-spin text-[rgba(255,255,255,.35)]" />
+              <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
             </div>
           ) : entries.length === 0 ? (
-            <p className="text-center text-sm text-[rgba(255,255,255,.35)] py-10">No entries in this list</p>
+            <p className="text-center text-sm text-gray-400 py-10">No entries in this list</p>
           ) : (
             <table className="w-full text-sm">
               <tbody className={divider}>
@@ -677,12 +676,12 @@ function DealsTab() {
                   const valueVal = e.attribute_values?.value?.[0]?.currency_value;
                   return (
                     <tr key={e.id.entry_id} className={`${rowHover} group`}>
-                      <td className="px-4 py-3 font-medium text-[rgba(255,255,255,.6)] font-mono text-xs">
+                      <td className="px-4 py-3 font-medium text-gray-400 font-mono text-xs">
                         {e.id.entry_id.slice(0, 8)}…
                       </td>
                       <td className="px-4 py-3">
                         {stage && (
-                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[rgba(99,102,241,.15)] text-[#818cf8] border border-[rgba(99,102,241,.3)]">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[rgba(107,92,231,.1)] text-[#6B5CE7] border border-[rgba(107,92,231,.2)]">
                             {stage}
                           </span>
                         )}
@@ -693,8 +692,8 @@ function DealsTab() {
                       <td className="px-4 py-3 text-right">
                         <button
                           onClick={() => removeEntry(activeList.id.list_id, e.id.entry_id)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-[rgba(239,68,68,.15)]">
-                          <Trash2 className="w-3.5 h-3.5 text-[#f87171]" />
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-red-50">
+                          <Trash2 className="w-3.5 h-3.5 text-red-400" />
                         </button>
                       </td>
                     </tr>
@@ -707,7 +706,7 @@ function DealsTab() {
       )}
 
       {lists.length === 0 && (
-        <div className="text-center py-12 text-[rgba(255,255,255,.35)] text-sm">
+        <div className="text-center py-12 text-gray-400 text-sm">
           No lists yet. Create one above to start tracking deals.
         </div>
       )}
@@ -728,17 +727,17 @@ function NotesTab() {
   return (
     <div className="max-w-2xl space-y-4">
       {/* Info banner */}
-      <div className="bg-[rgba(217,119,6,.1)] border border-[rgba(217,119,6,.25)] rounded-xl px-4 py-3 flex items-start gap-2">
-        <AlertCircle className="w-4 h-4 text-[#fbbf24] shrink-0 mt-0.5" />
-        <p className="text-xs text-[rgba(251,191,36,.8)]">
+      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2">
+        <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+        <p className="text-xs text-amber-700">
           Notes are linked to specific contacts. Open a contact in the{" "}
-          <strong className="text-[#fbbf24]">Contacts</strong> tab to view and add notes.
+          <strong className="text-amber-800">Contacts</strong> tab to view and add notes.
           You can also add a note to any contact by their record ID below.
         </p>
       </div>
 
-      <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-2xl p-5 space-y-3">
-        <h4 className="text-sm font-semibold text-white">Add Note to Contact</h4>
+      <div className="bg-white border border-gray-100 rounded-2xl p-5 space-y-3 shadow-sm">
+        <h4 className="text-sm font-semibold text-gray-800">Add Note to Contact</h4>
         <input value={recordId} onChange={e => setRecordId(e.target.value)}
           placeholder="Attio Person record_id"
           className={inputCls} />
@@ -763,8 +762,8 @@ function NotesTab() {
               setTitle(""); setContent(""); setRecordId("");
             } finally { setSaving(false); }
           }}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#4f46e5] text-white
-            hover:bg-[#4338ca] disabled:opacity-50 transition-colors">
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#6B5CE7] text-white
+            hover:bg-[#5a4bd6] disabled:opacity-50 transition-colors">
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
           {saving ? "Saving…" : "Add Note"}
         </button>
@@ -832,8 +831,8 @@ function TasksTab() {
   return (
     <div className="max-w-2xl space-y-4">
       {/* Create task */}
-      <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-2xl p-5 space-y-3">
-        <h4 className="text-sm font-semibold text-white">New Task</h4>
+      <div className="bg-white border border-gray-100 rounded-2xl p-5 space-y-3 shadow-sm">
+        <h4 className="text-sm font-semibold text-gray-800">New Task</h4>
         <input value={content} onChange={e => setContent(e.target.value)}
           onKeyDown={e => e.key === "Enter" && !e.shiftKey && addTask()}
           placeholder="Task description…"
@@ -844,17 +843,17 @@ function TasksTab() {
           {members.length > 0 && (
             <select value={assigneeId} onChange={e => setAssigneeId(e.target.value)}
               className={`flex-1 ${inputCls}`}>
-              <option value="" className="bg-[#1a1a2e]">Unassigned</option>
+              <option value="">Unassigned</option>
               {members.map(m => (
-                <option key={m.id.workspace_member_id} value={m.id.workspace_member_id} className="bg-[#1a1a2e]">
+                <option key={m.id.workspace_member_id} value={m.id.workspace_member_id}>
                   {m.first_name} {m.last_name}
                 </option>
               ))}
             </select>
           )}
           <button onClick={addTask} disabled={saving || !content.trim()}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#4f46e5] text-white
-              hover:bg-[#4338ca] disabled:opacity-50 transition-colors shrink-0">
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#6B5CE7] text-white
+              hover:bg-[#5a4bd6] disabled:opacity-50 transition-colors shrink-0">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             Add
           </button>
@@ -862,28 +861,28 @@ function TasksTab() {
       </div>
 
       {/* Filter + list */}
-      <div className="bg-[rgba(255,255,255,.03)] border border-[rgba(255,255,255,.08)] rounded-2xl overflow-hidden">
-        <div className="flex items-center gap-1 p-3 border-b border-[rgba(255,255,255,.08)]">
+      <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+        <div className="flex items-center gap-1 p-3 border-b border-gray-100">
           {(["all", "open", "done"] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)}
               className={`px-3 py-1 rounded-lg text-xs font-medium capitalize transition-colors
                 ${filter === f
-                  ? "bg-[#4f46e5] text-white"
-                  : "text-[rgba(255,255,255,.45)] hover:bg-[rgba(255,255,255,.06)] hover:text-white"}`}>
+                  ? "bg-[#6B5CE7] text-white"
+                  : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`}>
               {f}
             </button>
           ))}
-          <button onClick={loadTasks} className="ml-auto p-1 rounded-lg hover:bg-[rgba(255,255,255,.06)] transition-colors">
-            <RefreshCw className="w-3.5 h-3.5 text-[rgba(255,255,255,.35)]" />
+          <button onClick={loadTasks} className="ml-auto p-1 rounded-lg hover:bg-gray-100 transition-colors">
+            <RefreshCw className="w-3.5 h-3.5 text-gray-400" />
           </button>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-10">
-            <Loader2 className="w-5 h-5 animate-spin text-[rgba(255,255,255,.35)]" />
+            <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
           </div>
         ) : tasks.length === 0 ? (
-          <p className="text-center text-sm text-[rgba(255,255,255,.35)] py-10">No tasks</p>
+          <p className="text-center text-sm text-gray-400 py-10">No tasks</p>
         ) : (
           <div className={divider}>
             {tasks.map(t => (
@@ -892,23 +891,23 @@ function TasksTab() {
                   ${t.is_completed ? "opacity-40" : ""}`}>
                 <button onClick={() => !t.is_completed && completeTask(t.id.task_id)} className="mt-0.5">
                   {t.is_completed
-                    ? <CheckCircle2 className="w-4 h-4 text-[#34d399]" />
-                    : <Circle className="w-4 h-4 text-[rgba(255,255,255,.3)] hover:text-[#818cf8] transition-colors" />}
+                    ? <CheckCircle2 className="w-4 h-4 text-[#0891b2]" />
+                    : <Circle className="w-4 h-4 text-gray-300 hover:text-[#6B5CE7] transition-colors" />}
                 </button>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm ${t.is_completed ? "line-through text-[rgba(255,255,255,.3)]" : "text-white"}`}>
+                  <p className={`text-sm ${t.is_completed ? "line-through text-gray-400" : "text-gray-800"}`}>
                     {t.content}
                   </p>
                   {t.deadline_at && (
-                    <p className="text-xs text-[rgba(255,255,255,.35)] flex items-center gap-1 mt-0.5">
+                    <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
                       <Calendar className="w-3 h-3" />
                       Due {new Date(t.deadline_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                     </p>
                   )}
                 </div>
                 <button onClick={() => deleteTask(t.id.task_id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-[rgba(239,68,68,.15)]">
-                  <Trash2 className="w-3.5 h-3.5 text-[#f87171]" />
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-red-50">
+                  <Trash2 className="w-3.5 h-3.5 text-red-400" />
                 </button>
               </div>
             ))}

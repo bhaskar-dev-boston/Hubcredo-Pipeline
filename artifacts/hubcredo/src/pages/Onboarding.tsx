@@ -76,8 +76,8 @@ export default function Onboarding() {
   }
 
   const chipBase = "px-3 py-2 rounded-lg text-sm transition-colors border cursor-pointer";
-  const chipActive = "bg-[#eef2ff] border-[#c7d2fe] text-[#4f46e5]";
-  const chipInactive = "border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] hover:text-white hover:border-[#CBD5E1] hover:bg-[rgba(255,255,255,.04)]";
+  const chipActive = "bg-[#F5F3FF] border-[#6B4EFF] text-[#6B4EFF] font-medium";
+  const chipInactive = "border-[rgba(107,78,255,0.15)] text-[#6B7280] hover:text-[#6B4EFF] hover:border-[#6B4EFF] hover:bg-[#F5F3FF] bg-white";
 
   function renderStep() {
     switch (step) {
@@ -85,28 +85,28 @@ export default function Onboarding() {
         return (
           <div className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-white mb-1.5">Company name *</label>
+              <label className="block text-sm font-medium text-[#1E1B4B] mb-1.5">Company name *</label>
               <input
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 placeholder="Acme Inc."
-                className="w-full px-3 py-2.5 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg text-sm text-white placeholder:text-[rgba(255,255,255,.5)] focus:outline-none focus:border-[#4f46e5] focus:ring-2 focus:ring-[#4f46e5]/20 transition-colors"
+                className="w-full px-3 py-2.5 bg-white border border-[rgba(107,78,255,0.2)] rounded-lg text-sm text-[#1E1B4B] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#6B4EFF] focus:ring-2 focus:ring-[rgba(107,78,255,0.15)] transition-colors"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-white mb-1.5">Website URL *</label>
+              <label className="block text-sm font-medium text-[#1E1B4B] mb-1.5">Website URL *</label>
               <div className="relative">
-                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgba(255,255,255,.5)]" />
+                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
                 <input
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
                   placeholder="https://acme.com"
-                  className="w-full pl-10 pr-3 py-2.5 bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg text-sm text-white placeholder:text-[rgba(255,255,255,.5)] focus:outline-none focus:border-[#4f46e5] focus:ring-2 focus:ring-[#4f46e5]/20 transition-colors"
+                  className="w-full pl-10 pr-3 py-2.5 bg-white border border-[rgba(107,78,255,0.2)] rounded-lg text-sm text-[#1E1B4B] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#6B4EFF] focus:ring-2 focus:ring-[rgba(107,78,255,0.15)] transition-colors"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-white mb-2">Industry</label>
+              <label className="block text-sm font-medium text-[#1E1B4B] mb-2">Industry</label>
               <div className="grid grid-cols-2 gap-2">
                 {INDUSTRIES.map((i) => (
                   <button key={i} type="button" onClick={() => setIndustry(i)}
@@ -117,7 +117,7 @@ export default function Onboarding() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-white mb-2">Stage</label>
+              <label className="block text-sm font-medium text-[#1E1B4B] mb-2">Stage</label>
               <div className="flex flex-wrap gap-2">
                 {STAGES.map((s) => (
                   <button key={s} type="button" onClick={() => setStage(s)}
@@ -130,7 +130,7 @@ export default function Onboarding() {
             <button
               onClick={handleStep0}
               disabled={updateProfile.isPending || createAnalysis.isPending}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#4f46e5] text-white font-semibold rounded-lg hover:bg-[#4338ca] transition-colors text-sm disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#6B4EFF] text-white font-semibold rounded-lg hover:bg-[#5B3FE0] transition-colors text-sm disabled:opacity-50"
             >
               {(updateProfile.isPending || createAnalysis.isPending) && <Loader2 className="w-4 h-4 animate-spin" />}
               Continue <ArrowRight className="w-4 h-4" />
@@ -142,16 +142,16 @@ export default function Onboarding() {
         return (
           <div className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-white mb-1.5">Target job titles</label>
+              <label className="block text-sm font-medium text-[#1E1B4B] mb-1.5">Target job titles</label>
               <TagInput value={jobTitles} onChange={setJobTitles} placeholder="e.g. VP of Sales, Head of Growth" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-white mb-1.5">Buying signals</label>
+              <label className="block text-sm font-medium text-[#1E1B4B] mb-1.5">Buying signals</label>
               <TagInput value={buyingSignals} onChange={setBuyingSignals} placeholder="e.g. hiring SDRs, new CRO, funding" />
             </div>
             <button
               onClick={() => setStep(2)}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#4f46e5] text-white font-semibold rounded-lg hover:bg-[#4338ca] transition-colors text-sm"
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#6B4EFF] text-white font-semibold rounded-lg hover:bg-[#5B3FE0] transition-colors text-sm"
             >
               Continue <ArrowRight className="w-4 h-4" />
             </button>
@@ -162,11 +162,11 @@ export default function Onboarding() {
         return (
           <div className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-white mb-1.5">Target industries</label>
+              <label className="block text-sm font-medium text-[#1E1B4B] mb-1.5">Target industries</label>
               <TagInput value={targetIndustries} onChange={setTargetIndustries} placeholder="e.g. SaaS, FinTech" suggestions={INDUSTRIES} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-white mb-2">Company sizes</label>
+              <label className="block text-sm font-medium text-[#1E1B4B] mb-2">Company sizes</label>
               <div className="flex flex-wrap gap-2">
                 {COMPANY_SIZES.map((s) => (
                   <button key={s} type="button"
@@ -178,13 +178,13 @@ export default function Onboarding() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-white mb-1.5">Geographies</label>
+              <label className="block text-sm font-medium text-[#1E1B4B] mb-1.5">Geographies</label>
               <TagInput value={targetGeo} onChange={setTargetGeo} placeholder="e.g. US, UK, DACH" />
             </div>
             <button
               onClick={handleIcp}
               disabled={createIcp.isPending}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#4f46e5] text-white font-semibold rounded-lg hover:bg-[#4338ca] transition-colors text-sm disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#6B4EFF] text-white font-semibold rounded-lg hover:bg-[#5B3FE0] transition-colors text-sm disabled:opacity-50"
             >
               {createIcp.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
               Finish setup <CheckCircle className="w-4 h-4" />
@@ -195,18 +195,18 @@ export default function Onboarding() {
       case 3:
         return (
           <div className="text-center space-y-6">
-            <div className="w-20 h-20 mx-auto bg-[#eef2ff] border border-[#c7d2fe] rounded-full flex items-center justify-center">
-              <CheckCircle className="w-10 h-10 text-[#4f46e5]" />
+            <div className="w-20 h-20 mx-auto bg-[#F5F3FF] border border-[rgba(107,78,255,0.2)] rounded-full flex items-center justify-center">
+              <CheckCircle className="w-10 h-10 text-[#6B4EFF]" />
             </div>
             <div>
-              <h3 className="text-white font-semibold text-lg mb-2">You're all set!</h3>
-              <p className="text-[rgba(255,255,255,.5)] text-sm leading-relaxed">
+              <h3 className="text-[#1E1B4B] font-semibold text-lg mb-2">You're all set!</h3>
+              <p className="text-[#6B7280] text-sm leading-relaxed">
                 Your sales infrastructure is ready. Head to the dashboard to generate leads and build your stack.
               </p>
             </div>
             <button
               onClick={() => setLocation("/dashboard")}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#4f46e5] text-white font-semibold rounded-lg hover:bg-[#4338ca] transition-colors text-sm"
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#6B4EFF] text-white font-semibold rounded-lg hover:bg-[#5B3FE0] transition-colors text-sm"
             >
               Go to Dashboard <ArrowRight className="w-4 h-4" />
             </button>
@@ -219,47 +219,61 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="min-h-screen bg-[rgba(255,255,255,.04)] flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-[#F8F7FF] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-lg">
+        {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 bg-[#4f46e5] rounded flex items-center justify-center">
+            <div className="w-8 h-8 bg-[#6B4EFF] rounded-lg flex items-center justify-center">
               <Zap className="w-5 h-5 text-white" />
             </div>
-            <span style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: "1.4rem", letterSpacing: "0.08em" }} className="text-white">
+            <span
+              style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: "1.4rem", letterSpacing: "0.08em" }}
+              className="text-[#1E1B4B] font-bold"
+            >
               HubCredo
             </span>
           </div>
         </div>
 
-        {/* Progress */}
+        {/* Progress bar */}
         <div className="flex items-center gap-1.5 mb-8">
           {steps.map((_, i) => (
             <div
               key={i}
-              className={`flex-1 h-1 rounded-full transition-colors ${i <= step ? "bg-[#4f46e5]" : "bg-[#E2E8F0]"}`}
+              className={`flex-1 h-1.5 rounded-full transition-all duration-300 ${
+                i < step
+                  ? "bg-[#6B4EFF]"
+                  : i === step
+                  ? "bg-[#6B4EFF]"
+                  : "bg-[#E5E7EB]"
+              }`}
             />
           ))}
         </div>
 
         {/* Card */}
-        <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+        <div className="bg-white border border-[rgba(107,78,255,0.12)] rounded-2xl p-6 shadow-[0_4px_24px_rgba(107,78,255,0.08)]">
           <div className="mb-6">
-            <p className="text-xs text-[#4f46e5] font-medium tracking-widest uppercase mb-1">
+            <p className="text-xs text-[#6B4EFF] font-semibold tracking-widest uppercase mb-1">
               Step {step + 1} of {steps.length}
             </p>
-            <h2 style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: "1.8rem", letterSpacing: "0.04em" }} className="text-white leading-tight">
+            <h2
+              style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: "1.8rem", letterSpacing: "0.04em" }}
+              className="text-[#1E1B4B] leading-tight font-bold"
+            >
               {steps[step].title}
             </h2>
-            <p className="text-[rgba(255,255,255,.5)] text-sm mt-1">{steps[step].subtitle}</p>
+            <p className="text-[#6B7280] text-sm mt-1">{steps[step].subtitle}</p>
           </div>
           {renderStep()}
         </div>
 
+        {/* Back button */}
         {step > 0 && step < 3 && (
           <button
             onClick={() => setStep((s) => s - 1)}
-            className="flex items-center gap-2 mx-auto mt-4 text-sm text-[rgba(255,255,255,.5)] hover:text-white transition-colors"
+            className="flex items-center gap-2 mx-auto mt-4 text-sm text-[#9CA3AF] hover:text-[#6B4EFF] transition-colors"
           >
             <ArrowLeft className="w-4 h-4" /> Back
           </button>

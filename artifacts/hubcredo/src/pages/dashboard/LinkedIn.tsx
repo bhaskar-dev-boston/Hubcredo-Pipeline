@@ -6,7 +6,7 @@ import {
   Linkedin, CheckCircle2, Loader2, Plus, Pencil, Trash2, Play, Pause,
   Sparkles, X, ShieldAlert, Users, Send, MessageSquare, Settings,
   BarChart2, UserCheck, MessageCircle, Clock, ChevronDown, ChevronUp,
-  Zap, Mail, RefreshCcw, FileText, ArrowLeft, SendHorizonal,
+  Zap, Mail, RefreshCcw, FileText, ArrowLeft, SendHorizonal, RefreshCw,
 } from "lucide-react";
 import { getToken } from "@/lib/auth";
 import type { LeadList } from "@workspace/api-client-react";
@@ -73,6 +73,36 @@ interface ChatMessage {
   attachments?: any[];
 }
 
+// ── Reply.io types ────────────────────────────────────────────
+interface ReplySeq {
+  id: number;
+  name: string;
+  status: "active" | "paused" | "stopped";
+  isArchived: boolean;
+}
+
+interface ReplyContact {
+  email: string;
+  firstName: string;
+  lastName: string;
+  status: {
+    status: string;
+    replied: boolean;
+    delivered: boolean;
+    opened: boolean;
+    clicked: boolean;
+    bounced: boolean;
+  };
+}
+
+interface ReplyStats {
+  total: number;
+  active: number;
+  replied: number;
+  opened: number;
+  bounced: number;
+}
+
 export default function LinkedIn() {
   const { toast } = useToast();
   const { data: me } = useGetMe();
@@ -120,12 +150,36 @@ export default function LinkedIn() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // ── Reply.io state ────────────────────────────────────────
+  const [replyMode, setReplyMode] = useState(false);
+  const [replyConnected, setReplyConnected] = useState(false);
+  const [replySeqs, setReplySeqs] = useState<ReplySeq[]>([]);
+  const [replySeqsLoading, setReplySeqsLoading] = useState(false);
+  const [replySelectedId, setReplySelectedId] = useState<number | null>(null);
+  const [replyContacts, setReplyContacts] = useState<ReplyContact[]>([]);
+  const [replyStats, setReplyStats] = useState<ReplyStats | null>(null);
+  const [replyDetailLoading, setReplyDetailLoading] = useState(false);
+  const [enrollOpen, setEnrollOpen] = useState(false);
+  const [enrollSeqId, setEnrollSeqId] = useState<number | null>(null);
+  const [enrollEmail, setEnrollEmail] = useState("");
+  const [enrollFirst, setEnrollFirst] = useState("");
+  const [enrollLast, setEnrollLast] = useState("");
+  const [enrolling, setEnrolling] = useState(false);
+
   const LINKEDIN_TEMPLATES = [
     { name: "Cold outreach", connection_message: "Hi {{firstName}}, I help B2B companies build reliable sales infrastructure. Thought we'd connect well — open to it?", followup_message: "Hey {{firstName}}, thanks for connecting! I work with founders to set up scalable outbound. Worth a quick 15-min chat?" },
     { name: "Value-first", connection_message: "Hi {{firstName}}, I noticed your profile and wanted to connect — I share insights on outbound strategy relevant to your space.", followup_message: "Hey {{firstName}}, great to connect! Are you exploring ways to scale your pipeline? Happy to share what's been working." },
     { name: "Direct ask", connection_message: "Hi {{firstName}}, I help companies like yours improve outbound results 2-3x. Would love to connect and see if there's a fit.", followup_message: "" },
     { name: "Industry peer", connection_message: "Hi {{firstName}}, we're both in the B2B space and I'd love to stay connected. I work on GTM infrastructure and outreach automation.", followup_message: "Hey {{firstName}}, great to be connected! Would you be open to a 15-min call to explore if what I do could help your team?" },
   ];
+
+  // Check Reply.io connection on mount
+  useEffect(() => {
+    fetch(apiUrl("/replyio/validate"), { headers: authHeaders() })
+      .then((r) => r.json())
+      .then((d) => setReplyConnected(d.valid))
+      .catch(() => setReplyConnected(false));
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -164,6 +218,65 @@ export default function LinkedIn() {
     }
   }, [chatMessages]);
 
+  // ── Reply.io functions ────────────────────────────────────
+  async function loadReplySeqs() {
+    setReplySeqsLoading(true);
+    try {
+      const res = await fetch(apiUrl("/replyio/sequences"), { headers: authHeaders() });
+      const data = await res.json();
+      setReplySeqs((data.sequences || []).filter((s: ReplySeq) => !s.isArchived));
+    } catch {
+      toast({ title: "Failed to load Reply.io sequences", variant: "destructive" });
+    } finally {
+      setReplySeqsLoading(false);
+    }
+  }
+
+  async function loadReplyDetail(id: number) {
+    setReplySelectedId(id);
+    setReplyDetailLoading(true);
+    try {
+      const [cRes, sRes] = await Promise.all([
+        fetch(apiUrl(`/replyio/sequences/${id}/contacts`), { headers: authHeaders() }),
+        fetch(apiUrl(`/replyio/sequences/${id}/stats`), { headers: authHeaders() }),
+      ]);
+      if (cRes.ok) setReplyContacts((await cRes.json()).contacts ?? []);
+      if (sRes.ok) setReplyStats(await sRes.json());
+    } finally {
+      setReplyDetailLoading(false);
+    }
+  }
+
+  async function handleEnroll(e: React.FormEvent) {
+    e.preventDefault();
+    if (!enrollSeqId || !enrollEmail.trim()) return;
+    setEnrolling(true);
+    try {
+      const res = await fetch(apiUrl("/replyio/enroll"), {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          contact: { email: enrollEmail.trim(), firstName: enrollFirst || undefined, lastName: enrollLast || undefined },
+          sequenceId: enrollSeqId,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: "Contact enrolled!", description: `${enrollEmail} added to Reply.io sequence.` });
+      setEnrollOpen(false);
+      setEnrollEmail(""); setEnrollFirst(""); setEnrollLast("");
+      if (replySelectedId === enrollSeqId) loadReplyDetail(enrollSeqId);
+    } catch (err: unknown) {
+      toast({ title: "Enroll failed", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setEnrolling(false);
+    }
+  }
+
+  function handleToggleReplyMode(on: boolean) {
+    setReplyMode(on);
+    if (on && replySeqs.length === 0) loadReplySeqs();
+  }
+
   async function loadAnalytics(seqId: string) {
     setLoadingAnalytics((prev) => ({ ...prev, [seqId]: true }));
     try {
@@ -172,9 +285,8 @@ export default function LinkedIn() {
         const data = await res.json();
         setAnalyticsMap((prev) => ({ ...prev, [seqId]: data }));
       }
-    } catch {
-      // silently fail
-    } finally {
+    } catch { }
+    finally {
       setLoadingAnalytics((prev) => ({ ...prev, [seqId]: false }));
     }
   }
@@ -469,8 +581,10 @@ export default function LinkedIn() {
     catch { return ""; }
   }
 
-  const inputClass = "w-full px-3 py-2.5 text-sm bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg text-white placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[rgba(79,70,229,.2)] focus:border-[rgba(99,102,241,.7)] transition-colors";
+  const inputClass = "w-full px-3 py-2.5 text-sm bg-white border border-[rgba(107,78,255,0.2)] rounded-lg text-[#1E1B4B] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[rgba(107,78,255,0.15)] focus:border-[#6B4EFF] transition-colors";
   const lists = leadLists as LeadList[];
+
+  const replySelectedSeq = replySeqs.find((s) => s.id === replySelectedId);
 
   return (
     <DashboardLayout>
@@ -479,15 +593,21 @@ export default function LinkedIn() {
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2.5">
-              <Linkedin className="w-6 h-6 text-[#4f46e5]" />
+            <h1 className="text-2xl font-bold text-[#1E1B4B] flex items-center gap-2.5">
+              <Linkedin className="w-6 h-6 text-[#6B4EFF]" />
               LinkedIn Outreach
             </h1>
-            <p className="text-sm text-[rgba(255,255,255,.5)] mt-1">Send connection requests and follow-ups to leads automatically.</p>
+            <p className="text-sm text-[#6B7280] mt-1">Send connection requests and follow-ups to leads automatically.</p>
           </div>
-          <button onClick={() => openBuilder()} className="flex items-center gap-2 px-4 py-2.5 bg-[#4f46e5] text-white text-sm font-semibold rounded-xl hover:bg-[#4338ca] transition-colors shrink-0">
-            <Plus className="w-4 h-4" /> New sequence
-          </button>
+          {!replyMode && (
+            <button
+              onClick={() => openBuilder()}
+              className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-xl transition-colors shrink-0"
+              style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
+            >
+              <Plus className="w-4 h-4" /> New sequence
+            </button>
+          )}
         </div>
 
         {/* Warning */}
@@ -503,82 +623,88 @@ export default function LinkedIn() {
 
         {/* LinkedIn Account */}
         <section>
-          <h2 className="text-xs font-semibold text-[rgba(255,255,255,.35)] uppercase tracking-widest mb-3">Your LinkedIn account</h2>
+          <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-widest mb-3">Your LinkedIn account</h2>
           {loading ? (
-            <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-6 flex justify-center">
-              <Loader2 className="w-5 h-5 animate-spin text-[rgba(255,255,255,.35)]" />
+            <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-6 flex justify-center">
+              <Loader2 className="w-5 h-5 animate-spin text-[#6B4EFF]" />
             </div>
           ) : account && account.status === "connected" ? (
-            <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-5">
+            <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-5 shadow-sm">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[rgba(99,102,241,.15)] rounded-xl flex items-center justify-center">
-                    <Linkedin className="w-5 h-5 text-[#0077B5]" />
+                  <div className="w-10 h-10 bg-[#F5F3FF] rounded-xl flex items-center justify-center">
+                    <Linkedin className="w-5 h-5 text-[#6B4EFF]" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-white">{account.profile_name ?? "LinkedIn connected"}</p>
-                      <span className="inline-flex items-center gap-1 text-xs bg-[rgba(16,185,129,.1)] text-[#34d399] px-2 py-0.5 rounded-full border border-[rgba(52,211,153,.25)]">
+                      <p className="text-sm font-semibold text-[#1E1B4B]">{account.profile_name ?? "LinkedIn connected"}</p>
+                      <span className="inline-flex items-center gap-1 text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
                         <CheckCircle2 className="w-3 h-3" /> Active
                       </span>
                     </div>
-                    <p className="text-xs text-[rgba(255,255,255,.5)] mt-0.5">Daily limit: {account.daily_limit} sends · {account.sends_today ?? 0} sent today</p>
+                    <p className="text-xs text-[#6B7280] mt-0.5">Daily limit: {account.daily_limit} sends · {account.sends_today ?? 0} sent today</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => { setDailyLimit(account.daily_limit); setShowLimitEditor(true); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] text-xs font-medium rounded-lg hover:bg-[rgba(255,255,255,.04)] transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-[rgba(107,78,255,0.2)] text-[#6B4EFF] text-xs font-medium rounded-lg hover:bg-[#F5F3FF] transition-colors"
                   >
                     <Settings className="w-3.5 h-3.5" /> Limit
                   </button>
-                  <button onClick={handleDisconnect} className="px-3 py-1.5 border border-[rgba(248,113,113,.3)] text-[#f87171] text-xs font-medium rounded-lg hover:bg-[rgba(239,68,68,.1)] transition-colors">
+                  <button onClick={handleDisconnect} className="px-3 py-1.5 border border-red-200 text-red-500 text-xs font-medium rounded-lg hover:bg-red-50 transition-colors">
                     Disconnect
                   </button>
                 </div>
               </div>
               <div className="mt-4">
-                <div className="flex justify-between text-xs text-[rgba(255,255,255,.5)] mb-1.5">
+                <div className="flex justify-between text-xs text-[#6B7280] mb-1.5">
                   <span>Sends today</span><span>{account.sends_today ?? 0} / {account.daily_limit}</span>
                 </div>
-                <div className="w-full bg-[rgba(255,255,255,.08)] rounded-full h-1.5">
-                  <div className="bg-[#0077B5] h-1.5 rounded-full transition-all" style={{ width: `${Math.min(100, ((account.sends_today ?? 0) / account.daily_limit) * 100)}%` }} />
+                <div className="w-full bg-[#F5F3FF] rounded-full h-1.5">
+                  <div
+                    className="h-1.5 rounded-full transition-all"
+                    style={{ width: `${Math.min(100, ((account.sends_today ?? 0) / account.daily_limit) * 100)}%`, background: "linear-gradient(90deg, #6B4EFF, #8B5CF6)" }}
+                  />
                 </div>
               </div>
               {showLimitEditor && (
-                <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,.08)] space-y-3">
-                  <p className="text-sm font-medium text-white">Update daily limit</p>
+                <div className="mt-4 pt-4 border-t border-[rgba(107,78,255,0.1)] space-y-3">
+                  <p className="text-sm font-medium text-[#1E1B4B]">Update daily limit</p>
                   <div className="flex items-center gap-3">
-                    <input type="range" min={1} max={30} value={dailyLimit} onChange={(e) => setDailyLimit(Number(e.target.value))} className="flex-1 accent-[#0077B5]" />
-                    <span className="w-12 text-center text-sm font-bold text-white bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg py-1.5">{dailyLimit}</span>
+                    <input type="range" min={1} max={30} value={dailyLimit} onChange={(e) => setDailyLimit(Number(e.target.value))} className="flex-1 accent-[#6B4EFF]" />
+                    <span className="w-12 text-center text-sm font-bold text-[#6B4EFF] bg-[#F5F3FF] border border-[rgba(107,78,255,0.2)] rounded-lg py-1.5">{dailyLimit}</span>
                   </div>
-                  <p className="text-xs text-[rgba(255,255,255,.35)]">We recommend 15 sends/day to stay below LinkedIn's detection threshold.</p>
+                  <p className="text-xs text-[#9CA3AF]">We recommend 15 sends/day to stay below LinkedIn's detection threshold.</p>
                   <div className="flex gap-2">
-                    <button onClick={handleUpdateLimit} disabled={savingLimit} className="flex items-center gap-1.5 px-4 py-2 bg-[#4f46e5] text-white text-sm font-semibold rounded-lg hover:bg-[#4338ca] transition-colors disabled:opacity-50">
+                    <button
+                      onClick={handleUpdateLimit}
+                      disabled={savingLimit}
+                      className="flex items-center gap-1.5 px-4 py-2 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+                      style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
+                    >
                       {savingLimit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                       {savingLimit ? "Saving…" : "Save"}
                     </button>
-                    <button onClick={() => setShowLimitEditor(false)} className="px-4 py-2 border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] text-sm font-semibold rounded-lg hover:bg-[rgba(255,255,255,.04)] transition-colors">Cancel</button>
+                    <button onClick={() => setShowLimitEditor(false)} className="px-4 py-2 border border-[rgba(107,78,255,0.2)] text-[#6B7280] text-sm font-semibold rounded-lg hover:bg-[#F5F3FF] transition-colors">Cancel</button>
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl p-6">
+            <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-6 shadow-sm">
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-[rgba(255,255,255,.04)] rounded-xl flex items-center justify-center shrink-0">
-                  <Linkedin className="w-5 h-5 text-[rgba(255,255,255,.35)]" />
+                <div className="w-10 h-10 bg-[#F5F3FF] rounded-xl flex items-center justify-center shrink-0">
+                  <Linkedin className="w-5 h-5 text-[#6B4EFF]" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-white">No LinkedIn account connected</p>
-                  <p className="text-xs text-[rgba(255,255,255,.5)] mt-1 mb-5">Connect your LinkedIn account to start sending automated connection requests and follow-ups.</p>
+                  <p className="text-sm font-semibold text-[#1E1B4B]">No LinkedIn account connected</p>
+                  <p className="text-xs text-[#6B7280] mt-1 mb-5">Connect your LinkedIn account to start sending automated connection requests and follow-ups.</p>
                   <button
                     onClick={handleConnectLinkedIn}
                     disabled={connecting}
                     className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all disabled:opacity-60"
-                    style={{ backgroundColor: "#0077B5" }}
-                    onMouseEnter={(e) => { if (!connecting) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#005e93"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#0077B5"; }}
+                    style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
                   >
                     {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : (
                       <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -587,7 +713,7 @@ export default function LinkedIn() {
                     )}
                     {connecting ? "Redirecting to Unipile…" : "Connect LinkedIn"}
                   </button>
-                  <p className="text-xs text-[rgba(255,255,255,.35)] mt-3">You'll be securely redirected to connect your LinkedIn account via Unipile.</p>
+                  <p className="text-xs text-[#9CA3AF] mt-3">You'll be securely redirected to connect your LinkedIn account via Unipile.</p>
                 </div>
               </div>
             </div>
@@ -595,19 +721,19 @@ export default function LinkedIn() {
         </section>
 
         {/* Tab switcher */}
-        <div className="flex items-center gap-1 border-b border-[rgba(255,255,255,.08)]">
+        <div className="flex items-center gap-1 border-b border-[rgba(107,78,255,0.12)]">
           <button
             onClick={() => { setActiveTab("sequences"); setOpenChat(null); }}
-            className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${activeTab === "sequences" ? "border-[#4f46e5] text-[#4f46e5]" : "border-transparent text-[rgba(255,255,255,.5)] hover:text-white"}`}
+            className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${activeTab === "sequences" ? "border-[#6B4EFF] text-[#6B4EFF]" : "border-transparent text-[#6B7280] hover:text-[#1E1B4B]"}`}
           >
             Sequences
           </button>
           <button
             onClick={() => { setActiveTab("inbox"); setOpenChat(null); if (inbox.length === 0) loadInbox(); }}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${activeTab === "inbox" ? "border-[#0077B5] text-[#0077B5]" : "border-transparent text-[rgba(255,255,255,.5)] hover:text-white"}`}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${activeTab === "inbox" ? "border-[#6B4EFF] text-[#6B4EFF]" : "border-transparent text-[#6B7280] hover:text-[#1E1B4B]"}`}
           >
             <Mail className="w-3.5 h-3.5" /> LinkedIn Inbox
-            {inbox.some((c) => (c.unread_count ?? 0) > 0) && <span className="w-2 h-2 bg-[#0077B5] rounded-full" />}
+            {inbox.some((c) => (c.unread_count ?? 0) > 0) && <span className="w-2 h-2 bg-[#6B4EFF] rounded-full" />}
           </button>
         </div>
 
@@ -615,56 +741,49 @@ export default function LinkedIn() {
         {activeTab === "inbox" && (
           <section className="pt-2">
             {openChat ? (
-              <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-2xl overflow-hidden flex flex-col" style={{ height: "560px" }}>
-                {/* Chat header */}
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.03)] shrink-0">
-                  <button onClick={() => setOpenChat(null)} className="p-1.5 text-[rgba(255,255,255,.5)] hover:text-white hover:bg-[rgba(255,255,255,.08)] rounded-lg transition-colors">
+              <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-2xl overflow-hidden flex flex-col shadow-sm" style={{ height: "560px" }}>
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-[rgba(107,78,255,0.1)] bg-[#F5F3FF] shrink-0">
+                  <button onClick={() => setOpenChat(null)} className="p-1.5 text-[#6B7280] hover:text-[#1E1B4B] hover:bg-white rounded-lg transition-colors">
                     <ArrowLeft className="w-4 h-4" />
                   </button>
-                  <div className="w-8 h-8 rounded-full bg-[#0077B5] flex items-center justify-center text-white text-sm font-bold shrink-0">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
                     {(openChat.display_name ?? "?").charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-white truncate">{openChat.display_name ?? "Unknown contact"}</p>
-                    <p className="text-xs text-[rgba(255,255,255,.35)]">LinkedIn · via Unipile</p>
+                    <p className="text-sm font-semibold text-[#1E1B4B] truncate">{openChat.display_name ?? "Unknown contact"}</p>
+                    <p className="text-xs text-[#9CA3AF]">LinkedIn · via Unipile</p>
                   </div>
-                  <button onClick={refreshMessages} className="p-1.5 text-[rgba(255,255,255,.5)] hover:text-white hover:bg-[rgba(255,255,255,.08)] rounded-lg transition-colors">
+                  <button onClick={refreshMessages} className="p-1.5 text-[#6B7280] hover:text-[#1E1B4B] hover:bg-white rounded-lg transition-colors">
                     <RefreshCcw className={`w-3.5 h-3.5 ${loadingMessages ? "animate-spin" : ""}`} />
                   </button>
                 </div>
-
-                {/* Messages */}
-                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[rgba(255,255,255,.02)]">
+                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[#FAFAF9]">
                   {loadingMessages ? (
                     <div className="flex flex-col items-center justify-center h-full gap-2">
-                      <Loader2 className="w-5 h-5 animate-spin text-[#0077B5]" />
-                      <p className="text-xs text-[rgba(255,255,255,.35)]">Loading messages…</p>
+                      <Loader2 className="w-5 h-5 animate-spin text-[#6B4EFF]" />
+                      <p className="text-xs text-[#9CA3AF]">Loading messages…</p>
                     </div>
                   ) : chatMessages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full gap-2">
-                      <MessageCircle className="w-8 h-8 text-[rgba(255,255,255,.2)]" />
-                      <p className="text-sm text-[rgba(255,255,255,.35)]">No messages yet</p>
+                      <MessageCircle className="w-8 h-8 text-[#D1C9FF]" />
+                      <p className="text-sm text-[#9CA3AF]">No messages yet</p>
                     </div>
                   ) : (
                     <>
                       {chatMessages.map((msg) => (
                         <div key={msg.id} className={`flex ${msg.is_sender ? "justify-end" : "justify-start"}`}>
                           {!msg.is_sender && (
-                            <div className="w-6 h-6 rounded-full bg-[#0077B5] flex items-center justify-center text-white text-[10px] font-bold shrink-0 mr-2 mt-0.5">
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 mr-2 mt-0.5" style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
                               {(openChat.display_name ?? "?").charAt(0).toUpperCase()}
                             </div>
                           )}
                           <div className={`max-w-[72%] flex flex-col gap-0.5 ${msg.is_sender ? "items-end" : "items-start"}`}>
-                            <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                              msg.is_sender
-                                ? "bg-[#0077B5] text-white rounded-br-sm"
-                                : "bg-[rgba(255,255,255,.08)] border border-[rgba(255,255,255,.1)] text-white rounded-bl-sm"
-                            }`}>
+                            <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${msg.is_sender ? "text-white rounded-br-sm" : "bg-white border border-[rgba(107,78,255,0.12)] text-[#1E1B4B] rounded-bl-sm shadow-sm"}`}
+                              style={msg.is_sender ? { background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" } : {}}
+                            >
                               {msg.text ?? <span className="italic opacity-60">📎 Attachment</span>}
                             </div>
-                            {msg.timestamp && (
-                              <span className="text-[10px] text-[rgba(255,255,255,.35)] px-1">{formatMessageTime(msg.timestamp)}</span>
-                            )}
+                            {msg.timestamp && <span className="text-[10px] text-[#9CA3AF] px-1">{formatMessageTime(msg.timestamp)}</span>}
                           </div>
                         </div>
                       ))}
@@ -672,9 +791,7 @@ export default function LinkedIn() {
                     </>
                   )}
                 </div>
-
-                {/* Input */}
-                <div className="px-4 py-3 border-t border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.03)] shrink-0">
+                <div className="px-4 py-3 border-t border-[rgba(107,78,255,0.1)] bg-white shrink-0">
                   <div className="flex items-end gap-2">
                     <textarea
                       ref={inputRef}
@@ -683,45 +800,46 @@ export default function LinkedIn() {
                       onKeyDown={handleInputKeyDown}
                       placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
                       rows={2}
-                      className="flex-1 px-3 py-2.5 text-sm bg-[rgba(255,255,255,.06)] border border-[rgba(255,255,255,.1)] rounded-xl text-white placeholder-[rgba(255,255,255,.3)] focus:outline-none focus:ring-2 focus:ring-[#0077B5]/30 focus:border-[#0077B5] transition-colors resize-none"
+                      className="flex-1 px-3 py-2.5 text-sm bg-[#F5F3FF] border border-[rgba(107,78,255,0.2)] rounded-xl text-[#1E1B4B] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[rgba(107,78,255,0.15)] focus:border-[#6B4EFF] transition-colors resize-none"
                     />
                     <button
                       onClick={handleSendMessage}
                       disabled={!messageInput.trim() || sendingMessage}
-                      className="p-2.5 bg-[#0077B5] text-white rounded-xl hover:bg-[#005e93] transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                      className="p-2.5 text-white rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                      style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
                     >
                       {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizonal className="w-4 h-4" />}
                     </button>
                   </div>
-                  <p className="text-[10px] text-[rgba(255,255,255,.25)] mt-1.5 px-1">Sent via Unipile · Delivered to LinkedIn</p>
+                  <p className="text-[10px] text-[#9CA3AF] mt-1.5 px-1">Sent via Unipile · Delivered to LinkedIn</p>
                 </div>
               </div>
             ) : (
               !account ? (
-                <div className="bg-[rgba(255,255,255,.04)] border border-dashed border-[rgba(255,255,255,.08)] rounded-xl p-10 text-center">
-                  <Linkedin className="w-8 h-8 text-[rgba(255,255,255,.2)] mx-auto mb-3" />
-                  <p className="text-sm font-medium text-white">LinkedIn not connected</p>
-                  <p className="text-xs text-[rgba(255,255,255,.5)] mt-1">Connect your account above to see your inbox.</p>
+                <div className="bg-white border border-dashed border-[rgba(107,78,255,0.2)] rounded-xl p-10 text-center">
+                  <Linkedin className="w-8 h-8 text-[#D1C9FF] mx-auto mb-3" />
+                  <p className="text-sm font-medium text-[#1E1B4B]">LinkedIn not connected</p>
+                  <p className="text-xs text-[#6B7280] mt-1">Connect your account above to see your inbox.</p>
                 </div>
               ) : loadingInbox ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-3">
-                  <Loader2 className="w-6 h-6 animate-spin text-[#0077B5]" />
-                  <p className="text-xs text-[rgba(255,255,255,.5)]">Loading messages from LinkedIn…</p>
+                  <Loader2 className="w-6 h-6 animate-spin text-[#6B4EFF]" />
+                  <p className="text-xs text-[#6B7280]">Loading messages from LinkedIn…</p>
                 </div>
               ) : inbox.length === 0 ? (
-                <div className="bg-[rgba(255,255,255,.04)] border border-dashed border-[rgba(255,255,255,.08)] rounded-xl p-10 text-center">
-                  <Mail className="w-8 h-8 text-[rgba(255,255,255,.2)] mx-auto mb-3" />
-                  <p className="text-sm font-medium text-white">No messages yet</p>
-                  <p className="text-xs text-[rgba(255,255,255,.5)] mt-1">LinkedIn replies will appear here once your connections start responding.</p>
-                  <button onClick={loadInbox} className="mt-4 inline-flex items-center gap-1.5 text-xs text-[#4f46e5] hover:text-[#4338ca] transition-colors">
+                <div className="bg-white border border-dashed border-[rgba(107,78,255,0.2)] rounded-xl p-10 text-center">
+                  <Mail className="w-8 h-8 text-[#D1C9FF] mx-auto mb-3" />
+                  <p className="text-sm font-medium text-[#1E1B4B]">No messages yet</p>
+                  <p className="text-xs text-[#6B7280] mt-1">LinkedIn replies will appear here once your connections start responding.</p>
+                  <button onClick={loadInbox} className="mt-4 inline-flex items-center gap-1.5 text-xs text-[#6B4EFF] hover:text-[#8B5CF6] transition-colors">
                     <RefreshCcw className="w-3 h-3" /> Refresh inbox
                   </button>
                 </div>
               ) : (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs text-[rgba(255,255,255,.35)]">{inbox.length} conversation{inbox.length !== 1 ? "s" : ""}</p>
-                    <button onClick={loadInbox} className="flex items-center gap-1.5 text-xs text-[rgba(255,255,255,.5)] hover:text-white transition-colors">
+                    <p className="text-xs text-[#9CA3AF]">{inbox.length} conversation{inbox.length !== 1 ? "s" : ""}</p>
+                    <button onClick={loadInbox} className="flex items-center gap-1.5 text-xs text-[#6B7280] hover:text-[#1E1B4B] transition-colors">
                       <RefreshCcw className="w-3 h-3" /> Refresh
                     </button>
                   </div>
@@ -731,36 +849,32 @@ export default function LinkedIn() {
                       <button
                         key={chat.id}
                         onClick={() => openChatPanel(chat)}
-                        className={`w-full text-left bg-[rgba(255,255,255,.04)] border rounded-xl p-4 transition-all hover:shadow-sm hover:border-[#0077B5]/30 ${hasUnread ? "border-[#0077B5]/30 bg-[rgba(0,119,181,.08)]" : "border-[rgba(255,255,255,.08)]"}`}
+                        className={`w-full text-left bg-white border rounded-xl p-4 transition-all hover:shadow-md ${hasUnread ? "border-[#6B4EFF] bg-[#F5F3FF]" : "border-[rgba(107,78,255,0.15)]"}`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-[#0077B5] flex items-center justify-center text-white text-sm font-bold shrink-0">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
                             {(chat.display_name ?? "?").charAt(0).toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
-                              <p className={`text-sm truncate ${hasUnread ? "font-semibold text-white" : "font-medium text-white"}`}>
-                                {chat.display_name ?? <span className="text-[rgba(255,255,255,.35)] italic font-normal">Unknown contact</span>}
+                              <p className={`text-sm truncate ${hasUnread ? "font-semibold text-[#1E1B4B]" : "font-medium text-[#1E1B4B]"}`}>
+                                {chat.display_name ?? <span className="text-[#9CA3AF] italic font-normal">Unknown contact</span>}
                               </p>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                {chat.timestamp && (
-                                  <span className={`text-[10px] ${hasUnread ? "text-[#0077B5] font-medium" : "text-[rgba(255,255,255,.35)]"}`}>
-                                    {formatTime(chat.timestamp)}
-                                  </span>
-                                )}
+                                {chat.timestamp && <span className={`text-[10px] ${hasUnread ? "text-[#6B4EFF] font-medium" : "text-[#9CA3AF]"}`}>{formatTime(chat.timestamp)}</span>}
                                 {hasUnread && (
-                                  <span className="min-w-[18px] h-[18px] bg-[#0077B5] text-white text-[10px] rounded-full flex items-center justify-center font-bold px-1">
+                                  <span className="min-w-[18px] h-[18px] text-white text-[10px] rounded-full flex items-center justify-center font-bold px-1" style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
                                     {chat.unread_count}
                                   </span>
                                 )}
                               </div>
                             </div>
-                            <p className={`text-xs mt-0.5 truncate ${hasUnread ? "text-[rgba(255,255,255,.7)]" : "text-[rgba(255,255,255,.5)]"}`}>
-                              {chat.last_message_sender_is_me && <span className="text-[rgba(255,255,255,.35)]">You: </span>}
-                              {chat.last_message_text ?? <span className="text-[rgba(255,255,255,.25)] italic">Tap to open</span>}
+                            <p className={`text-xs mt-0.5 truncate ${hasUnread ? "text-[#1E1B4B]" : "text-[#6B7280]"}`}>
+                              {chat.last_message_sender_is_me && <span className="text-[#9CA3AF]">You: </span>}
+                              {chat.last_message_text ?? <span className="text-[#9CA3AF] italic">Tap to open</span>}
                             </p>
                           </div>
-                          <MessageCircle className="w-4 h-4 text-[rgba(255,255,255,.2)] shrink-0" />
+                          <MessageCircle className="w-4 h-4 text-[#D1C9FF] shrink-0" />
                         </div>
                       </button>
                     );
@@ -771,146 +885,298 @@ export default function LinkedIn() {
           </section>
         )}
 
-        {/* ── SEQUENCES ── */}
+        {/* ── SEQUENCES TAB ── */}
         {activeTab === "sequences" && (
           <section>
-            <h2 className="text-xs font-semibold text-[rgba(255,255,255,.35)] uppercase tracking-widest mb-3 pt-4">Sequences</h2>
-            {sequences.length === 0 ? (
-              <div className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] border-dashed rounded-xl p-10 flex flex-col items-center gap-3 text-center">
-                <div className="w-12 h-12 bg-[rgba(255,255,255,.04)] rounded-2xl flex items-center justify-center"><Send className="w-5 h-5 text-[rgba(255,255,255,.35)]" /></div>
-                <p className="text-sm font-semibold text-white">No sequences yet</p>
-                <p className="text-xs text-[rgba(255,255,255,.5)] max-w-xs">Create a sequence with a connection request template and optional follow-up message.</p>
-                <button onClick={() => openBuilder()} className="mt-1 flex items-center gap-2 px-4 py-2.5 bg-[#4f46e5] text-white text-sm font-semibold rounded-xl hover:bg-[#4338ca] transition-colors">
-                  <Plus className="w-4 h-4" /> Create first sequence
+            {/* Mode toggle */}
+            <div className="flex items-center justify-between pt-4 mb-4">
+              <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-widest">Sequences</h2>
+              <div className="flex items-center gap-1 p-1 bg-[#F5F3FF] border border-[rgba(107,78,255,0.15)] rounded-xl">
+                <button
+                  onClick={() => handleToggleReplyMode(false)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${!replyMode ? "bg-white text-[#6B4EFF] shadow-sm border border-[rgba(107,78,255,0.2)]" : "text-[#6B7280] hover:text-[#1E1B4B]"}`}
+                >
+                  Native (Unipile)
+                </button>
+                <button
+                  onClick={() => { if (replyConnected) handleToggleReplyMode(true); }}
+                  disabled={!replyConnected}
+                  title={!replyConnected ? "Connect Reply.io in Settings → Integrations first" : undefined}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${replyMode ? "bg-white text-[#6B4EFF] shadow-sm border border-[rgba(107,78,255,0.2)]" : !replyConnected ? "text-[#C4C4C4] cursor-not-allowed" : "text-[#6B7280] hover:text-[#1E1B4B]"}`}
+                >
+                  <svg width="12" height="12" viewBox="0 0 32 32" fill="none">
+                    <path d="M8 10h10a4 4 0 010 8H12v4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="22" cy="22" r="2.5" fill="currentColor"/>
+                  </svg>
+                  Reply.io
+                  {replyConnected && !replyMode && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+                  {!replyConnected && <span className="text-[10px] font-normal text-[#C4C4C4]">(not connected)</span>}
                 </button>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {sequences.map((seq) => {
-                  const analytics = analyticsMap[seq.id];
-                  const isExpanded = expandedAnalytics[seq.id];
-                  const isLoadingA = loadingAnalytics[seq.id];
-                  return (
-                    <div key={seq.id} className="bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-xl overflow-hidden">
-                      <div className="p-5">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="text-sm font-semibold text-white">{seq.name}</h3>
-                              <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${seq.is_active ? "bg-[rgba(16,185,129,.1)] text-[#34d399] border-[rgba(52,211,153,.25)]" : "bg-[rgba(255,255,255,.04)] text-[rgba(255,255,255,.5)] border-[rgba(255,255,255,.08)]"}`}>
-                                {seq.is_active ? "Active" : "Inactive"}
-                              </span>
-                            </div>
-                            {seq.lead_lists && (
-                              <p className="text-xs text-[rgba(255,255,255,.5)] mt-1 flex items-center gap-1.5">
-                                <Users className="w-3.5 h-3.5" />{seq.lead_lists.label}
-                              </p>
-                            )}
-                            <p className="text-xs text-[rgba(255,255,255,.35)] mt-1.5 line-clamp-2">{seq.connection_message}</p>
-                            <div className="flex flex-wrap gap-3 mt-2">
-                              <span className="text-xs text-[rgba(255,255,255,.5)] flex items-center gap-1"><Send className="w-3 h-3" /> {seq.daily_limit}/day limit</span>
-                              {seq.followup_message && (
-                                <span className="text-xs text-[rgba(255,255,255,.5)] flex items-center gap-1"><MessageSquare className="w-3 h-3" /> Follow-up in {seq.followup_delay_days}d</span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {!seq.is_active ? (
-                              <div className="flex flex-col items-end gap-1">
-                                <button onClick={() => handleLaunch(seq)} disabled={launchingId === seq.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0077B5] text-white text-xs font-semibold rounded-lg hover:bg-[#005e93] transition-colors disabled:opacity-50">
-                                  {launchingId === seq.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />} Launch
-                                </button>
-                                <span className="text-[10px] text-[rgba(255,255,255,.35)] flex items-center gap-0.5"><Zap className="w-2.5 h-2.5" /> 1 cr/send</span>
+            </div>
+
+            {/* ── Native mode ── */}
+            {!replyMode && (
+              sequences.length === 0 ? (
+                <div className="bg-white border border-dashed border-[rgba(107,78,255,0.2)] rounded-xl p-10 flex flex-col items-center gap-3 text-center">
+                  <div className="w-12 h-12 bg-[#F5F3FF] rounded-2xl flex items-center justify-center">
+                    <Send className="w-5 h-5 text-[#6B4EFF]" />
+                  </div>
+                  <p className="text-sm font-semibold text-[#1E1B4B]">No sequences yet</p>
+                  <p className="text-xs text-[#6B7280] max-w-xs">Create a sequence with a connection request template and optional follow-up message.</p>
+                  <button
+                    onClick={() => openBuilder()}
+                    className="mt-1 flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-xl transition-colors"
+                    style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
+                  >
+                    <Plus className="w-4 h-4" /> Create first sequence
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {sequences.map((seq) => {
+                    const analytics = analyticsMap[seq.id];
+                    const isExpanded = expandedAnalytics[seq.id];
+                    const isLoadingA = loadingAnalytics[seq.id];
+                    return (
+                      <div key={seq.id} className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl overflow-hidden shadow-sm">
+                        <div className="p-5">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="text-sm font-semibold text-[#1E1B4B]">{seq.name}</h3>
+                                <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${seq.is_active ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-[#F5F3FF] text-[#9CA3AF] border-[rgba(107,78,255,0.15)]"}`}>
+                                  {seq.is_active ? "Active" : "Inactive"}
+                                </span>
                               </div>
-                            ) : (
-                              <button onClick={() => handlePause(seq)} disabled={pausingId === seq.id} className="flex items-center gap-1.5 px-3 py-1.5 border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] text-xs font-medium rounded-lg hover:bg-[rgba(255,255,255,.04)] transition-colors disabled:opacity-50">
-                                {pausingId === seq.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pause className="w-3.5 h-3.5" />} Pause
+                              {seq.lead_lists && (
+                                <p className="text-xs text-[#6B7280] mt-1 flex items-center gap-1.5">
+                                  <Users className="w-3.5 h-3.5 text-[#6B4EFF]" />{seq.lead_lists.label}
+                                </p>
+                              )}
+                              <p className="text-xs text-[#9CA3AF] mt-1.5 line-clamp-2">{seq.connection_message}</p>
+                              <div className="flex flex-wrap gap-3 mt-2">
+                                <span className="text-xs text-[#6B7280] flex items-center gap-1"><Send className="w-3 h-3 text-[#6B4EFF]" /> {seq.daily_limit}/day limit</span>
+                                {seq.followup_message && (
+                                  <span className="text-xs text-[#6B7280] flex items-center gap-1"><MessageSquare className="w-3 h-3 text-[#8B5CF6]" /> Follow-up in {seq.followup_delay_days}d</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {!seq.is_active ? (
+                                <div className="flex flex-col items-end gap-1">
+                                  <button
+                                    onClick={() => handleLaunch(seq)}
+                                    disabled={launchingId === seq.id}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50"
+                                    style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
+                                  >
+                                    {launchingId === seq.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />} Launch
+                                  </button>
+                                  <span className="text-[10px] text-[#9CA3AF] flex items-center gap-0.5"><Zap className="w-2.5 h-2.5 text-[#6B4EFF]" /> 1 cr/send</span>
+                                </div>
+                              ) : (
+                                <button onClick={() => handlePause(seq)} disabled={pausingId === seq.id} className="flex items-center gap-1.5 px-3 py-1.5 border border-[rgba(107,78,255,0.2)] text-[#6B7280] text-xs font-medium rounded-lg hover:bg-[#F5F3FF] transition-colors disabled:opacity-50">
+                                  {pausingId === seq.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pause className="w-3.5 h-3.5" />} Pause
+                                </button>
+                              )}
+                              <button onClick={() => openBuilder(seq)} className="p-1.5 text-[#9CA3AF] hover:text-[#6B4EFF] hover:bg-[#F5F3FF] rounded-lg transition-colors">
+                                <Pencil className="w-3.5 h-3.5" />
                               </button>
-                            )}
-                            <button onClick={() => openBuilder(seq)} className="p-1.5 text-[rgba(255,255,255,.35)] hover:text-white hover:bg-[rgba(255,255,255,.08)] rounded-lg transition-colors">
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => handleDelete(seq.id)} disabled={deletingId === seq.id} className="p-1.5 text-[rgba(255,255,255,.35)] hover:text-red-500 hover:bg-[rgba(239,68,68,.1)] rounded-lg transition-colors disabled:opacity-50">
-                              {deletingId === seq.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                            </button>
+                              <button onClick={() => handleDelete(seq.id)} disabled={deletingId === seq.id} className="p-1.5 text-[#9CA3AF] hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50">
+                                {deletingId === seq.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                              </button>
+                            </div>
                           </div>
                         </div>
+                        <button
+                          onClick={() => toggleAnalytics(seq.id)}
+                          className="w-full flex items-center justify-between px-5 py-2.5 bg-[#F5F3FF] border-t border-[rgba(107,78,255,0.1)] text-xs font-medium text-[#6B7280] hover:bg-[#EDE9FF] hover:text-[#6B4EFF] transition-colors"
+                        >
+                          <span className="flex items-center gap-1.5"><BarChart2 className="w-3.5 h-3.5 text-[#6B4EFF]" /> Analytics</span>
+                          {isLoadingA ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#6B4EFF]" /> : isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        </button>
+                        {isExpanded && (
+                          <div className="px-5 py-4 border-t border-[rgba(107,78,255,0.1)] bg-[#FAFAF9]">
+                            {isLoadingA ? (
+                              <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-[#6B4EFF]" /></div>
+                            ) : analytics ? (
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                  {[
+                                    { label: "Contacted", value: analytics.total_contacted, icon: <Send className="w-3.5 h-3.5 text-[#6B4EFF]" />, color: "text-[#1E1B4B]", sub: undefined },
+                                    { label: "Connected", value: analytics.connected, icon: <UserCheck className="w-3.5 h-3.5 text-[#6B4EFF]" />, color: "text-[#6B4EFF]", sub: analytics.total_contacted > 0 ? `${getAcceptanceRate(analytics)}% rate` : undefined },
+                                    { label: "Replied", value: analytics.replied, icon: <MessageCircle className="w-3.5 h-3.5 text-emerald-500" />, color: "text-emerald-600", sub: analytics.connected > 0 ? `${getReplyRate(analytics)}% rate` : undefined },
+                                    { label: "Follow-ups", value: analytics.followups_pending, icon: <Clock className="w-3.5 h-3.5 text-amber-500" />, color: "text-amber-600", sub: `${analytics.followups_sent} sent` },
+                                  ].map((stat) => (
+                                    <div key={stat.label} className="bg-white rounded-xl border border-[rgba(107,78,255,0.12)] p-3 shadow-sm">
+                                      <div className="flex items-center gap-1.5 mb-1">{stat.icon}<span className="text-xs text-[#6B7280]">{stat.label}</span></div>
+                                      <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+                                      {stat.sub && <p className="text-xs text-[#9CA3AF] mt-0.5">{stat.sub}</p>}
+                                    </div>
+                                  ))}
+                                </div>
+                                {analytics.total_contacted > 0 && (
+                                  <div className="bg-white rounded-xl border border-[rgba(107,78,255,0.12)] p-4 shadow-sm">
+                                    <p className="text-xs font-semibold text-[#1E1B4B] mb-3">Funnel</p>
+                                    <div className="space-y-2.5">
+                                      {[
+                                        { label: "Contacted", value: analytics.total_contacted, pct: 100, color: "bg-[#D1C9FF]", textColor: "text-[#6B7280]" },
+                                        { label: "Connected", value: analytics.connected, pct: getAcceptanceRate(analytics), color: "bg-[#6B4EFF]", textColor: "text-[#6B4EFF]" },
+                                        { label: "Replied", value: analytics.replied, pct: analytics.total_contacted > 0 ? Math.round((analytics.replied / analytics.total_contacted) * 100) : 0, color: "bg-emerald-500", textColor: "text-emerald-600" },
+                                      ].map((bar) => (
+                                        <div key={bar.label}>
+                                          <div className={`flex justify-between text-xs ${bar.textColor} mb-1`}>
+                                            <span>{bar.label}</span><span>{bar.value}{bar.pct !== 100 ? ` (${bar.pct}%)` : ""}</span>
+                                          </div>
+                                          <div className="w-full bg-[#F5F3FF] rounded-full h-2">
+                                            <div className={`${bar.color} h-2 rounded-full transition-all`} style={{ width: `${bar.pct}%` }} />
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="flex items-center gap-3 pt-1">
+                                  <button onClick={() => loadAnalytics(seq.id)} className="text-xs text-[#6B4EFF] hover:text-[#8B5CF6] transition-colors">Refresh analytics</button>
+                                  <button onClick={() => refreshAnalyticsFromLinkedIn(seq.id)} disabled={refreshingAnalytics[seq.id]} className="flex items-center gap-1 text-xs text-[#6B4EFF] hover:text-[#8B5CF6] transition-colors disabled:opacity-50">
+                                    {refreshingAnalytics[seq.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCcw className="w-3 h-3" />} Sync from LinkedIn
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-[#9CA3AF] text-center py-4">No analytics data yet. Launch the sequence first.</p>
+                            )}
+                          </div>
+                        )}
                       </div>
+                    );
+                  })}
+                </div>
+              )
+            )}
 
-                      {/* ✅ FIXED: Analytics toggle button — was bg-[#F8FAFC] (white) on dark UI */}
-                      <button
-                        onClick={() => toggleAnalytics(seq.id)}
-                        className="w-full flex items-center justify-between px-5 py-2.5 bg-[rgba(255,255,255,.03)] border-t border-[rgba(255,255,255,.08)] text-xs font-medium text-[rgba(255,255,255,.5)] hover:bg-[rgba(255,255,255,.06)] hover:text-white transition-colors"
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <BarChart2 className="w-3.5 h-3.5 text-[#4f46e5]" /> Analytics
-                        </span>
-                        {isLoadingA ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                      </button>
+            {/* ── Reply.io mode ── */}
+            {replyMode && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-[#9CA3AF] uppercase tracking-widest font-medium">Reply.io Sequences</p>
+                    <p className="text-xs text-[#6B7280] mt-0.5">Enroll LinkedIn prospects into Reply.io multichannel sequences</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={loadReplySeqs} className="flex items-center gap-1 text-xs text-[#6B4EFF] hover:text-[#8B5CF6]">
+                      <RefreshCw className="w-3 h-3" /> Refresh
+                    </button>
+                    <button
+                      onClick={() => { setEnrollSeqId(replySelectedId); setEnrollOpen(true); }}
+                      disabled={!replySelectedId}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-semibold rounded-lg hover:opacity-90 disabled:opacity-40 transition-colors"
+                      style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
+                    >
+                      <Users className="w-3 h-3" /> Enroll Contact
+                    </button>
+                  </div>
+                </div>
 
-                      {/* ✅ FIXED: Analytics expanded panel — was bg-[#F8FAFC] (white), now fully dark */}
-                      {isExpanded && (
-                        <div className="px-5 py-4 border-t border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.02)]">
-                          {isLoadingA ? (
-                            <div className="flex justify-center py-4">
-                              <Loader2 className="w-5 h-5 animate-spin text-[rgba(255,255,255,.35)]" />
+                {replySeqsLoading ? (
+                  <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-[#6B4EFF]" /></div>
+                ) : replySeqs.length === 0 ? (
+                  <div className="bg-white border border-dashed border-[rgba(107,78,255,0.2)] rounded-xl p-10 text-center">
+                    <div className="w-12 h-12 bg-[#F5F3FF] rounded-2xl flex items-center justify-center mx-auto mb-3">
+                      <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+                        <path d="M8 10h10a4 4 0 010 8H12v4" stroke="#6B4EFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <circle cx="22" cy="22" r="2.5" fill="#6B4EFF"/>
+                      </svg>
+                    </div>
+                    <p className="text-sm font-semibold text-[#1E1B4B]">No Reply.io sequences found</p>
+                    <p className="text-xs text-[#6B7280] mt-1">Create sequences in Reply.io first, then they'll appear here.</p>
+                    <a href="https://app.reply.io" target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs text-[#6B4EFF] hover:underline font-medium">Open Reply.io →</a>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    {/* Sequence list */}
+                    <div className="space-y-2">
+                      {replySeqs.map((seq) => (
+                        <button key={seq.id} onClick={() => loadReplyDetail(seq.id)}
+                          className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${replySelectedId === seq.id ? "bg-[#F5F3FF] border-[rgba(107,78,255,0.4)]" : "bg-white border-[rgba(107,78,255,0.12)] hover:border-[rgba(107,78,255,0.3)] hover:bg-[#F5F3FF]/50"}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${seq.status === "active" ? "bg-emerald-400" : seq.status === "paused" ? "bg-amber-400" : "bg-gray-300"}`} />
+                            <span className="text-sm font-medium text-[#1E1B4B] truncate">{seq.name}</span>
+                          </div>
+                          <span className={`mt-1 inline-flex text-xs px-1.5 py-0.5 rounded-full capitalize font-medium ${seq.status === "active" ? "bg-emerald-50 text-emerald-700" : seq.status === "paused" ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-500"}`}>
+                            {seq.status}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Sequence detail */}
+                    <div className="lg:col-span-2">
+                      {!replySelectedSeq ? (
+                        <div className="bg-white border border-dashed border-[rgba(107,78,255,0.15)] rounded-xl flex items-center justify-center h-48">
+                          <p className="text-sm text-[#9CA3AF]">Select a sequence to view contacts</p>
+                        </div>
+                      ) : replyDetailLoading ? (
+                        <div className="flex justify-center py-16"><Loader2 className="w-5 h-5 animate-spin text-[#6B4EFF]" /></div>
+                      ) : (
+                        <div className="space-y-3">
+                          {replyStats && (
+                            <div className="grid grid-cols-5 gap-2">
+                              {[
+                                { label: "Total", value: replyStats.total, color: "text-[#1E1B4B]" },
+                                { label: "Active", value: replyStats.active, color: "text-[#6B4EFF]" },
+                                { label: "Replied", value: replyStats.replied, color: "text-blue-600" },
+                                { label: "Opened", value: replyStats.opened, color: "text-indigo-600" },
+                                { label: "Bounced", value: replyStats.bounced, color: "text-red-500" },
+                              ].map(({ label, value, color }) => (
+                                <div key={label} className="bg-white border border-[rgba(107,78,255,0.1)] rounded-xl p-3 text-center">
+                                  <p className={`text-xl font-bold ${color}`}>{value}</p>
+                                  <p className="text-[10px] text-[#9CA3AF] mt-0.5">{label}</p>
+                                </div>
+                              ))}
                             </div>
-                          ) : analytics ? (
-                            <div className="space-y-4">
-                              {/* Stat cards */}
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                {[
-                                  { label: "Contacted", value: analytics.total_contacted, icon: <Send className="w-3.5 h-3.5 text-[rgba(255,255,255,.5)]" />, color: "text-white", sub: undefined },
-                                  { label: "Connected", value: analytics.connected, icon: <UserCheck className="w-3.5 h-3.5 text-[#0077B5]" />, color: "text-[#0077B5]", sub: analytics.total_contacted > 0 ? `${getAcceptanceRate(analytics)}% rate` : undefined },
-                                  { label: "Replied", value: analytics.replied, icon: <MessageCircle className="w-3.5 h-3.5 text-[#34d399]" />, color: "text-[#34d399]", sub: analytics.connected > 0 ? `${getReplyRate(analytics)}% rate` : undefined },
-                                  { label: "Follow-ups", value: analytics.followups_pending, icon: <Clock className="w-3.5 h-3.5 text-amber-400" />, color: "text-amber-400", sub: `${analytics.followups_sent} sent` },
-                                ].map((stat) => (
-                                  <div key={stat.label} className="bg-[rgba(255,255,255,.05)] rounded-xl border border-[rgba(255,255,255,.08)] p-3">
-                                    <div className="flex items-center gap-1.5 mb-1">{stat.icon}<span className="text-xs text-[rgba(255,255,255,.5)]">{stat.label}</span></div>
-                                    <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-                                    {stat.sub && <p className="text-xs text-[rgba(255,255,255,.35)] mt-0.5">{stat.sub}</p>}
+                          )}
+                          <div className="bg-white border border-[rgba(107,78,255,0.12)] rounded-xl p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <p className="text-sm font-semibold text-[#1E1B4B]">
+                                {replySelectedSeq.name}
+                                <span className="ml-2 text-xs text-[#9CA3AF] font-normal">{replyContacts.length} contacts</span>
+                              </p>
+                              <button onClick={() => { setEnrollSeqId(replySelectedId); setEnrollOpen(true); }} className="text-xs text-[#6B4EFF] font-medium hover:underline">+ Add contact</button>
+                            </div>
+                            {replyContacts.length === 0 ? (
+                              <div className="text-center py-6">
+                                <p className="text-sm text-[#9CA3AF]">No contacts yet</p>
+                                <button onClick={() => { setEnrollSeqId(replySelectedId); setEnrollOpen(true); }} className="mt-2 text-xs text-[#6B4EFF] hover:underline font-medium">Enroll first contact →</button>
+                              </div>
+                            ) : (
+                              <div className="divide-y divide-gray-50">
+                                {replyContacts.map((c) => (
+                                  <div key={c.email} className="flex items-center justify-between py-2.5 gap-3">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <div className="w-7 h-7 rounded-full bg-[#F5F3FF] flex items-center justify-center text-xs font-semibold text-[#6B4EFF] flex-shrink-0">
+                                        {(c.firstName?.[0] ?? c.email[0]).toUpperCase()}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="text-xs font-medium text-[#1E1B4B] truncate">{c.firstName} {c.lastName}</p>
+                                        <p className="text-[11px] text-[#9CA3AF] truncate">{c.email}</p>
+                                      </div>
+                                    </div>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium capitalize flex-shrink-0 ${c.status.status === "active" ? "bg-emerald-50 text-emerald-700" : c.status.status === "finished" ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-500"}`}>
+                                      {c.status.status.replace(/_/g, " ")}
+                                    </span>
                                   </div>
                                 ))}
                               </div>
-
-                              {/* Funnel */}
-                              {analytics.total_contacted > 0 && (
-                                <div className="bg-[rgba(255,255,255,.05)] rounded-xl border border-[rgba(255,255,255,.08)] p-4">
-                                  <p className="text-xs font-semibold text-white mb-3">Funnel</p>
-                                  <div className="space-y-2.5">
-                                    {[
-                                      { label: "Contacted", value: analytics.total_contacted, pct: 100, color: "bg-[rgba(255,255,255,.3)]", textColor: "text-[rgba(255,255,255,.5)]" },
-                                      { label: "Connected", value: analytics.connected, pct: getAcceptanceRate(analytics), color: "bg-[#0077B5]", textColor: "text-[#0077B5]" },
-                                      { label: "Replied", value: analytics.replied, pct: analytics.total_contacted > 0 ? Math.round((analytics.replied / analytics.total_contacted) * 100) : 0, color: "bg-[#34d399]", textColor: "text-[#34d399]" },
-                                    ].map((bar) => (
-                                      <div key={bar.label}>
-                                        <div className={`flex justify-between text-xs ${bar.textColor} mb-1`}>
-                                          <span>{bar.label}</span><span>{bar.value}{bar.pct !== 100 ? ` (${bar.pct}%)` : ""}</span>
-                                        </div>
-                                        <div className="w-full bg-[rgba(255,255,255,.08)] rounded-full h-2">
-                                          <div className={`${bar.color} h-2 rounded-full transition-all`} style={{ width: `${bar.pct}%` }} />
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              <div className="flex items-center gap-3 pt-1">
-                                <button onClick={() => loadAnalytics(seq.id)} className="text-xs text-[#4f46e5] hover:text-[#818cf8] transition-colors">Refresh analytics</button>
-                                <button onClick={() => refreshAnalyticsFromLinkedIn(seq.id)} disabled={refreshingAnalytics[seq.id]} className="flex items-center gap-1 text-xs text-[#0077B5] hover:text-[#38bdf8] transition-colors disabled:opacity-50">
-                                  {refreshingAnalytics[seq.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCcw className="w-3 h-3" />} Sync from LinkedIn
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <p className="text-xs text-[rgba(255,255,255,.35)] text-center py-4">No analytics data yet. Launch the sequence first.</p>
-                          )}
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
-                  );
-                })}
+                  </div>
+                )}
               </div>
             )}
           </section>
@@ -919,19 +1185,21 @@ export default function LinkedIn() {
 
       {/* ── Sequence builder modal ── */}
       {showBuilder && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-[#12121f] border border-[rgba(255,255,255,.08)] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-[#12121f] border-b border-[rgba(255,255,255,.08)] px-6 py-4 flex items-center justify-between rounded-t-2xl">
-              <h2 className="text-base font-bold text-white">{editingSeq ? "Edit sequence" : "New sequence"}</h2>
-              <button onClick={() => setShowBuilder(false)} className="p-1.5 text-[rgba(255,255,255,.35)] hover:text-white hover:bg-[rgba(255,255,255,.08)] rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+          <div className="bg-white border border-[rgba(107,78,255,0.2)] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-[rgba(107,78,255,0.1)] px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <h2 className="text-base font-bold text-[#1E1B4B]">{editingSeq ? "Edit sequence" : "New sequence"}</h2>
+              <button onClick={() => setShowBuilder(false)} className="p-1.5 text-[#9CA3AF] hover:text-[#1E1B4B] hover:bg-[#F5F3FF] rounded-lg transition-colors">
+                <X className="w-4 h-4" />
+              </button>
             </div>
             <div className="p-6 space-y-5">
               <div>
-                <label className="block text-sm font-medium text-white mb-1.5">Sequence name</label>
+                <label className="block text-sm font-medium text-[#1E1B4B] mb-1.5">Sequence name</label>
                 <input value={seqName} onChange={(e) => setSeqName(e.target.value)} placeholder="My LinkedIn Sequence" className={inputClass} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-white mb-1.5">Lead list</label>
+                <label className="block text-sm font-medium text-[#1E1B4B] mb-1.5">Lead list</label>
                 <select value={seqListId} onChange={(e) => setSeqListId(e.target.value)} className={inputClass}>
                   <option value="">No list selected</option>
                   {lists.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
@@ -939,23 +1207,23 @@ export default function LinkedIn() {
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-sm font-medium text-white">
-                    Connection request message <span className="text-[rgba(255,255,255,.35)] font-normal">(max 300 chars)</span>
+                  <label className="text-sm font-medium text-[#1E1B4B]">
+                    Connection request message <span className="text-[#9CA3AF] font-normal">(max 300 chars)</span>
                   </label>
                   <div className="flex items-center gap-2">
-                    <button onClick={handlePrefill} disabled={prefilling} className="flex items-center gap-1 text-xs text-[#4f46e5] hover:text-[#818cf8] transition-colors disabled:opacity-50">
+                    <button onClick={handlePrefill} disabled={prefilling} className="flex items-center gap-1 text-xs text-[#6B4EFF] hover:text-[#8B5CF6] transition-colors disabled:opacity-50">
                       {prefilling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} AI fill
                     </button>
                     <div className="relative">
-                      <button onClick={() => setShowTemplates(!showTemplates)} className="flex items-center gap-1 text-xs text-[rgba(255,255,255,.5)] hover:text-white transition-colors">
+                      <button onClick={() => setShowTemplates(!showTemplates)} className="flex items-center gap-1 text-xs text-[#6B7280] hover:text-[#1E1B4B] transition-colors">
                         <FileText className="w-3 h-3" /> Templates
                       </button>
                       {showTemplates && (
-                        <div className="absolute right-0 top-6 z-20 bg-[#1a1a2e] border border-[rgba(255,255,255,.1)] rounded-xl shadow-lg w-72 p-1.5">
+                        <div className="absolute right-0 top-6 z-20 bg-white border border-[rgba(107,78,255,0.15)] rounded-xl shadow-lg w-72 p-1.5">
                           {LINKEDIN_TEMPLATES.map((t, i) => (
-                            <button key={i} onClick={() => { setConnMsg(t.connection_message); if (t.followup_message) setFollowupMsg(t.followup_message); setShowTemplates(false); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-[rgba(255,255,255,.08)] transition-colors">
-                              <p className="text-xs font-semibold text-white">{t.name}</p>
-                              <p className="text-xs text-[rgba(255,255,255,.5)] truncate mt-0.5">{t.connection_message.slice(0, 65)}…</p>
+                            <button key={i} onClick={() => { setConnMsg(t.connection_message); if (t.followup_message) setFollowupMsg(t.followup_message); setShowTemplates(false); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#F5F3FF] transition-colors">
+                              <p className="text-xs font-semibold text-[#1E1B4B]">{t.name}</p>
+                              <p className="text-xs text-[#6B7280] truncate mt-0.5">{t.connection_message.slice(0, 65)}…</p>
                             </button>
                           ))}
                         </div>
@@ -965,37 +1233,91 @@ export default function LinkedIn() {
                 </div>
                 <textarea value={connMsg} onChange={(e) => setConnMsg(e.target.value)} placeholder="Hi {{firstName}}, I noticed you work in… Open to connecting?" rows={4} maxLength={300} className={`${inputClass} resize-none`} />
                 <div className="flex justify-between mt-1">
-                  <p className="text-xs text-[rgba(255,255,255,.35)]">Use {"{{firstName}}"} as a personalisation token.</p>
-                  <span className={`text-xs ${connMsg.length > 280 ? "text-amber-400" : "text-[rgba(255,255,255,.35)]"}`}>{connMsg.length}/300</span>
+                  <p className="text-xs text-[#9CA3AF]">Use {"{{firstName}}"} as a personalisation token.</p>
+                  <span className={`text-xs ${connMsg.length > 280 ? "text-amber-500" : "text-[#9CA3AF]"}`}>{connMsg.length}/300</span>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-white mb-1.5">Follow-up message <span className="text-[rgba(255,255,255,.35)] font-normal">(optional)</span></label>
+                <label className="block text-sm font-medium text-[#1E1B4B] mb-1.5">Follow-up message <span className="text-[#9CA3AF] font-normal">(optional)</span></label>
                 <textarea value={followupMsg} onChange={(e) => setFollowupMsg(e.target.value)} placeholder="Hey {{firstName}}, thanks for connecting! …" rows={3} className={`${inputClass} resize-none`} />
               </div>
               {followupMsg.trim() && (
                 <div>
-                  <label className="block text-sm font-medium text-white mb-1.5">
-                    Send follow-up after <span className="text-[#4f46e5] font-bold">{followupDelay} day{followupDelay !== 1 ? "s" : ""}</span>
+                  <label className="block text-sm font-medium text-[#1E1B4B] mb-1.5">
+                    Send follow-up after <span className="text-[#6B4EFF] font-bold">{followupDelay} day{followupDelay !== 1 ? "s" : ""}</span>
                   </label>
-                  <input type="range" min={1} max={14} value={followupDelay} onChange={(e) => setFollowupDelay(Number(e.target.value))} className="w-full accent-[#4f46e5]" />
+                  <input type="range" min={1} max={14} value={followupDelay} onChange={(e) => setFollowupDelay(Number(e.target.value))} className="w-full accent-[#6B4EFF]" />
                 </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-white mb-1.5">Sequence daily limit <span className="text-[rgba(255,255,255,.35)] font-normal">(max 30)</span></label>
+                <label className="block text-sm font-medium text-[#1E1B4B] mb-1.5">Sequence daily limit <span className="text-[#9CA3AF] font-normal">(max 30)</span></label>
                 <div className="flex items-center gap-3">
-                  <input type="range" min={1} max={30} value={seqDailyLimit} onChange={(e) => setSeqDailyLimit(Number(e.target.value))} className="flex-1 accent-[#4f46e5]" />
-                  <span className="w-12 text-center text-sm font-bold text-white bg-[rgba(255,255,255,.04)] border border-[rgba(255,255,255,.08)] rounded-lg py-1.5">{seqDailyLimit}</span>
+                  <input type="range" min={1} max={30} value={seqDailyLimit} onChange={(e) => setSeqDailyLimit(Number(e.target.value))} className="flex-1 accent-[#6B4EFF]" />
+                  <span className="w-12 text-center text-sm font-bold text-[#6B4EFF] bg-[#F5F3FF] border border-[rgba(107,78,255,0.2)] rounded-lg py-1.5">{seqDailyLimit}</span>
                 </div>
               </div>
             </div>
-            <div className="sticky bottom-0 bg-[#12121f] border-t border-[rgba(255,255,255,.08)] px-6 py-4 flex gap-3 rounded-b-2xl">
-              <button onClick={handleSaveSeq} disabled={savingSeq} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#4f46e5] text-white text-sm font-semibold rounded-xl hover:bg-[#4338ca] transition-colors disabled:opacity-50">
+            <div className="sticky bottom-0 bg-white border-t border-[rgba(107,78,255,0.1)] px-6 py-4 flex gap-3 rounded-b-2xl">
+              <button
+                onClick={handleSaveSeq}
+                disabled={savingSeq}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
+                style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
+              >
                 {savingSeq ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                 {savingSeq ? "Saving…" : editingSeq ? "Update sequence" : "Create sequence"}
               </button>
-              <button onClick={() => setShowBuilder(false)} className="px-5 py-2.5 border border-[rgba(255,255,255,.08)] text-[rgba(255,255,255,.5)] text-sm font-semibold rounded-xl hover:bg-[rgba(255,255,255,.04)] transition-colors">Cancel</button>
+              <button onClick={() => setShowBuilder(false)} className="px-5 py-2.5 border border-[rgba(107,78,255,0.2)] text-[#6B7280] text-sm font-semibold rounded-xl hover:bg-[#F5F3FF] transition-colors">Cancel</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Reply.io enroll modal ── */}
+      {enrollOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+          <div className="bg-white border border-[rgba(107,78,255,0.2)] rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(107,78,255,0.1)]">
+              <h3 className="text-sm font-semibold text-[#1E1B4B]">Enroll Contact in Reply.io</h3>
+              <button onClick={() => setEnrollOpen(false)} className="text-[#9CA3AF] hover:text-[#1E1B4B]">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleEnroll} className="p-5 space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-[#6B7280] mb-1">Sequence</label>
+                <select value={enrollSeqId ?? ""} onChange={(e) => setEnrollSeqId(Number(e.target.value))} className={inputClass}>
+                  <option value="">Select sequence…</option>
+                  {replySeqs.filter((s) => s.status === "active").map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#6B7280] mb-1">Email <span className="text-red-500">*</span></label>
+                <input type="email" required value={enrollEmail} onChange={(e) => setEnrollEmail(e.target.value)} placeholder="name@company.com" className={inputClass} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-[#6B7280] mb-1">First name</label>
+                  <input value={enrollFirst} onChange={(e) => setEnrollFirst(e.target.value)} placeholder="Jane" className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[#6B7280] mb-1">Last name</label>
+                  <input value={enrollLast} onChange={(e) => setEnrollLast(e.target.value)} placeholder="Smith" className={inputClass} />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => setEnrollOpen(false)} className="flex-1 py-2 border border-[rgba(107,78,255,0.2)] text-[#6B7280] text-sm font-medium rounded-lg hover:bg-[#F5F3FF]">Cancel</button>
+                <button type="submit" disabled={enrolling || !enrollEmail || !enrollSeqId}
+                  className="flex-1 py-2 text-white text-sm font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
+                >
+                  {enrolling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                  {enrolling ? "Enrolling…" : "Enroll"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

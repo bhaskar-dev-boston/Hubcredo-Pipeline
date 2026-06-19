@@ -10,13 +10,15 @@ import Signup from "@/pages/Signup";
 import Onboarding from "@/pages/Onboarding";
 import Dashboard from "@/pages/dashboard/Dashboard";
 import Leads from "@/pages/dashboard/Leads";
-import Stack from "@/pages/dashboard/Stack";
+
+
 import Settings from "@/pages/dashboard/Settings";
 import DomainFinder from "@/pages/dashboard/DomainFinder";
 import Billing from "@/pages/dashboard/Billing";
 import Campaigns from "@/pages/dashboard/Campaigns";
 import InboxPage from "@/pages/dashboard/Inbox";
 import LinkedInOutreach from "@/pages/dashboard/LinkedIn";
+import ReplyioPage from "@/pages/dashboard/ReplyioPage";
 import CRM from "@/pages/dashboard/CRM";
 import RecommendedTools from "@/pages/dashboard/RecommendedTools";
 import NotFound from "@/pages/not-found";
@@ -47,9 +49,10 @@ function Router() {
       <Route path="/dashboard/leads">
         <ProtectedRoute component={Leads} />
       </Route>
-      <Route path="/dashboard/stack">
-        <ProtectedRoute component={Stack} />
+      <Route path="/dashboard/replyio">
+        <ProtectedRoute component={ReplyioPage} />
       </Route>
+
       <Route path="/dashboard/settings">
         <ProtectedRoute component={Settings} />
       </Route>

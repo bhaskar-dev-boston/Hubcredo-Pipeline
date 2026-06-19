@@ -249,6 +249,18 @@ export default function Campaigns() {
   const [enrollLast, setEnrollLast] = useState("");
   const [enrolling, setEnrolling] = useState(false);
 
+  // ── Reply.io wizard state ──────────────────────────────────
+  const [replyWizard, setReplyWizard] = useState(false);
+  const [replyWizStep, setReplyWizStep] = useState<1 | 2>(1);
+  const [replyWizName, setReplyWizName] = useState("");
+  const [replyWizSteps, setReplyWizSteps] = useState<CampaignSequence[]>([]);
+  const [replyWizListId, setReplyWizListId] = useState("");
+  const [replyCreating, setReplyCreating] = useState(false);
+  const [replyActivatingId, setReplyActivatingId] = useState<number | null>(null);
+  const [replyPausingId, setReplyPausingId] = useState<number | null>(null);
+  const [replyEnrollListId, setReplyEnrollListId] = useState("");
+  const [replyEnrollingList, setReplyEnrollingList] = useState(false);
+
   const { data: leadLists = [] } = useListLeadLists();
   const { data: icps = [] } = useListIcps();
   const lists = leadLists as LeadList[];
@@ -328,6 +340,72 @@ export default function Campaigns() {
   function handleToggleReplyMode(on: boolean) {
     setReplyMode(on);
     if (on && replySeqs.length === 0) loadReplySeqs();
+  }
+
+  function resetReplyWizard() { setReplyWizStep(1); setReplyWizName(""); setReplyWizSteps([]); setReplyWizListId(""); }
+  function addReplyWizStep() { setReplyWizSteps((p) => [...p, { step_number: p.length + 1, subject: "", body: "", delay_days: p.length === 0 ? 0 : 3 }]); }
+  function applyReplyTemplate(t: EmailTemplate) { setReplyWizSteps(t.sequences.map((s, i) => ({ ...s, step_number: i + 1 }))); toast({ title: `Template applied` }); }
+
+  async function handleCreateReplySeq() {
+    if (!replyWizName.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
+    setReplyCreating(true);
+    try {
+      const res = await apiFetch("/api/replyio/sequences", {
+        method: "POST",
+        body: JSON.stringify({
+          name: replyWizName.trim(),
+          steps: replyWizSteps.map((s) => ({ type: "email", delay_days: s.delay_days, subject: s.subject, body: s.body })),
+        }),
+      });
+      const seq = await res.json();
+      if (!res.ok) throw new Error(seq.error ?? "Failed to create campaign");
+      const stepWarning = seq.stepErrors?.length ? ` (${seq.stepErrors.length} step(s) failed — check Reply.io)` : "";
+      if (replyWizListId) {
+        const eRes = await apiFetch(`/api/replyio/sequences/${seq.id}/enroll-list`, { method: "POST", body: JSON.stringify({ lead_list_id: replyWizListId }) });
+        const eData = await eRes.json();
+        toast({ title: "Campaign created!" + stepWarning, description: eRes.ok ? `Enrolled ${eData.enrolled} of ${eData.total} leads.` : `Created — enroll failed: ${eData.error}` });
+      } else {
+        toast({ title: "Campaign created!" + stepWarning, description: `"${seq.name}" is ready in Reply.io.` });
+      }
+      setReplyWizard(false); resetReplyWizard(); loadReplySeqs();
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Could not create campaign", variant: "destructive" });
+    } finally { setReplyCreating(false); }
+  }
+
+  async function handleActivateReply(id: number) {
+    setReplyActivatingId(id);
+    try {
+      const res = await apiFetch(`/api/replyio/sequences/${id}/activate`, { method: "POST" });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+      setReplySeqs((prev) => prev.map((s) => s.id === id ? { ...s, status: "active" } : s));
+      toast({ title: "Sequence activated! 🚀" });
+    } catch (err) { toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" }); }
+    finally { setReplyActivatingId(null); }
+  }
+
+  async function handlePauseReply(id: number) {
+    setReplyPausingId(id);
+    try {
+      const res = await apiFetch(`/api/replyio/sequences/${id}/pause-seq`, { method: "POST" });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+      setReplySeqs((prev) => prev.map((s) => s.id === id ? { ...s, status: "paused" } : s));
+      toast({ title: "Sequence paused." });
+    } catch (err) { toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" }); }
+    finally { setReplyPausingId(null); }
+  }
+
+  async function handleEnrollListToSeq(seqId: number, listId: string) {
+    if (!listId) { toast({ title: "Select a lead list first", variant: "destructive" }); return; }
+    setReplyEnrollingList(true);
+    try {
+      const res = await apiFetch(`/api/replyio/sequences/${seqId}/enroll-list`, { method: "POST", body: JSON.stringify({ lead_list_id: listId }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast({ title: "Leads enrolled!", description: `${data.enrolled} of ${data.total} contacts added to sequence.` });
+      if (replySelectedId === seqId) loadReplyDetail(seqId);
+    } catch (err) { toast({ title: "Enroll failed", description: err instanceof Error ? err.message : "Error", variant: "destructive" }); }
+    finally { setReplyEnrollingList(false); }
   }
 
   async function loadDetail(id: string) {
@@ -527,7 +605,7 @@ export default function Campaigns() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-[#9CA3AF] uppercase tracking-widest font-medium">Reply.io Email Sequences</p>
-                <p className="text-xs text-[#6B7280] mt-0.5">Send email outreach via Reply.io sequences</p>
+                <p className="text-xs text-[#6B7280] mt-0.5">Create and send email campaigns via Reply.io sequences</p>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={loadReplySeqs} className="flex items-center gap-1 text-xs text-[#5B4FE8] hover:text-[#4A3FD6]">
@@ -536,9 +614,15 @@ export default function Campaigns() {
                 <button
                   onClick={() => { setEnrollSeqId(replySelectedId); setEnrollOpen(true); }}
                   disabled={!replySelectedId}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 ${btnPrimary}`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#5B4FE8] text-[#5B4FE8] rounded-lg hover:bg-[#F5F3FF] transition-colors disabled:opacity-40"
                 >
                   <Users className="w-3 h-3" /> Enroll Contact
+                </button>
+                <button
+                  onClick={() => { setReplyWizard(true); resetReplyWizard(); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 ${btnPrimary}`}
+                >
+                  <Plus className="w-3.5 h-3.5" /> New Campaign
                 </button>
               </div>
             </div>
@@ -553,26 +637,46 @@ export default function Campaigns() {
                     <circle cx="22" cy="22" r="2.5" fill="#5B4FE8"/>
                   </svg>
                 </div>
-                <p className="text-sm font-semibold text-[#1a1a2e]">No Reply.io sequences found</p>
-                <p className="text-xs text-[#6B7280] mt-1">Create sequences in Reply.io first, then they'll appear here.</p>
-                <a href="https://app.reply.io" target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs text-[#5B4FE8] hover:underline font-medium">Open Reply.io →</a>
+                <p className="text-sm font-semibold text-[#1a1a2e]">No Reply.io sequences yet</p>
+                <p className="text-xs text-[#6B7280] mt-1">Create your first campaign directly from HubCredo.</p>
+                <button
+                  onClick={() => { setReplyWizard(true); resetReplyWizard(); }}
+                  className={`mt-4 flex items-center gap-1.5 px-4 py-2 mx-auto ${btnPrimary}`}
+                >
+                  <Plus className="w-3.5 h-3.5" /> Create first campaign
+                </button>
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Sequence list */}
                 <div className="space-y-2">
                   {replySeqs.map((seq) => (
-                    <button key={seq.id} onClick={() => loadReplyDetail(seq.id)}
-                      className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${replySelectedId === seq.id ? "bg-[#F5F3FF] border-[#5B4FE8]/40 shadow-[0_0_0_3px_rgba(91,79,232,0.08)]" : "bg-white border-[#E5E7EB] hover:border-[#5B4FE8]/40 hover:shadow-sm"}`}
+                    <div key={seq.id}
+                      className={`rounded-xl border transition-all ${replySelectedId === seq.id ? "bg-[#F5F3FF] border-[#5B4FE8]/40 shadow-[0_0_0_3px_rgba(91,79,232,0.08)]" : "bg-white border-[#E5E7EB] hover:border-[#5B4FE8]/40 hover:shadow-sm"}`}
                     >
-                      <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${seq.status === "active" ? "bg-emerald-400" : seq.status === "paused" ? "bg-amber-400" : "bg-gray-300"}`} />
-                        <span className="text-sm font-medium text-[#1a1a2e] truncate">{seq.name}</span>
+                      <button className="w-full text-left px-4 pt-3 pb-2" onClick={() => loadReplyDetail(seq.id)}>
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${seq.status === "active" ? "bg-emerald-400" : seq.status === "paused" ? "bg-amber-400" : "bg-gray-300"}`} />
+                          <span className="text-sm font-medium text-[#1a1a2e] truncate">{seq.name}</span>
+                        </div>
+                        <span className={`mt-1 inline-flex text-xs px-1.5 py-0.5 rounded-full capitalize font-medium ${seq.status === "active" ? "bg-emerald-50 text-emerald-700" : seq.status === "paused" ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-500"}`}>
+                          {seq.status}
+                        </span>
+                      </button>
+                      <div className="flex items-center gap-1 px-4 pb-2">
+                        {seq.status !== "active" ? (
+                          <button onClick={() => handleActivateReply(seq.id)} disabled={replyActivatingId === seq.id}
+                            className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:text-emerald-700 disabled:opacity-50">
+                            {replyActivatingId === seq.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Play className="w-2.5 h-2.5" />} Launch
+                          </button>
+                        ) : (
+                          <button onClick={() => handlePauseReply(seq.id)} disabled={replyPausingId === seq.id}
+                            className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 hover:text-amber-700 disabled:opacity-50">
+                            {replyPausingId === seq.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Pause className="w-2.5 h-2.5" />} Pause
+                          </button>
+                        )}
                       </div>
-                      <span className={`mt-1 inline-flex text-xs px-1.5 py-0.5 rounded-full capitalize font-medium ${seq.status === "active" ? "bg-emerald-50 text-emerald-700" : seq.status === "paused" ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-500"}`}>
-                        {seq.status}
-                      </span>
-                    </button>
+                    </div>
                   ))}
                 </div>
 
@@ -580,7 +684,7 @@ export default function Campaigns() {
                 <div className="lg:col-span-2">
                   {!replySelectedSeq ? (
                     <div className="bg-white border border-dashed border-[#E5E7EB] rounded-xl flex items-center justify-center h-48">
-                      <p className="text-sm text-[#9CA3AF]">Select a sequence to view contacts</p>
+                      <p className="text-sm text-[#9CA3AF]">Select a sequence to view details</p>
                     </div>
                   ) : replyDetailLoading ? (
                     <div className="flex justify-center py-16"><Loader2 className="w-5 h-5 animate-spin text-[#5B4FE8]" /></div>
@@ -602,6 +706,26 @@ export default function Campaigns() {
                           ))}
                         </div>
                       )}
+
+                      {/* Bulk enroll from lead list */}
+                      <div className="bg-white border border-[#E5E7EB] rounded-xl p-4">
+                        <p className="text-xs font-semibold text-[#1a1a2e] mb-2">Enroll from lead list</p>
+                        <div className="flex gap-2">
+                          <select value={replyEnrollListId} onChange={(e) => setReplyEnrollListId(e.target.value)} className={`${selectCls} flex-1`}>
+                            <option value="">Select a lead list…</option>
+                            {lists.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+                          </select>
+                          <button
+                            onClick={() => handleEnrollListToSeq(replySelectedId!, replyEnrollListId)}
+                            disabled={!replyEnrollListId || replyEnrollingList}
+                            className={`flex items-center gap-1.5 px-3 py-2 ${btnPrimary} disabled:opacity-40`}
+                          >
+                            {replyEnrollingList ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                            Enroll list
+                          </button>
+                        </div>
+                      </div>
+
                       <div className="bg-white border border-[#E5E7EB] rounded-xl p-4">
                         <div className="flex items-center justify-between mb-3">
                           <p className="text-sm font-semibold text-[#1a1a2e]">
@@ -628,9 +752,13 @@ export default function Campaigns() {
                                     <p className="text-[11px] text-[#9CA3AF] truncate">{c.email}</p>
                                   </div>
                                 </div>
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium capitalize flex-shrink-0 ${c.status.status === "active" ? "bg-emerald-50 text-emerald-700" : c.status.status === "finished" ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-500"}`}>
-                                  {c.status.status.replace(/_/g, " ")}
-                                </span>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium capitalize ${c.status.status === "active" ? "bg-emerald-50 text-emerald-700" : c.status.status === "finished" ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-500"}`}>
+                                    {c.status.status.replace(/_/g, " ")}
+                                  </span>
+                                  {c.status.opened && <span title="Opened"><Eye className="w-3 h-3 text-blue-400" /></span>}
+                                  {c.status.replied && <span title="Replied"><MessageSquare className="w-3 h-3 text-emerald-400" /></span>}
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -1087,6 +1215,161 @@ export default function Campaigns() {
             </div>
           </div>
         </>
+      )}
+
+      {/* ── Reply.io Create Campaign wizard ── */}
+      {replyWizard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+          <div className="bg-white border border-[#E5E7EB] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB] flex-shrink-0">
+              <div>
+                <h3 className="text-sm font-bold text-[#1a1a2e]">New Reply.io Campaign</h3>
+                <p className="text-xs text-[#6B7280] mt-0.5">Step {replyWizStep} of 2</p>
+              </div>
+              <button onClick={() => setReplyWizard(false)} className="text-[#9CA3AF] hover:text-[#1a1a2e]"><X className="w-4 h-4" /></button>
+            </div>
+
+            {/* Step indicator */}
+            <div className="flex items-center gap-0 px-6 pt-3 flex-shrink-0">
+              {[1, 2].map((s) => (
+                <div key={s} className="flex items-center">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${replyWizStep >= s ? "bg-[#5B4FE8] text-white" : "bg-[#F3F4F6] text-[#9CA3AF]"}`}>{s}</div>
+                  {s < 2 && <div className={`w-16 h-0.5 mx-1 ${replyWizStep >= s + 1 ? "bg-[#5B4FE8]" : "bg-[#E5E7EB]"}`} />}
+                </div>
+              ))}
+              <div className="ml-3 text-xs text-[#9CA3AF]">{replyWizStep === 1 ? "Name & email steps" : "Lead list & launch"}</div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {replyWizStep === 1 && (
+                <>
+                  <div>
+                    <label className="block text-xs font-medium text-[#6B7280] mb-1.5">Campaign name <span className="text-red-400">*</span></label>
+                    <input
+                      autoFocus
+                      value={replyWizName}
+                      onChange={(e) => setReplyWizName(e.target.value)}
+                      placeholder="e.g. Q3 SaaS Outreach"
+                      className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-[#5B4FE8] focus:ring-2 focus:ring-[#5B4FE8]/10"
+                    />
+                  </div>
+
+                  {/* Template picker */}
+                  <div>
+                    <label className="block text-xs font-medium text-[#6B7280] mb-1.5">Apply template (optional)</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([] as EmailTemplate[]).concat(
+                        (() => {
+                          try { return (window as any).__hcTemplates ?? []; } catch { return []; }
+                        })()
+                      ).length === 0 ? null : null}
+                    </div>
+                    <select
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val) {
+                          try {
+                            const tpl = JSON.parse(val) as EmailTemplate;
+                            applyReplyTemplate(tpl);
+                          } catch { /* */ }
+                        }
+                        e.target.value = "";
+                      }}
+                      className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-[#5B4FE8]"
+                    >
+                      <option value="">Pick a template…</option>
+                      <option value={JSON.stringify({ sequences: [{ step_number: 1, delay_days: 0, subject: "Quick question", body: "Hi {{firstName}},\n\nI work with B2B companies to improve their outbound sales infrastructure. I thought you might be a great fit.\n\nWould love to connect — are you open to a quick 15-min call?\n\nBest,\n{{senderName}}" }, { step_number: 2, delay_days: 3, subject: "Re: Quick question", body: "Hi {{firstName}},\n\nJust following up in case this slipped through. Would you be open to a quick chat about improving your outbound?\n\nBest,\n{{senderName}}" }] })}>Cold Outreach (2-step)</option>
+                      <option value={JSON.stringify({ sequences: [{ step_number: 1, delay_days: 0, subject: "Idea for {{companyName}}", body: "Hi {{firstName}},\n\nI noticed {{companyName}} is growing fast. I have a few ideas on how to scale your pipeline — mind if I share?\n\n{{senderName}}" }, { step_number: 2, delay_days: 4, subject: "One more thought", body: "Hey {{firstName}}, just wanted to drop one more note. Happy to show you how we've helped similar companies 2x their reply rates.\n\n{{senderName}}" }, { step_number: 3, delay_days: 7, subject: "Last note", body: "Hi {{firstName}}, I'll leave you alone after this — but if you ever want to talk outbound, I'm here. {{senderName}}" }] })}>Value-First (3-step)</option>
+                    </select>
+                  </div>
+
+                  {/* Email steps */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-medium text-[#6B7280]">Email steps</label>
+                      <button onClick={addReplyWizStep} className="flex items-center gap-1 text-xs text-[#5B4FE8] font-medium hover:text-[#4A3FD6]">
+                        <Plus className="w-3 h-3" /> Add step
+                      </button>
+                    </div>
+                    {replyWizSteps.length === 0 ? (
+                      <div className="bg-[#F9FAFB] border border-dashed border-[#E5E7EB] rounded-xl p-6 text-center">
+                        <p className="text-sm text-[#9CA3AF] mb-2">No steps yet</p>
+                        <button onClick={addReplyWizStep} className="text-xs text-[#5B4FE8] hover:underline font-medium">Add first email step →</button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {replyWizSteps.map((step, i) => (
+                          <div key={i} className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-4 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-[#5B4FE8]">Step {i + 1}</span>
+                              <div className="flex items-center gap-2">
+                                {i > 0 && (
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[10px] text-[#9CA3AF]">Delay:</span>
+                                    <input type="number" min={1} value={step.delay_days} onChange={(e) => setReplyWizSteps((prev) => prev.map((s, j) => j === i ? { ...s, delay_days: Number(e.target.value) } : s))} className="w-14 px-1.5 py-0.5 border border-[#E5E7EB] rounded text-xs text-center focus:outline-none focus:border-[#5B4FE8]" />
+                                    <span className="text-[10px] text-[#9CA3AF]">days</span>
+                                  </div>
+                                )}
+                                {i === 0 && <span className="text-[10px] text-[#9CA3AF]">Sends immediately</span>}
+                                <button onClick={() => setReplyWizSteps((p) => p.filter((_, j) => j !== i))} className="text-[#9CA3AF] hover:text-red-400"><X className="w-3 h-3" /></button>
+                              </div>
+                            </div>
+                            <input value={step.subject} onChange={(e) => setReplyWizSteps((p) => p.map((s, j) => j === i ? { ...s, subject: e.target.value } : s))} placeholder="Email subject" className="w-full px-3 py-1.5 border border-[#E5E7EB] rounded-lg text-xs focus:outline-none focus:border-[#5B4FE8] bg-white" />
+                            <textarea value={step.body} onChange={(e) => setReplyWizSteps((p) => p.map((s, j) => j === i ? { ...s, body: e.target.value } : s))} placeholder="Email body… (use {{firstName}}, {{companyName}} for personalization)" rows={4} className="w-full px-3 py-1.5 border border-[#E5E7EB] rounded-lg text-xs focus:outline-none focus:border-[#5B4FE8] bg-white resize-none" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {replyWizStep === 2 && (
+                <div className="space-y-4">
+                  <div className="bg-[#F5F3FF] border border-[#5B4FE8]/20 rounded-xl p-4">
+                    <p className="text-xs font-semibold text-[#5B4FE8] mb-0.5">Campaign ready to create</p>
+                    <p className="text-sm font-bold text-[#1a1a2e]">{replyWizName}</p>
+                    <p className="text-xs text-[#6B7280] mt-1">{replyWizSteps.length} email step{replyWizSteps.length !== 1 ? "s" : ""}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-[#6B7280] mb-1.5">Enroll a lead list (optional)</label>
+                    <select value={replyWizListId} onChange={(e) => setReplyWizListId(e.target.value)} className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-[#5B4FE8]">
+                      <option value="">Skip — enroll manually later</option>
+                      {lists.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+                    </select>
+                    {replyWizListId && <p className="text-[11px] text-[#9CA3AF] mt-1">All approved leads from this list will be enrolled once the campaign is created.</p>}
+                  </div>
+
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                    <p className="text-xs text-amber-700">After creation, activate the sequence in Reply.io (or use the Launch button here) to start sending.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 px-6 py-4 border-t border-[#E5E7EB] flex-shrink-0">
+              {replyWizStep === 1 ? (
+                <>
+                  <button onClick={() => setReplyWizard(false)} className="flex-1 py-2 border border-[#E5E7EB] text-sm font-semibold text-[#6B7280] rounded-xl hover:bg-[#F9FAFB]">Cancel</button>
+                  <button
+                    onClick={() => { if (!replyWizName.trim()) { toast({ title: "Name required", variant: "destructive" }); return; } setReplyWizStep(2); }}
+                    className={`flex-1 py-2 ${btnPrimary}`}
+                  >
+                    Next → Lead list
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => setReplyWizStep(1)} className="flex-1 py-2 border border-[#E5E7EB] text-sm font-semibold text-[#6B7280] rounded-xl hover:bg-[#F9FAFB]">← Back</button>
+                  <button onClick={handleCreateReplySeq} disabled={replyCreating} className={`flex-1 py-2 ${btnPrimary} disabled:opacity-50`}>
+                    {replyCreating ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating…</> : <><CheckCircle2 className="w-4 h-4" /> Create campaign</>}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Reply.io Enroll modal */}

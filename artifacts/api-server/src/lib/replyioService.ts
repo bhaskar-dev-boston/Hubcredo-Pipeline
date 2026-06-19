@@ -51,7 +51,7 @@ export interface ReplyContact {
   firstName?: string;
   lastName?: string;
   title?: string;
-  company?: string;
+  companyName?: string;
   linkedInProfile?: string;
   phone?: string;
   country?: string;

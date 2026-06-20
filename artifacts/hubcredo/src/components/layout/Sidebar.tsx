@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, Layers, Settings, LogOut, Zap, X, Globe, CreditCard, Mail, Inbox, Linkedin, Building2, Sparkles, ShoppingCart, ChevronLeft} from "lucide-react";
+import { LayoutDashboard, Users, Layers, Settings, LogOut, Zap, X, Globe, CreditCard, Mail, Inbox, Linkedin, Building2, Sparkles, ShoppingCart} from "lucide-react";
 import { removeToken } from "@/lib/auth";
 import { useGetMe } from "@workspace/api-client-react";
 import { useCreditStore } from "@/store/creditStore";
@@ -12,12 +12,13 @@ const navItems = [
   { href: "/dashboard/campaigns", label: "Campaigns", icon: Mail },
   { href: "/dashboard/inbox", label: "Inbox", icon: Inbox },
   { href: "/dashboard/tools", label: "Recommended Tools", icon: Sparkles },
+  
   { href: "/dashboard/domains", label: "Domain Finder", icon: Globe },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
 const secondaryNavItems = [
-  { href: "/dashboard/replyio", label: "Reply.io Outreach", icon: Users },
+  { href:"/dashboard/replyio",label: "Reply.io Outreach", icon: Users },
   { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
 ];
 
@@ -47,18 +48,18 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
 
   const isCrmActive = location === "/dashboard/crm" || location.startsWith("/dashboard/crm");
 
-  const sidebarContent = (showCloseBtn: boolean) => (
+  const sidebarContent = (
     <aside style={{ display: "flex", flexDirection: "column", width: 256, height: "100%", background: "#FFFFFF", borderRight: "1px solid rgba(107,78,255,.12)", fontFamily: "'Inter', system-ui, sans-serif" }}>
       {/* Logo */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 20px", borderBottom: "1px solid rgba(107,78,255,.12)" }}>
         <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }} onClick={onClose}>
-          <img src="/favicon.svg" alt="HubCredo" style={{ width: 70, height: 30, objectFit: "contain", flexShrink: 0 }} />
-          <span style={{ color: "#1E1B4B", fontWeight: 800, fontSize: "1.05rem", letterSpacing: "-0.02em" }}>HubCredo</span>
-        </Link>
-        {/* X button — always visible now */}
+  <img src="/favicon.svg" alt="HubCredo" style={{ width: 70, height: 30, objectFit: "contain", flexShrink: 0 }} />
+  <span style={{ color: "#1E1B4B", fontWeight: 800, fontSize: "1.05rem", letterSpacing: "-0.02em" }}>HubCredo</span>
+</Link>
         <button
           onClick={onClose}
           style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 8, border: "none", background: "transparent", color: "#9CA3AF", cursor: "pointer" }}
+          className="lg:hidden"
         >
           <X style={{ width: 16, height: 16 }} />
         </button>
@@ -86,8 +87,15 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
               href={href}
               onClick={onClose}
               style={{
-                display: "flex", alignItems: "center", gap: 12, padding: "9px 12px", borderRadius: 10,
-                fontSize: "0.875rem", fontWeight: 500, textDecoration: "none", transition: "all 0.15s",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "9px 12px",
+                borderRadius: 10,
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                textDecoration: "none",
+                transition: "all 0.15s",
                 color: isActive ? "#fff" : "#6B7280",
                 background: isActive ? "#6B4EFF" : "transparent",
                 boxShadow: isActive ? "0 2px 8px rgba(107,78,255,.3)" : "none",
@@ -109,8 +117,15 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
             href="/dashboard/crm"
             onClick={onClose}
             style={{
-              display: "flex", alignItems: "center", gap: 12, padding: "9px 12px", borderRadius: 10,
-              fontSize: "0.875rem", fontWeight: 500, textDecoration: "none", transition: "all 0.15s",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "9px 12px",
+              borderRadius: 10,
+              fontSize: "0.875rem",
+              fontWeight: 500,
+              textDecoration: "none",
+              transition: "all 0.15s",
               color: isCrmActive ? "#fff" : "#6B7280",
               background: isCrmActive ? "#6B4EFF" : "transparent",
               boxShadow: isCrmActive ? "0 2px 8px rgba(107,78,255,.3)" : "none",
@@ -127,7 +142,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
           </Link>
         </div>
 
-        {/* Secondary nav */}
+        {/* Billing */}
         <div style={{ paddingTop: 4 }}>
           {secondaryNavItems.map(({ href, label, icon: Icon }) => {
             const isActive = location === href;
@@ -137,8 +152,15 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
                 href={href}
                 onClick={onClose}
                 style={{
-                  display: "flex", alignItems: "center", gap: 12, padding: "9px 12px", borderRadius: 10,
-                  fontSize: "0.875rem", fontWeight: 500, textDecoration: "none", transition: "all 0.15s",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "9px 12px",
+                  borderRadius: 10,
+                  fontSize: "0.875rem",
+                  fontWeight: 500,
+                  textDecoration: "none",
+                  transition: "all 0.15s",
                   color: isActive ? "#fff" : "#6B7280",
                   background: isActive ? "#6B4EFF" : "transparent",
                   boxShadow: isActive ? "0 2px 8px rgba(107,78,255,.3)" : "none",
@@ -195,12 +217,9 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
 
   return (
     <>
-      {/* Desktop sidebar — controlled by mobileOpen/onClose same as mobile */}
-      <div
-        className="hidden lg:flex flex-col shrink-0 transition-all duration-300"
-        style={{ width: mobileOpen ? 256 : 0, overflow: "hidden", minHeight: "100vh" }}
-      >
-        {sidebarContent(true)}
+      {/* Desktop sidebar */}
+      <div className="hidden lg:flex flex-col w-64 min-h-screen shrink-0">
+        {sidebarContent}
       </div>
 
       {/* Mobile sidebar drawer */}
@@ -212,7 +231,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
         <div
           className={`lg:hidden fixed inset-y-0 left-0 z-50 flex flex-col w-72 shadow-2xl transition-transform duration-300 ease-in-out ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
         >
-          {sidebarContent(false)}
+          {sidebarContent}
         </div>
       </>
     </>

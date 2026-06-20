@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { requireAuth, type AuthenticatedRequest } from "../lib/auth";
 import { grantCredits } from "../lib/credits";
@@ -11,6 +12,13 @@ import {
 const TRIAL_CREDITS = 100;
 
 const router: IRouter = Router();
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+
+// Anon client specifically for OAuth code exchange
+const supabaseAnon = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!
+);
 
 router.post("/auth/signup", async (req, res): Promise<void> => {
   const { email, password, full_name } = req.body;
@@ -44,7 +52,7 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
     credit_balance: 0,
   });
 
-  // Grant trial credits (100 credits = $100 value, one-time)
+  // Grant trial credits
   try {
     await grantCredits(userId, TRIAL_CREDITS, "trial_grant", "Welcome! 100 free trial credits");
   } catch (err) {
@@ -137,8 +145,6 @@ router.post("/auth/refresh", async (req, res): Promise<void> => {
 });
 
 router.post("/auth/logout", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
-  // Token revocation is handled on the client side (removing from localStorage)
-  // Server just confirms logout
   res.status(204).send();
 });
 
@@ -180,6 +186,32 @@ router.patch("/auth/profile", requireAuth, async (req: AuthenticatedRequest, res
   }
 
   res.json(UpdateProfileResponse.parse(data));
+});
+
+router.get("/auth/oauth/callback", async (req, res) => {
+  const code = req.query.code as string;
+
+  if (!code) {
+    return res.redirect(`${FRONTEND_URL}/login?error=no_code`);
+  }
+
+  const { data, error } = await supabaseAnon.auth.exchangeCodeForSession(code);
+
+  if (error || !data.session) {
+    return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed`);
+  }
+
+  // Upsert profile for new Google users
+  await supabase.from("profiles").upsert({
+    id: data.user.id,
+    email: data.user.email!,
+    full_name: data.user.user_metadata?.full_name || null,
+  });
+
+  const token = data.session.access_token;
+  const refresh = data.session.refresh_token;
+
+  res.redirect(`${FRONTEND_URL}/dashboard?token=${token}&refresh=${refresh}`);
 });
 
 export default router;

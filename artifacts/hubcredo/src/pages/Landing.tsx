@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { ArrowRight, Zap, Target, Users, Layers, CheckCircle } from "lucide-react";
+import { ArrowRight, Target, Users, Layers, CheckCircle } from "lucide-react";
 
 const tools = [
   { id: "inboxkit",  name: "Inboxkit",  logo: "/logos/inboxkit.png",  bg: "#fff",    border: "#e3e8ef" },
@@ -10,7 +10,6 @@ const tools = [
   { id: "prospeo",   name: "Prospeo",   logo: "/logos/prospeo.jpg",   bg: "#fff",    border: "#fecaca" },
 ];
 
-// 8-tool orbit ring — node positions copied exactly from hubcredo-v4.html
 const orbitNodes = [
   { id: "inboxkit",  name: "Inbox Kit", logo: "/logos/inboxkit.png",  fallback: "IK", fallbackGrad: "linear-gradient(135deg,#f97316,#ef4444)", style: { top: "3%",  left: "50%", transform: "translate(-50%,0)" } },
   { id: "instantly", name: "Instantly",  logo: "/logos/instantly.svg", fallback: "In", fallbackGrad: "linear-gradient(135deg,#2563eb,#3b82f6)", style: { top: "12%", right: "6%" } },
@@ -19,10 +18,9 @@ const orbitNodes = [
   { id: "attio",     name: "Attio",      logo: "/logos/attio.png",     fallback: "AT", fallbackGrad: "linear-gradient(135deg,#334155,#1e293b)", style: { bottom: "2%", left: "50%", transform: "translateX(-50%)" } },
   { id: "heyreach",  name: "Heyreach",   logo: "/logos/heyreach.png",  fallback: "HR", fallbackGrad: "linear-gradient(135deg,#0ea5e9,#0284c7)", style: { bottom: "10%", left: "8%" } },
   { id: "grok",      name: "Grok AI",    logo: "/logos/grok.svg",      fallback: "xAI", fallbackGrad: "linear-gradient(135deg,#1a1a1a,#374151)", style: { top: "50%", left: "1%", transform: "translateY(-50%)" } },
-  { id: "prospeo",      name: "Prospeo",       logo: "/logos/prospeo.webp",      fallback: "Ps", fallbackGrad: "linear-gradient(135deg,#7c3aed,#6d28d9)", style: { top: "12%", left: "6%" } },
+  { id: "prospeo",   name: "Prospeo",    logo: "/logos/prospeo.webp",  fallback: "Ps", fallbackGrad: "linear-gradient(135deg,#7c3aed,#6d28d9)", style: { top: "12%", left: "6%" } },
 ];
 
-// Connection line endpoints matching each node's approximate position on the 820x590 viewBox
 const connLines = [
   { id: "p0", path: "M410,295 L410,55",  dur: "2.2s", delay: "0s" },
   { id: "p1", path: "M410,295 L700,120", dur: "2.5s", delay: ".3s" },
@@ -91,7 +89,6 @@ const stats = [
   { num: "4.9★", label: "Average satisfaction" },
 ];
 
-// ─── inline style helpers ───────────────────────────────────────────
 const S = {
   eyebrow: { fontSize: ".72rem", fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: ".12em", color: "#6366f1", marginBottom: 14 },
   h2: { fontSize: "clamp(2rem,3.6vw,3rem)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.12, color: "#0a2540" },
@@ -115,9 +112,9 @@ export default function Landing() {
       <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 999, height: 62, display: "flex", alignItems: "center", background: scrolled ? "rgba(5,16,31,.92)" : "transparent", backdropFilter: scrolled ? "blur(20px) saturate(180%)" : "none", borderBottom: scrolled ? "1px solid rgba(255,255,255,.06)" : "1px solid transparent", transition: "background .3s, border-color .3s" }}>
         <div style={{ maxWidth: 1140, margin: "0 auto", padding: "0 5%", width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, color: "#fff", fontWeight: 800, fontSize: "1.1rem", letterSpacing: "-0.03em", textDecoration: "none" }}>
-            <div style={{ width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg,#4f46e5,#7c3aed 50%,#06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 12px rgba(79,70,229,.5)" }}><Zap style={{ width: 15, height: 15, color: "#fff" }} /></div>
-            HubCredo
-          </Link>
+  <img src="/favicon.svg" alt="HubCredo" style={{ width: 280, height: 120, marginTop: 10, objectFit: "contain" }} />
+  
+</Link>
           <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
             <a href="#steps" style={{ fontSize: ".86rem", fontWeight: 500, color: "rgba(255,255,255,.65)", textDecoration: "none" }}>How it works</a>
             <a href="#features" style={{ fontSize: ".86rem", fontWeight: 500, color: "rgba(255,255,255,.65)", textDecoration: "none" }}>Features</a>
@@ -166,7 +163,7 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* Right — orbit (exact replica of hubcredo-v4.html orbit visual) */}
+          {/* Right — orbit */}
           <div style={{ position: "relative" }}>
             <div style={{ position: "relative", width: "100%", animation: "fadeUp .7s .3s ease both" }}>
               <div style={{ position: "relative", width: "100%", paddingTop: "90%" }}>
@@ -214,20 +211,12 @@ export default function Landing() {
                     flexShrink: 0,
                   }}>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                      <svg width="28" height="28" viewBox="0 0 20 20">
-                        <path d="M10 2L3 7.5v5L10 18l7-5.5v-5L10 2z" fill="url(#hubgrad)" />
-                        <defs>
-                          <linearGradient id="hubgrad" x1="0" y1="0" x2="1" y2="1">
-                            <stop offset="0%" stopColor="#c7d2fe" />
-                            <stop offset="100%" stopColor="#a5f3fc" />
-                          </linearGradient>
-                        </defs>
-                      </svg>
-                      <span style={{ fontSize: ".52rem", fontWeight: 800, color: "rgba(255,255,255,.7)", letterSpacing: ".08em", textTransform: "uppercase" }}>HubCredo</span>
+                      <img src="/favicon.svg" alt="HubCredo" style={{ width: 210, height: 90, objectFit: "contain" }} />
+                      <span style={{ fontSize: ".52rem", fontWeight: 800, color: "rgba(255,255,255,.7)", letterSpacing: ".08em", textTransform: "uppercase" }}></span>
                     </div>
                   </div>
 
-                  {/* Orbit nodes — 8 tools around a single ring */}
+                  {/* Orbit nodes */}
                   {orbitNodes.map((node, i) => (
                     <div key={node.id} style={{ position: "absolute", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, ...node.style }}>
                       <div style={{
@@ -312,7 +301,6 @@ export default function Landing() {
           </p>
         </div>
 
-        {/* Alternating timeline */}
         <div style={{ maxWidth: 1140, margin: "0 auto", padding: "0 5%", display: "grid", gridTemplateColumns: "1fr 60px 1fr", gap: "0 32px" }}>
           {/* Left column */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
@@ -480,8 +468,9 @@ export default function Landing() {
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 48, marginBottom: 52 }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 800, fontSize: "1.1rem", color: "#fff", letterSpacing: "-.03em", marginBottom: 12 }}>
-                <div style={{ width: 24, height: 24, borderRadius: 6, background: "linear-gradient(135deg,#4f46e5,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center" }}><Zap style={{ width: 12, height: 12, color: "#fff" }} /></div>
-                HubCredo
+                <img src="/favicon.svg" alt="HubCredo" style={{ width: 280, height: 120, objectFit: "contain" }} />
+
+                
               </div>
               <p style={{ fontSize: ".83rem", lineHeight: 1.7, maxWidth: 260 }}>The complete GTM stack for founders — guided, connected, and live in 30 minutes.</p>
             </div>

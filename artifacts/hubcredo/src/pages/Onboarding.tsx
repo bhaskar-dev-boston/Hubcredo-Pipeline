@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Zap, ArrowRight, ArrowLeft, Loader2, Globe, CheckCircle } from "lucide-react";
+import { Zap, ArrowRight, ArrowLeft, Loader2, Globe, CheckCircle, AlignCenter } from "lucide-react";
 import { TagInput } from "@/components/ui/TagInput";
 import {
   useUpdateProfile,
@@ -222,20 +222,9 @@ export default function Onboarding() {
     <div className="min-h-screen bg-[#F8F7FF] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-lg">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 bg-[#6B4EFF] rounded-lg flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
-            <span
-              style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: "1.4rem", letterSpacing: "0.08em" }}
-              className="text-[#1E1B4B] font-bold"
-            >
-              HubCredo
-            </span>
-          </div>
-        </div>
-
+        <div className="flex justify-center mb-2">
+  <img src="/favicon.svg" alt="HubCredo" style={{ width: 210, height: 90, objectFit: "contain" }} />
+</div>
         {/* Progress bar */}
         <div className="flex items-center gap-1.5 mb-8">
           {steps.map((_, i) => (

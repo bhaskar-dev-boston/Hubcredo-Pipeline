@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Zap, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
 import { setToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -57,33 +57,33 @@ export default function Login() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#05101f", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px", fontFamily: "'Inter', system-ui, sans-serif", position: "relative", overflow: "hidden" }}>
+    <div style={{ minHeight: "100vh", background: "#05101f", display: "flex", alignItems: "center", justifyContent: "center", padding: "16px", fontFamily: "'Inter', system-ui, sans-serif", position: "relative", overflow: "hidden" }}>
       {/* Orbs */}
       <div style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle,rgba(79,70,229,.3) 0%,transparent 70%)", top: -160, left: "50%", transform: "translateX(-50%)", filter: "blur(80px)", pointerEvents: "none" }} />
       <div style={{ position: "absolute", width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle,rgba(6,182,212,.15) 0%,transparent 70%)", bottom: -60, right: -40, filter: "blur(80px)", pointerEvents: "none" }} />
 
       <div style={{ width: "100%", maxWidth: 420, position: "relative", zIndex: 1 }}>
+
         {/* Logo */}
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <Link href="/" style={{ display: "inline-flex", alignItems: "center", gap: 10, textDecoration: "none", marginBottom: 24 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg,#4f46e5,#7c3aed 50%,#06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 12px rgba(79,70,229,.5)" }}>
-              <Zap style={{ width: 16, height: 16, color: "#fff" }} />
-            </div>
-            <span style={{ color: "#fff", fontWeight: 800, fontSize: "1.15rem", letterSpacing: "-0.03em" }}>HubCredo</span>
+        <div style={{ textAlign: "center", marginBottom: 8 }}>
+          <Link href="/" style={{ display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none", marginBottom: 10 }}>
+            <img src="/favicon.svg" alt="HubCredo" style={{ width: 280, height: 120, objectFit: "contain" }} />
+            <span style={{ color: "#fff", fontWeight: 800, fontSize: "1.15rem", letterSpacing: "-0.03em" }}></span>
           </Link>
-          <h1 style={{ fontSize: "1.6rem", fontWeight: 800, color: "#fff", letterSpacing: "-0.03em", marginBottom: 6 }}>Welcome back</h1>
-          <p style={{ fontSize: ".9rem", color: "rgba(255,255,255,.45)" }}>Sign in to your account</p>
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#fff", letterSpacing: "-0.03em", marginBottom: 4 }}>Welcome back</h1>
+          <p style={{ fontSize: ".88rem", color: "rgba(255,255,255,.45)" }}>Sign in to your account</p>
         </div>
 
         {/* Card */}
-        <div style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 20, padding: 28, backdropFilter: "blur(16px)" }}>
+        <div style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 20, padding: 18, backdropFilter: "blur(16px)" }}>
+
           {/* Google */}
           <button
             type="button"
             onClick={handleGoogle}
             disabled={googleLoading}
             data-testid="button-google-signin"
-            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "11px 16px", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, fontSize: ".9rem", fontWeight: 500, color: "#fff", cursor: "pointer", marginBottom: 20, transition: "all .15s" }}
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "10px 16px", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, fontSize: ".9rem", fontWeight: 500, color: "#fff", cursor: "pointer", marginBottom: 14, transition: "all .15s" }}
             onMouseOver={e => { e.currentTarget.style.background = "rgba(255,255,255,.12)"; }}
             onMouseOut={e => { e.currentTarget.style.background = "rgba(255,255,255,.07)"; }}
           >
@@ -98,15 +98,15 @@ export default function Login() {
             Continue with Google
           </button>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
             <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.1)" }} />
             <span style={{ fontSize: ".8rem", color: "rgba(255,255,255,.3)" }}>or</span>
             <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.1)" }} />
           </div>
 
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <div>
-              <label style={{ display: "block", fontSize: ".84rem", fontWeight: 500, color: "rgba(255,255,255,.65)", marginBottom: 6 }}>Email</label>
+              <label style={{ display: "block", fontSize: ".84rem", fontWeight: 500, color: "rgba(255,255,255,.65)", marginBottom: 5 }}>Email</label>
               <input
                 type="email"
                 value={email}
@@ -114,13 +114,13 @@ export default function Login() {
                 required
                 placeholder="you@company.com"
                 data-testid="input-email"
-                style={{ width: "100%", padding: "10px 14px", background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, fontSize: ".9rem", color: "#fff", outline: "none", transition: "border-color .15s", boxSizing: "border-box" }}
+                style={{ width: "100%", padding: "9px 14px", background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, fontSize: ".9rem", color: "#fff", outline: "none", transition: "border-color .15s", boxSizing: "border-box" }}
                 onFocus={e => { e.target.style.borderColor = "rgba(99,102,241,.6)"; e.target.style.boxShadow = "0 0 0 3px rgba(99,102,241,.12)"; }}
                 onBlur={e => { e.target.style.borderColor = "rgba(255,255,255,.12)"; e.target.style.boxShadow = "none"; }}
               />
             </div>
             <div>
-              <label style={{ display: "block", fontSize: ".84rem", fontWeight: 500, color: "rgba(255,255,255,.65)", marginBottom: 6 }}>Password</label>
+              <label style={{ display: "block", fontSize: ".84rem", fontWeight: 500, color: "rgba(255,255,255,.65)", marginBottom: 5 }}>Password</label>
               <input
                 type="password"
                 value={password}
@@ -128,7 +128,7 @@ export default function Login() {
                 required
                 placeholder="••••••••"
                 data-testid="input-password"
-                style={{ width: "100%", padding: "10px 14px", background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, fontSize: ".9rem", color: "#fff", outline: "none", transition: "border-color .15s", boxSizing: "border-box" }}
+                style={{ width: "100%", padding: "9px 14px", background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, fontSize: ".9rem", color: "#fff", outline: "none", transition: "border-color .15s", boxSizing: "border-box" }}
                 onFocus={e => { e.target.style.borderColor = "rgba(99,102,241,.6)"; e.target.style.boxShadow = "0 0 0 3px rgba(99,102,241,.12)"; }}
                 onBlur={e => { e.target.style.borderColor = "rgba(255,255,255,.12)"; e.target.style.boxShadow = "none"; }}
               />
@@ -137,7 +137,7 @@ export default function Login() {
               type="submit"
               disabled={loading}
               data-testid="button-login"
-              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 16px", background: "#4f46e5", border: "none", borderRadius: 10, fontSize: ".95rem", fontWeight: 600, color: "#fff", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1, boxShadow: "0 2px 8px rgba(79,70,229,.4)", transition: "all .15s" }}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 16px", background: "#4f46e5", border: "none", borderRadius: 10, fontSize: ".95rem", fontWeight: 600, color: "#fff", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1, boxShadow: "0 2px 8px rgba(79,70,229,.4)", transition: "all .15s" }}
               onMouseOver={e => { if (!loading) { e.currentTarget.style.background = "#4338ca"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(79,70,229,.5)"; }}}
               onMouseOut={e => { e.currentTarget.style.background = "#4f46e5"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(79,70,229,.4)"; }}
             >
@@ -147,7 +147,7 @@ export default function Login() {
           </form>
         </div>
 
-        <p style={{ textAlign: "center", fontSize: ".87rem", color: "rgba(255,255,255,.35)", marginTop: 20 }}>
+        <p style={{ textAlign: "center", fontSize: ".87rem", color: "rgba(255,255,255,.35)", marginTop: 14 }}>
           Don't have an account?{" "}
           <Link href="/signup" style={{ color: "#818cf8", fontWeight: 600, textDecoration: "none" }}>Sign up</Link>
         </p>

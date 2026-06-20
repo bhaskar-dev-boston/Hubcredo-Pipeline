@@ -53,11 +53,9 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
       {/* Logo */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 20px", borderBottom: "1px solid rgba(107,78,255,.12)" }}>
         <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }} onClick={onClose}>
-          <div style={{ width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg,#6B4EFF,#8B5CF6 50%,#06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 10px rgba(107,78,255,.35)", flexShrink: 0 }}>
-            <Zap style={{ width: 15, height: 15, color: "#fff" }} />
-          </div>
-          <span style={{ color: "#1E1B4B", fontWeight: 800, fontSize: "1.05rem", letterSpacing: "-0.02em" }}>HubCredo</span>
-        </Link>
+  <img src="/favicon.svg" alt="HubCredo" style={{ width: 70, height: 30, objectFit: "contain", flexShrink: 0 }} />
+  <span style={{ color: "#1E1B4B", fontWeight: 800, fontSize: "1.05rem", letterSpacing: "-0.02em" }}>HubCredo</span>
+</Link>
         <button
           onClick={onClose}
           style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 8, border: "none", background: "transparent", color: "#9CA3AF", cursor: "pointer" }}

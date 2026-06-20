@@ -21,43 +21,33 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
         <header
-          className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3"
-          style={{ background: "#FFFFFF", borderBottom: "1px solid rgba(107,78,255,0.12)" }}
-        >
-          <button
-            onClick={() => setMobileOpen(true)}
-            style={{
-              width: 36,
-              height: 36,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: 10,
-              border: "1px solid rgba(107,78,255,0.15)",
-              background: "#F5F3FF",
-              color: "#6B4EFF",
-              cursor: "pointer",
-            }}
-            aria-label="Open menu"
-          >
-            <Menu style={{ width: 18, height: 18 }} />
-          </button>
+  className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3"
+  style={{ background: "#FFFFFF", borderBottom: "1px solid rgba(107,78,255,0.12)" }}
+>
+  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+    <button
+      onClick={() => setMobileOpen(true)}
+      style={{
+        width: 36,
+        height: 36,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 10,
+        border: "1px solid rgba(107,78,255,0.15)",
+        background: "#F5F3FF",
+        color: "#6B4EFF",
+        cursor: "pointer",
+      }}
+      aria-label="Open menu"
+    >
+      <Menu style={{ width: 18, height: 18 }} />
+    </button>
 
-          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-            <div style={{
-              width: 28,
-              height: 28,
-              borderRadius: 7,
-              background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}>
-              <Zap style={{ width: 14, height: 14, color: "#fff" }} />
-            </div>
-            <span style={{ color: "#1E1B4B", fontWeight: 800, fontSize: "1rem", letterSpacing: "-0.02em" }}>HubCredo</span>
-          </Link>
-
+    <Link href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
+      <img src="/favicon.svg" alt="HubCredo" style={{ width: 160, height: 44, objectFit: "contain" }} />
+    </Link>
+  </div>
           {balance !== null ? (
             <Link
               href="/dashboard/billing"

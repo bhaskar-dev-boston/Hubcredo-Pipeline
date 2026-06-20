@@ -5,6 +5,8 @@ import { getSupabase } from "@/lib/supabase";
 import { setToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 
+const API_URL = import.meta.env.VITE_API_URL || "https://lead-stack-engine.onrender.com";
+
 export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -17,13 +19,12 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
-      localStorage.setItem("token", data.token);
       if (!res.ok) throw new Error(data.error || "Login failed");
       setToken(data.token, data.refresh_token);
       setLocation("/dashboard");
@@ -43,7 +44,7 @@ export default function Login() {
     try {
       const { error } = await getSupabase().auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/api/auth/oauth/callback` },
+        options: { redirectTo: `${API_URL}/api/auth/oauth/callback` },
       });
       if (error) throw error;
     } catch (err: unknown) {

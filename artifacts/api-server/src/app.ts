@@ -26,12 +26,15 @@ app.use(
   }),
 );
 
-app.use(
-  cors({
-    origin: process.env["CORS_ORIGIN"] || "http://localhost:5173",
-    credentials: true,
-  }),
-);
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "https://hubcredo-jet.vercel.app",
+    "https://pipeline.hubcredo.com"
+    // add any other Vercel preview URLs if needed
+  ],
+  credentials: true,
+}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

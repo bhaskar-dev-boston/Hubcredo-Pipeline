@@ -5,6 +5,8 @@ import { getSupabase } from "@/lib/supabase";
 import { setToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 
+const API_URL = import.meta.env.VITE_API_URL || "https://lead-stack-engine.onrender.com";
+
 export default function Signup() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -22,7 +24,7 @@ export default function Signup() {
     }
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/signup", {
+      const res = await fetch(`${API_URL}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, full_name: fullName }),
@@ -47,7 +49,7 @@ export default function Signup() {
     try {
       const { error } = await getSupabase().auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/api/auth/oauth/callback` },
+        options: { redirectTo: `${API_URL}/api/auth/oauth/callback` },
       });
       if (error) throw error;
     } catch (err: unknown) {
@@ -62,13 +64,11 @@ export default function Signup() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#05101f", display: "flex", alignItems: "center", justifyContent: "center", padding: "12px 16px", fontFamily: "'Inter', system-ui, sans-serif", position: "relative", overflow: "hidden" }}>
-      {/* Orbs */}
       <div style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle,rgba(79,70,229,.3) 0%,transparent 70%)", top: -160, left: "50%", transform: "translateX(-50%)", filter: "blur(80px)", pointerEvents: "none" }} />
       <div style={{ position: "absolute", width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle,rgba(124,58,237,.18) 0%,transparent 70%)", bottom: -60, right: -40, filter: "blur(80px)", pointerEvents: "none" }} />
 
       <div style={{ width: "100%", maxWidth: 420, position: "relative", zIndex: 1 }}>
 
-        {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 4 }}>
           <Link href="/" style={{ display: "inline-flex", alignItems: "center", gap: 6, textDecoration: "none" }}>
             <img src="/favicon.svg" alt="HubCredo" style={{ width: 210, height: 90, objectFit: "contain" }} />
@@ -77,10 +77,8 @@ export default function Signup() {
           <p style={{ fontSize: ".82rem", color: "rgba(255,255,255,.45)", marginTop: 0, marginBottom: 0 }}>Build your GTM stack in 30 minutes</p>
         </div>
 
-        {/* Card */}
         <div style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 18, padding: "14px 16px", backdropFilter: "blur(16px)", marginTop: 10 }}>
 
-          {/* Google */}
           <button
             type="button"
             onClick={handleGoogle}
@@ -162,7 +160,7 @@ export default function Signup() {
 
         <p style={{ textAlign: "center", fontSize: ".84rem", color: "rgba(255,255,255,.35)", marginTop: 10 }}>
           Already have an account?{" "}
-          <Link href="/login" style={{ color: "#818cf8", fontWeight: 600, textDecoration: "none" }}>Sign in</Link>
+          <Link href="/login" style={{ color: "#818cf8", fontWeight: 600, textDecoration: "none" }}>Sign up</Link>
         </p>
       </div>
 

@@ -19,6 +19,7 @@ import crmRouter from "./crm";
 import inboxRouter from "./inbox";
 import replyioRouter from "./replyio";
 import hubspotRouter from "./crm-hubspot";
+import templatesRouter from "./templates";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(crmRouter);
 router.use(inboxRouter);
 router.use(replyioRouter);
 router.use(hubspotRouter);
+router.use(templatesRouter);
 
 export default router;

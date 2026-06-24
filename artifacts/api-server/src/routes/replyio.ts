@@ -217,6 +217,20 @@ router.post("/replyio/webhooks", requireAuth, async (req: AuthenticatedRequest, 
   }
 });
 
+// GET /api/replyio/linkedin-accounts — list connected LinkedIn accounts
+// GET /api/replyio/linkedin-accounts — list connected LinkedIn accounts
+router.get("/replyio/linkedin-accounts", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const apiKey = await getUserReplyApiKey(req.userId!);
+  if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
+  try {
+    // ✅ v3 endpoint, returns a plain array
+    const data = await replyFetch<any[]>("GET", "/linkedin-accounts", undefined, apiKey);
+    const accounts = Array.isArray(data) ? data : [];
+    res.json({ accounts });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err), accounts: [] });
+  }
+});
 // POST /api/replyio/webhook-receiver  (no auth — n8n calls this)
 router.post("/replyio/webhook-receiver", (req: Request, res: Response) => {
   const event = req.body?.eventType ?? req.body?.type ?? "unknown";

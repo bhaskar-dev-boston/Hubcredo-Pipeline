@@ -252,6 +252,85 @@ router.patch("/leads/:id/review", requireAuth, async (req: AuthenticatedRequest,
   res.json(ReviewLeadResponse.parse(data));
 });
 
+// POST /api/leads/upload-manual — bulk insert leads from CSV/Excel upload
+router.post("/leads/upload-manual", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { list_name, leads: rawLeads } = req.body as {
+    list_name?: string;
+    leads: Array<Record<string, string>>;
+  };
+
+  if (!Array.isArray(rawLeads) || rawLeads.length === 0) {
+    res.status(400).json({ error: "No leads provided" });
+    return;
+  }
+
+  const label = list_name?.trim() || `Upload ${new Date().toLocaleDateString()}`;
+
+  // Create the lead list
+  const { data: list, error: listErr } = await supabase
+    .from("lead_lists")
+    .insert({
+      user_id: req.userId!,
+      label,
+      source: "manual",
+      status: "ready",
+      processing_status: "complete",
+      total_count: rawLeads.length,
+    })
+    .select()
+    .single();
+
+  if (listErr || !list) {
+    res.status(500).json({ error: "Failed to create lead list" });
+    return;
+  }
+
+  // Map CSV rows to lead records
+  const leadsToInsert = rawLeads.map((row) => ({
+    user_id: req.userId!,
+    lead_list_id: list.id,
+    first_name: row.first_name || row.firstName || row["First Name"] || row["first name"] || null,
+    last_name: row.last_name || row.lastName || row["Last Name"] || row["last name"] || null,
+    email: row.email || row.Email || row["Email Address"] || null,
+    linkedin_url: row.linkedin_url || row.linkedin || row["LinkedIn URL"] || row["LinkedIn"] || null,
+    job_title: row.job_title || row.title || row["Job Title"] || row["Title"] || null,
+    company_name: row.company_name || row.company || row["Company"] || row["Company Name"] || null,
+    company_domain: row.company_domain || row["Company Domain"] || row["Website"] || null,
+    company_size: row.company_size || row["Company Size"] || null,
+    industry: row.industry || row["Industry"] || null,
+    hq_country: row.hq_country || row.country || row["Country"] || null,
+    hq_city: row.hq_city || row.city || row["City"] || null,
+    seniority: row.seniority || row["Seniority"] || null,
+    department: row.department || row["Department"] || null,
+    review_status: "pending",
+  }));
+
+  const { data: insertedLeads, error: leadsErr } = await supabase
+    .from("leads")
+    .insert(leadsToInsert)
+    .select("id");
+
+  if (leadsErr) {
+    // Clean up the list we just created
+    await supabase.from("lead_lists").delete().eq("id", list.id);
+    res.status(500).json({ error: "Failed to insert leads: " + leadsErr.message });
+    return;
+  }
+
+  // Update total_count with actual inserted count
+  await supabase
+    .from("lead_lists")
+    .update({ total_count: insertedLeads?.length ?? 0 })
+    .eq("id", list.id);
+
+  res.status(201).json({
+    list_id: list.id,
+    list_label: label,
+    inserted: insertedLeads?.length ?? 0,
+    total: rawLeads.length,
+  });
+});
+
 router.post("/leads/bulk-review", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = BulkReviewLeadsBody.safeParse(req.body);
   if (!parsed.success) {

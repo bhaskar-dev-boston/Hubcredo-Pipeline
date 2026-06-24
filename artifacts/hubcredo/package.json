@@ -78,7 +78,9 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
     "autoprefixer": "^10.5.0",
+    "csv": "^6.6.0",
     "postcss": "^8.5.15",
+    "xlsx": "^0.18.5",
     "zustand": "^5.0.13"
   }
 }

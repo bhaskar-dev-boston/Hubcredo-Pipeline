@@ -43,6 +43,37 @@ function personalise(
 }
 
 /* ─────────────────────────────────────────────────────────────────────────── */
+/*  HELPER — get Reply.io API key for the current user                        */
+/*  Tries both "service" and "provider" column names to be safe,             */
+/*  then falls back to the global env var.                                    */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+async function getReplyApiKeyForUser(userId: string): Promise<string | null> {
+  // Try "service" column first (used in replyio.ts)
+  const { data: byService } = await supabase
+    .from("user_integrations")
+    .select("api_key")
+    .eq("user_id", userId)
+    .eq("service", "replyio")
+    .maybeSingle();
+
+  if (byService?.api_key) return byService.api_key;
+
+  // Fallback: try "provider" column (old naming)
+  const { data: byProvider } = await supabase
+    .from("user_integrations")
+    .select("api_key")
+    .eq("user_id", userId)
+    .eq("provider", "replyio")
+    .maybeSingle();
+
+  if (byProvider?.api_key) return byProvider.api_key;
+
+  // Final fallback: global env var
+  return process.env.REPLYIO_API_KEY || process.env.REPLY_IO_API_KEY || null;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
 /*  CONNECT LINKEDIN — Unipile Hosted Auth                                     */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
@@ -273,6 +304,76 @@ router.delete(
 
     if (error) { res.status(500).json({ error: "Failed to disconnect" }); return; }
     res.json({ success: true });
+  }
+);
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  REPLY.IO — FETCH LINKEDIN ACCOUNT                                         */
+/*                                                                             */
+/*  Uses the official v3 API: GET /v3/linkedin-accounts                       */
+/*  Returns a plain array. Status field: "enabled" | "disabled" |            */
+/*  "dailyLimitReached" | "cookieInvalid"                                     */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+router.get(
+  "/replyio/linkedin-account",
+  requireAuth,
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    try {
+      const apiKey = await getReplyApiKeyForUser(req.userId!);
+
+      if (!apiKey) {
+        req.log.warn({ userId: req.userId }, "No Reply.io API key found for user");
+        res.json({ connected: false, reason: "no_api_key" });
+        return;
+      }
+
+      // ✅ Official v3 endpoint — returns a plain JSON array
+      const response = await fetch("https://api.reply.io/v3/linkedin-accounts", {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        req.log.warn(
+          { status: response.status, body: text, userId: req.userId },
+          "Reply.io v3 /linkedin-accounts returned non-OK"
+        );
+        res.json({ connected: false, reason: "api_error", status: response.status, detail: text });
+        return;
+      }
+
+      // v3 returns a plain array, NOT nested under a key
+      const raw = await response.json();
+      const accounts: any[] = Array.isArray(raw) ? raw : raw.items ?? raw.accounts ?? [];
+
+      if (accounts.length === 0) {
+        res.json({ connected: false, reason: "no_accounts" });
+        return;
+      }
+
+      // Prefer an enabled account; fall back to first in list
+      const active = accounts.find((a) => a.status === "enabled") ?? accounts[0];
+
+      res.json({
+        connected: active.status === "enabled",
+        profile_name: active.name ?? null,
+        email: null,                              // v3 does not expose email on this endpoint
+        subscription: active.accountType ?? null, // "premium" | "salesNavigator" | "public"
+        account_id: active.id != null ? String(active.id) : null,
+        profile_url: active.profileUrl ?? null,
+        photo_url: active.photoUrl ?? null,
+        status: active.status,                    // "enabled" | "disabled" | "dailyLimitReached" | "cookieInvalid"
+        cookie_status: active.cookieStatus ?? null,
+      });
+    } catch (err: any) {
+      req.log.error({ err, userId: req.userId }, "replyio/linkedin-account unexpected error");
+      res.status(500).json({ connected: false, error: err.message });
+    }
   }
 );
 
@@ -564,9 +665,6 @@ router.post(
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /*  ANALYTICS — GET                                                            */
-/*                                                                             */
-/*  Fix: Add no-cache headers so the browser never returns 304.               */
-/*  Reads from our own DB (linkedin_outreach_log) — always fresh.             */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 router.get(
@@ -575,7 +673,6 @@ router.get(
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id } = req.params;
 
-    // Prevent browser/proxy caching — this is the root cause of 304 responses
     res.set({
       "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
       "Pragma": "no-cache",
@@ -594,7 +691,6 @@ router.get(
         .select("status")
         .eq("sequence_id", id)
         .eq("user_id", req.userId!),
-      // Count leads by status for a more accurate "contacted" number
       supabase
         .from("leads")
         .select("id, linkedin_status")
@@ -623,7 +719,6 @@ router.get(
       followups_sent,
       connected_rate,
       replied_rate,
-      // Legacy field names in case frontend uses them
       total_contacted: contacted,
     });
   }
@@ -631,9 +726,6 @@ router.get(
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /*  ANALYTICS REFRESH — "Sync from LinkedIn"                                  */
-/*                                                                             */
-/*  Improved matching: uses BOTH slug-based and name-based matching.          */
-/*  Also saves provider_id on leads when found in chat attendees.             */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 router.post(
@@ -667,7 +759,6 @@ router.post(
     }
 
     try {
-      // Load all leads that were contacted in this sequence
       const { data: leads } = await supabase
         .from("leads")
         .select("id, first_name, last_name, linkedin_url, linkedin_status")
@@ -679,10 +770,7 @@ router.post(
         res.json({ synced: 0, note: "No contacted leads to check" }); return;
       }
 
-      // Build lookup maps
-      // Map 1: slug → lead  (from linkedin_url)
       const slugMap = new Map<string, typeof leads[0]>();
-      // Map 2: "firstname lastname" lowercase → lead  (name fallback)
       const nameMap = new Map<string, typeof leads[0]>();
 
       for (const lead of leads) {
@@ -693,7 +781,6 @@ router.post(
         if (fullName) nameMap.set(fullName, lead);
       }
 
-      // Fetch chats from Unipile (enriched with display_name + last message)
       const chatResult = await listChats(account.unipile_account_id, 100);
       const chats = chatResult.items || [];
 
@@ -701,15 +788,11 @@ router.post(
       const now = new Date().toISOString();
 
       for (const chat of chats) {
-        // Try to match the chat to one of our leads
         let matchedLead: typeof leads[0] | undefined;
 
-        // Strategy 1: match by public_identifier in chat attendees
-        // attendee_provider_id is sometimes a slug-like identifier
         const attendeeId = (chat.attendee_provider_id ?? "").toLowerCase();
         if (attendeeId) matchedLead = slugMap.get(attendeeId);
 
-        // Strategy 2: match by display_name vs lead full name
         if (!matchedLead) {
           const chatName = (chat.display_name ?? "").trim().toLowerCase();
           if (chatName) matchedLead = nameMap.get(chatName);
@@ -720,14 +803,12 @@ router.post(
         const theyReplied = chat.last_message_sender_is_me === false;
 
         if (theyReplied && matchedLead.linkedin_status !== "replied") {
-          // Update lead status → replied
           await supabase
             .from("leads")
             .update({ linkedin_status: "replied", updated_at: now })
             .eq("id", matchedLead.id)
             .eq("user_id", req.userId!);
 
-          // Avoid duplicate log entries
           const { data: existingLog } = await supabase
             .from("linkedin_outreach_log")
             .select("id")
@@ -746,7 +827,6 @@ router.post(
           }
           synced++;
         } else if (!theyReplied && matchedLead.linkedin_status === "request_sent") {
-          // Chat exists → they accepted → mark connected
           await supabase
             .from("leads")
             .update({ linkedin_status: "connected", updated_at: now })
@@ -773,7 +853,6 @@ router.post(
         }
       }
 
-      // Return fresh analytics from DB after sync
       const { data: logs } = await supabase
         .from("linkedin_outreach_log")
         .select("action")
@@ -857,7 +936,6 @@ router.get(
 
     try {
       const result = await getChatMessages(chatId, 50);
-      // Reverse so oldest message is first (chronological order for chat UI)
       const messages = (result.items ?? []).reverse();
       res.json({ messages });
     } catch (err: any) {

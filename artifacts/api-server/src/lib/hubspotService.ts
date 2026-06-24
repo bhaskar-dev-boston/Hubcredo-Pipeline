@@ -219,15 +219,19 @@ async function removeAssociation(
 
 export const Account = {
   async info(apiKey: string): Promise<{ hub_id: string; app_id?: string; scopes: string[] }> {
+    // /account-info/v3/details works for Private App tokens AND Service Keys
+    // (unlike oauth/v1/access-tokens which only works for OAuth tokens)
     const d = await req<any>(
       apiKey,
-      `https://api.hubapi.com/oauth/v1/access-tokens/${apiKey}`,
+      `https://api.hubapi.com/account-info/v3/details`,
       {}
     );
-    return { hub_id: String(d.hub_id), app_id: d.app_id ? String(d.app_id) : undefined, scopes: d.scopes ?? [] };
+    return {
+      hub_id: String(d.portalId),
+      scopes: [],  // account-info endpoint doesn't return scopes — not needed for connection check
+    };
   },
 };
-
 // ─── Contacts ─────────────────────────────────────────────────────────────────
 
 export interface ContactFields {

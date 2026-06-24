@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { TagInput } from "@/components/ui/TagInput";
@@ -10,6 +11,7 @@ import {
 import {
   Loader2, Save, CheckCircle, Link2, Link2Off, RefreshCw, AlertCircle,
   ExternalLink, Copy, Check, ShieldCheck, Key, CheckCircle2, Clock, Plug,
+  Eye, EyeOff,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getToken } from "@/lib/auth";
@@ -18,6 +20,8 @@ import type { Icp, OutreachSettings } from "@workspace/api-client-react";
 const INDUSTRIES = ["SaaS","FinTech","HealthTech","EdTech","E-commerce","Marketplace","Developer Tools","AI/ML","Cybersecurity","PropTech"];
 const COMPANY_SIZES = ["1-10","11-50","51-200","201-500","501-1000","1000+"];
 const ATTIO_API_KEY_URL = "https://app.attio.com/hubcredoworkspace/settings/developers/access-tokens";
+const INBOXKIT_API_URL = "https://app.inboxkit.com/settings/api";
+const REPLY_IO_API_URL = "https://app.reply.io/settings/api";
 
 type TabId = "profile" | "icp" | "outreach" | "crm" | "integrations";
 
@@ -34,6 +38,592 @@ function authHeaders() {
   return { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` };
 }
 
+// ── InboxKit card — API key + Workspace ID ─────────────────────────────────────
+function InboxKitCard() {
+  const { toast } = useToast();
+  const [apiKey, setApiKey] = useState("");
+  const [workspaceId, setWorkspaceId] = useState("");
+  const [keyVisible, setKeyVisible] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [urlCopied, setUrlCopied] = useState(false);
+
+  async function checkConnection() {
+    setChecking(true);
+    try {
+      const res = await fetch("/api/settings/integrations/inboxkit", { headers: authHeaders() });
+      const data = await res.json();
+      setConnected(data.connected ?? false);
+    } catch {
+      setConnected(false);
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  useEffect(() => { checkConnection(); }, []);
+
+  async function handleConnect() {
+    if (!apiKey.trim()) {
+      toast({ title: "API key required", description: "Please enter your InboxKit API key.", variant: "destructive" });
+      return;
+    }
+    if (!workspaceId.trim()) {
+      toast({ title: "Workspace ID required", description: "Please enter your InboxKit Workspace ID.", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/settings/integrations/inboxkit", {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify({ api_key: apiKey.trim(), workspace_id: workspaceId.trim() }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Failed to save");
+      setApiKey("");
+      setWorkspaceId("");
+      await checkConnection();
+      toast({ title: "InboxKit connected!", description: "InboxKit is now active for outreach." });
+    } catch (err: unknown) {
+      toast({
+        title: "Connection failed",
+        description: err instanceof Error ? err.message : "Could not save the credentials.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDisconnect() {
+    setDisconnecting(true);
+    try {
+      await fetch("/api/settings/integrations/inboxkit", { method: "DELETE", headers: authHeaders() });
+      setConnected(false);
+      toast({ title: "InboxKit disconnected" });
+    } catch {
+      toast({ title: "Error", variant: "destructive" });
+    } finally {
+      setDisconnecting(false);
+    }
+  }
+
+  const inputClass = "w-full px-3 py-2.5 bg-white border border-[rgba(107,78,255,.15)] rounded-lg text-sm text-[#1E1B4B] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#6B4EFF] focus:ring-2 focus:ring-[rgba(107,78,255,.15)] transition-colors";
+  const saveBtn = "flex items-center gap-2 px-4 py-2.5 bg-[#6B4EFF] text-white text-sm font-semibold rounded-lg hover:bg-[#5A3FE0] transition-colors disabled:opacity-50";
+
+  return (
+    <div className="bg-white border border-[rgba(107,78,255,.12)] rounded-xl p-6 shadow-sm">
+      <div className="flex items-start gap-4 mb-5">
+        <div className="w-10 h-10 rounded-lg bg-[#F5F3FF] border border-[rgba(107,78,255,.2)] flex items-center justify-center shrink-0">
+          <svg viewBox="0 0 32 32" className="w-5 h-5" fill="none">
+            <rect width="32" height="32" rx="8" fill="#1a1a2e"/>
+            <rect x="6" y="10" width="20" height="14" rx="2" stroke="#6B4EFF" strokeWidth="1.8"/>
+            <path d="M6 12l10 7 10-7" stroke="#6B4EFF" strokeWidth="1.8" strokeLinecap="round"/>
+          </svg>
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-[#1E1B4B] font-semibold">InboxKit</h2>
+            {checking ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#6B7280]" />
+            ) : connected ? (
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
+                <CheckCircle className="w-3 h-3" /> Connected
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-50 text-gray-500 border border-gray-200 font-medium">
+                Not connected
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-[#6B7280] mt-0.5">
+            Connect InboxKit to verify email deliverability, check domain health, and manage your purchased domains and mailboxes.
+          </p>
+        </div>
+      </div>
+
+      {connected ? (
+        <div className="space-y-4">
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-3">
+            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-emerald-700">InboxKit is connected</p>
+              <p className="text-xs text-emerald-600/80">API key and Workspace ID saved successfully.</p>
+            </div>
+            <button onClick={checkConnection} className="text-emerald-600 hover:text-emerald-800 transition-colors" title="Refresh status">
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { icon: "✉️", title: "Email validation", desc: "Validate lead emails before sending" },
+              { icon: "🔍", title: "Domain health", desc: "Check domain reputation and MX records" },
+              { icon: "📊", title: "Deliverability score", desc: "Score shown on each lead card" },
+              { icon: "🚫", title: "Bounce prevention", desc: "Auto-skip leads with invalid emails" },
+            ].map(({ icon, title, desc }) => (
+              <div key={title} className="p-3 bg-[#F5F3FF] border border-[rgba(107,78,255,.12)] rounded-lg">
+                <p className="text-sm">{icon}</p>
+                <p className="text-xs font-semibold text-[#1E1B4B] mt-1">{title}</p>
+                <p className="text-xs text-[#6B7280] mt-0.5">{desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <button onClick={handleDisconnect} disabled={disconnecting}
+            className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
+            {disconnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2Off className="w-4 h-4" />}
+            Disconnect InboxKit
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Setup guide */}
+          <div className="bg-[#F5F3FF] border border-[rgba(107,78,255,.12)] rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Key className="w-4 h-4 text-[#6B7280]" />
+              <h4 className="text-sm font-semibold text-[#1E1B4B]">How to get your InboxKit credentials</h4>
+            </div>
+            <ol className="space-y-3">
+              {[
+                <>Log in to InboxKit → click your avatar → <strong className="font-semibold text-[#1E1B4B]">Settings → API</strong>.</>,
+                <>Click <strong className="font-semibold text-[#1E1B4B]">Generate API key</strong> and copy it immediately.</>,
+                <>Go to <strong className="font-semibold text-[#1E1B4B]">Settings → Workspace</strong> and copy your <strong className="font-semibold text-[#1E1B4B]">Workspace ID</strong>.</>,
+                "Paste both credentials below and click Connect InboxKit.",
+              ].map((step, i) => (
+                <li key={i} className="flex gap-3">
+                  <span className="w-6 h-6 rounded-full bg-[#6B4EFF] text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                    {i + 1}
+                  </span>
+                  <p className="text-sm text-[#6B7280] leading-relaxed">{step}</p>
+                </li>
+              ))}
+            </ol>
+            <div className="mt-4 pt-4 border-t border-[rgba(107,78,255,.12)]">
+              <p className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-widest mb-2">Direct link to InboxKit API settings</p>
+              <div className="flex items-center gap-2 bg-white border border-[rgba(107,78,255,.12)] rounded-xl px-3 py-2.5">
+                <span className="flex-1 text-xs font-mono text-[#6B7280] truncate select-all">{INBOXKIT_API_URL}</span>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(INBOXKIT_API_URL); setUrlCopied(true); setTimeout(() => setUrlCopied(false), 2000); }}
+                  className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border border-[rgba(107,78,255,.12)] bg-[#F5F3FF] hover:bg-[#EEF2FF] transition-colors">
+                  {urlCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-[#6B7280]" />}
+                </button>
+                <a href={INBOXKIT_API_URL} target="_blank" rel="noopener noreferrer"
+                  className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border border-[rgba(107,78,255,.12)] bg-[#F5F3FF] hover:bg-[#EEF2FF] transition-colors">
+                  <ExternalLink className="w-3.5 h-3.5 text-[#6B7280]" />
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* API Key */}
+          <div>
+            <label className="block text-sm font-medium text-[#1E1B4B] mb-1.5">InboxKit API key</label>
+            <div className="relative">
+              <input
+                type={keyVisible ? "text" : "password"}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Paste your InboxKit API key…"
+                className={`${inputClass} font-mono pr-10`}
+                autoComplete="off"
+              />
+              <button type="button" onClick={() => setKeyVisible(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B4EFF] transition-colors">
+                {keyVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Workspace ID */}
+          <div>
+            <label className="block text-sm font-medium text-[#1E1B4B] mb-1.5">
+              InboxKit Workspace ID
+              <span className="ml-1.5 text-xs font-normal text-red-500">* required</span>
+            </label>
+            <input
+              type="text"
+              value={workspaceId}
+              onChange={(e) => setWorkspaceId(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleConnect(); }}
+              placeholder="e.g. ws_abc123xyz…"
+              className={`${inputClass} font-mono`}
+              autoComplete="off"
+            />
+            <p className="text-xs text-[#9CA3AF] mt-1.5">
+              Find this in InboxKit → Settings → Workspace → Workspace ID
+            </p>
+          </div>
+
+          <button
+            onClick={handleConnect}
+            disabled={saving || !apiKey.trim() || !workspaceId.trim()}
+            className={saveBtn}
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plug className="w-4 h-4" />}
+            {saving ? "Connecting…" : "Connect InboxKit"}
+          </button>
+
+          <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
+            <ShieldCheck className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-800 leading-relaxed">
+              <strong className="text-amber-700">Keep your credentials safe.</strong> Both are stored encrypted and never exposed in the UI. If compromised, revoke in InboxKit and reconnect here.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Reusable API Key integration card (for Reply.io etc.) ──────────────────────
+interface IntegrationCardProps {
+  logo: React.ReactNode;
+  name: string;
+  description: string;
+  docsSteps: React.ReactNode[];
+  docsLinkLabel: string;
+  docsLinkUrl: string;
+  service: string;
+  placeholder?: string;
+  connectedCapabilities?: { icon: string; title: string; desc: string }[];
+}
+
+function IntegrationCard({
+  logo, name, description, docsSteps, docsLinkLabel, docsLinkUrl,
+  service, placeholder = "Paste your API key…", connectedCapabilities = [],
+}: IntegrationCardProps) {
+  const { toast } = useToast();
+  const [apiKey, setApiKey] = useState("");
+  const [keyVisible, setKeyVisible] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [connectedUser, setConnectedUser] = useState<{ email?: string; name?: string } | null>(null);
+  const [checking, setChecking] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [urlCopied, setUrlCopied] = useState(false);
+
+  async function checkConnection() {
+    setChecking(true);
+    try {
+      const res = await fetch(`/api/settings/integrations/${service}`, { headers: authHeaders() });
+      const data = await res.json();
+      setConnected(data.connected ?? false);
+      setConnectedUser(data.user ?? null);
+    } catch {
+      setConnected(false);
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  useEffect(() => { checkConnection(); }, []);
+
+  async function handleConnect() {
+    if (!apiKey.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/settings/integrations/${service}`, {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify({ api_key: apiKey.trim() }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Failed to save");
+      setApiKey("");
+      await checkConnection();
+      toast({ title: `${name} connected!`, description: `${name} is now active for outreach.` });
+    } catch (err: unknown) {
+      toast({ title: "Connection failed", description: err instanceof Error ? err.message : "Could not save the API key.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDisconnect() {
+    setDisconnecting(true);
+    try {
+      await fetch(`/api/settings/integrations/${service}`, { method: "DELETE", headers: authHeaders() });
+      setConnected(false);
+      setConnectedUser(null);
+      toast({ title: `${name} disconnected` });
+    } catch {
+      toast({ title: "Error", variant: "destructive" });
+    } finally {
+      setDisconnecting(false);
+    }
+  }
+
+  const inputClass = "w-full px-3 py-2.5 bg-white border border-[rgba(107,78,255,.15)] rounded-lg text-sm text-[#1E1B4B] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#6B4EFF] focus:ring-2 focus:ring-[rgba(107,78,255,.15)] transition-colors";
+  const saveBtn = "flex items-center gap-2 px-4 py-2.5 bg-[#6B4EFF] text-white text-sm font-semibold rounded-lg hover:bg-[#5A3FE0] transition-colors disabled:opacity-50";
+
+  return (
+    <div className="bg-white border border-[rgba(107,78,255,.12)] rounded-xl p-6 shadow-sm">
+      <div className="flex items-start gap-4 mb-5">
+        <div className="w-10 h-10 rounded-lg bg-[#F5F3FF] border border-[rgba(107,78,255,.2)] flex items-center justify-center shrink-0">
+          {logo}
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-[#1E1B4B] font-semibold">{name}</h2>
+            {checking ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#6B7280]" />
+            ) : connected ? (
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
+                <CheckCircle className="w-3 h-3" /> Connected
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-50 text-gray-500 border border-gray-200 font-medium">
+                Not connected
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-[#6B7280] mt-0.5">{description}</p>
+        </div>
+      </div>
+
+      {connected ? (
+        <div className="space-y-4">
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-3">
+            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-emerald-700">{name} is connected</p>
+              {connectedUser?.email && <p className="text-xs text-emerald-600/80">{connectedUser.email}</p>}
+            </div>
+            <button onClick={checkConnection} className="text-emerald-600 hover:text-emerald-800 transition-colors" title="Refresh status">
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          {connectedCapabilities.length > 0 && (
+            <div className="grid grid-cols-2 gap-3">
+              {connectedCapabilities.map(({ icon, title, desc }) => (
+                <div key={title} className="p-3 bg-[#F5F3FF] border border-[rgba(107,78,255,.12)] rounded-lg">
+                  <p className="text-sm">{icon}</p>
+                  <p className="text-xs font-semibold text-[#1E1B4B] mt-1">{title}</p>
+                  <p className="text-xs text-[#6B7280] mt-0.5">{desc}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          <button onClick={handleDisconnect} disabled={disconnecting}
+            className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
+            {disconnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2Off className="w-4 h-4" />}
+            Disconnect {name}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="bg-[#F5F3FF] border border-[rgba(107,78,255,.12)] rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Key className="w-4 h-4 text-[#6B7280]" />
+              <h4 className="text-sm font-semibold text-[#1E1B4B]">How to get your {name} API key</h4>
+            </div>
+            <ol className="space-y-3">
+              {docsSteps.map((step, i) => (
+                <li key={i} className="flex gap-3">
+                  <span className="w-6 h-6 rounded-full bg-[#6B4EFF] text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                  <p className="text-sm text-[#6B7280] leading-relaxed">{step}</p>
+                </li>
+              ))}
+            </ol>
+            <div className="mt-4 pt-4 border-t border-[rgba(107,78,255,.12)]">
+              <p className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-widest mb-2">{docsLinkLabel}</p>
+              <div className="flex items-center gap-2 bg-white border border-[rgba(107,78,255,.12)] rounded-xl px-3 py-2.5">
+                <span className="flex-1 text-xs font-mono text-[#6B7280] truncate select-all">{docsLinkUrl}</span>
+                <button onClick={() => { navigator.clipboard.writeText(docsLinkUrl); setUrlCopied(true); setTimeout(() => setUrlCopied(false), 2000); }}
+                  className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border border-[rgba(107,78,255,.12)] bg-[#F5F3FF] hover:bg-[#EEF2FF] transition-colors">
+                  {urlCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-[#6B7280]" />}
+                </button>
+                <a href={docsLinkUrl} target="_blank" rel="noopener noreferrer"
+                  className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border border-[rgba(107,78,255,.12)] bg-[#F5F3FF] hover:bg-[#EEF2FF] transition-colors">
+                  <ExternalLink className="w-3.5 h-3.5 text-[#6B7280]" />
+                </a>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#1E1B4B] mb-1.5">{name} API key</label>
+            <div className="relative">
+              <input type={keyVisible ? "text" : "password"} value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleConnect(); }}
+                placeholder={placeholder} className={`${inputClass} font-mono pr-10`} autoComplete="off" />
+              <button type="button" onClick={() => setKeyVisible(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B4EFF] transition-colors">
+                {keyVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+          <button onClick={handleConnect} disabled={saving || !apiKey.trim()} className={saveBtn}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plug className="w-4 h-4" />}
+            {saving ? "Connecting…" : `Connect ${name}`}
+          </button>
+          <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
+            <ShieldCheck className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-800 leading-relaxed">
+              <strong className="text-amber-700">Keep your API key safe.</strong> It's stored encrypted and never exposed in the UI. If compromised, revoke it in {name} and reconnect.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── LinkedIn OAuth connection card ─────────────────────────────────────────────
+function LinkedInCard() {
+  const { toast } = useToast();
+  const [connected, setConnected] = useState(false);
+  const [linkedinUser, setLinkedinUser] = useState<{ name?: string; headline?: string; profileUrl?: string } | null>(null);
+  const [checking, setChecking] = useState(true);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  async function checkConnection() {
+    setChecking(true);
+    try {
+      const res = await fetch("/api/settings/integrations/linkedin", { headers: authHeaders() });
+      const data = await res.json();
+      setConnected(data.connected ?? false);
+      setLinkedinUser(data.user ?? null);
+    } catch {
+      setConnected(false);
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  useEffect(() => { checkConnection(); }, []);
+
+  async function handleDisconnect() {
+    setDisconnecting(true);
+    try {
+      await fetch("/api/settings/integrations/linkedin", { method: "DELETE", headers: authHeaders() });
+      setConnected(false);
+      setLinkedinUser(null);
+      toast({ title: "LinkedIn disconnected" });
+    } catch {
+      toast({ title: "Error", variant: "destructive" });
+    } finally {
+      setDisconnecting(false);
+    }
+  }
+
+  function handleOAuth() {
+    const width = 600, height = 700;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+    const popup = window.open(`/api/auth/linkedin`, "linkedin-oauth",
+      `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no`);
+    const timer = setInterval(() => {
+      if (popup?.closed) { clearInterval(timer); checkConnection(); }
+    }, 500);
+  }
+
+  const saveBtn = "flex items-center gap-2 px-4 py-2.5 bg-[#0A66C2] text-white text-sm font-semibold rounded-lg hover:bg-[#0856A8] transition-colors disabled:opacity-50";
+
+  return (
+    <div className="bg-white border border-[rgba(107,78,255,.12)] rounded-xl p-6 shadow-sm">
+      <div className="flex items-start gap-4 mb-5">
+        <div className="w-10 h-10 rounded-lg bg-[#E8F0FB] border border-[rgba(10,102,194,.2)] flex items-center justify-center shrink-0">
+          <svg viewBox="0 0 24 24" className="w-5 h-5" fill="#0A66C2">
+            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+          </svg>
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-[#1E1B4B] font-semibold">LinkedIn account</h2>
+            {checking ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#6B7280]" />
+            ) : connected ? (
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
+                <CheckCircle className="w-3 h-3" /> Connected
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-50 text-gray-500 border border-gray-200 font-medium">
+                Not connected
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-[#6B7280] mt-0.5">
+            Connect your LinkedIn account to send connection requests, messages, and track all LinkedIn activity directly in HubCredo.
+          </p>
+        </div>
+      </div>
+
+      {connected ? (
+        <div className="space-y-4">
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-3">
+            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-emerald-700">{linkedinUser?.name ?? "LinkedIn is connected"}</p>
+              {linkedinUser?.headline && <p className="text-xs text-emerald-600/80">{linkedinUser.headline}</p>}
+              {linkedinUser?.profileUrl && (
+                <a href={linkedinUser.profileUrl} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-emerald-600 underline hover:text-emerald-800 mt-0.5 inline-block">
+                  View profile ↗
+                </a>
+              )}
+            </div>
+            <button onClick={checkConnection} className="text-emerald-600 hover:text-emerald-800 transition-colors">
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { icon: "🔗", title: "Connection requests", desc: "Send and track connection requests to leads" },
+              { icon: "💬", title: "LinkedIn messages", desc: "Send messages and view replies in HubCredo" },
+              { icon: "👁️", title: "Profile views", desc: "Know when leads view your profile" },
+              { icon: "✅", title: "Acceptance tracking", desc: "Auto-update lead status on connection accept" },
+            ].map(({ icon, title, desc }) => (
+              <div key={title} className="p-3 bg-[#F5F3FF] border border-[rgba(107,78,255,.12)] rounded-lg">
+                <p className="text-sm">{icon}</p>
+                <p className="text-xs font-semibold text-[#1E1B4B] mt-1">{title}</p>
+                <p className="text-xs text-[#6B7280] mt-0.5">{desc}</p>
+              </div>
+            ))}
+          </div>
+          <button onClick={handleDisconnect} disabled={disconnecting}
+            className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
+            {disconnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2Off className="w-4 h-4" />}
+            Disconnect LinkedIn
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { icon: "🔗", title: "Connection requests", desc: "Send to leads directly from HubCredo" },
+              { icon: "💬", title: "LinkedIn messages", desc: "Full message history in one place" },
+              { icon: "👁️", title: "Profile view alerts", desc: "Know when leads check you out" },
+              { icon: "✅", title: "Auto status updates", desc: "Lead status updates on acceptance" },
+            ].map(({ icon, title, desc }) => (
+              <div key={title} className="p-3 bg-[#F5F3FF] border border-[rgba(107,78,255,.12)] rounded-lg">
+                <p className="text-sm">{icon}</p>
+                <p className="text-xs font-semibold text-[#1E1B4B] mt-1">{title}</p>
+                <p className="text-xs text-[#6B7280] mt-0.5">{desc}</p>
+              </div>
+            ))}
+          </div>
+          <button onClick={handleOAuth} className={saveBtn}>
+            <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+              <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+            </svg>
+            Connect LinkedIn account
+          </button>
+          <div className="flex items-start gap-3 px-4 py-3 bg-[#E8F0FB] border border-[rgba(10,102,194,.2)] rounded-xl">
+            <ShieldCheck className="w-4 h-4 text-[#0A66C2] shrink-0 mt-0.5" />
+            <p className="text-xs text-[#0A56A0] leading-relaxed">
+              <strong>OAuth only — no password stored.</strong> HubCredo connects via LinkedIn's official OAuth. We only request permissions needed for messaging and connection tracking.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main Settings page ─────────────────────────────────────────────────────────
 export default function Settings() {
   const { toast } = useToast();
 
@@ -63,7 +653,6 @@ export default function Settings() {
   const [linkedinEnabled, setLinkedinEnabled] = useState(true);
   const updateOutreach = useUpdateOutreachSettings();
 
-  // CRM
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: crmConnection, refetch: refetchCrm, error: crmError } = useGetCrmConnection({ query: { retry: false } as any });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -79,83 +668,8 @@ export default function Settings() {
   });
   const isConnected = !!crmConnection && !crmError;
 
-  // ── Reply.io integration state ─────────────────────────────
-  const [replyApiKey, setReplyApiKey] = useState("");
-  const [replyConnected, setReplyConnected] = useState(false);
-  const [replyUser, setReplyUser] = useState<{ email: string; name: string } | null>(null);
-  const [replyChecking, setReplyChecking] = useState(false);
-  const [replySaving, setReplySaving] = useState(false);
-  const [replyDisconnecting, setReplyDisconnecting] = useState(false);
-  const [replyKeyVisible, setReplyKeyVisible] = useState(false);
-
-  async function checkReplyConnection() {
-    setReplyChecking(true);
-    try {
-      const res = await fetch("/api/replyio/validate", { headers: authHeaders() });
-      const data = await res.json();
-      setReplyConnected(data.valid);
-      setReplyUser(data.user ?? null);
-    } catch {
-      setReplyConnected(false);
-    } finally {
-      setReplyChecking(false);
-    }
-  }
-
-  useEffect(() => {
-    if (activeTab === "integrations") checkReplyConnection();
-  }, [activeTab]);
-
-  async function handleConnectReply() {
-    if (!replyApiKey.trim()) return;
-    setReplySaving(true);
-    try {
-      // Save key to backend settings
-      const res = await fetch("/api/settings/integrations/replyio", {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ api_key: replyApiKey.trim() }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error ?? "Failed to save");
-      setReplyApiKey("");
-      await checkReplyConnection();
-      toast({ title: "Reply.io connected!", description: "Email and LinkedIn outreach can now use Reply.io sequences." });
-    } catch (err: unknown) {
-      // Fallback: key may need to just be in .env — show guidance
-      toast({
-        title: "Add key to .env instead",
-        description: "Set REPLY_IO_API_KEY in artifacts/api-server/.env and restart the server.",
-        variant: "destructive",
-      });
-    } finally {
-      setReplySaving(false);
-    }
-  }
-
-  async function handleDisconnectReply() {
-    setReplyDisconnecting(true);
-    try {
-      await fetch("/api/settings/integrations/replyio", { method: "DELETE", headers: authHeaders() });
-      setReplyConnected(false);
-      setReplyUser(null);
-      toast({ title: "Reply.io disconnected" });
-    } catch {
-      toast({ title: "Error", variant: "destructive" });
-    } finally {
-      setReplyDisconnecting(false);
-    }
-  }
-
-  // ── existing effects ───────────────────────────────────────
-
-  useEffect(() => {
-    if (crmFieldMapping?.mapping) setFieldMapping(crmFieldMapping.mapping as Record<string, boolean>);
-  }, [crmFieldMapping]);
-
-  useEffect(() => {
-    if (profile?.full_name) setFullName(profile.full_name);
-  }, [profile]);
-
+  useEffect(() => { if (crmFieldMapping?.mapping) setFieldMapping(crmFieldMapping.mapping as Record<string, boolean>); }, [crmFieldMapping]);
+  useEffect(() => { if (profile?.full_name) setFullName(profile.full_name); }, [profile]);
   useEffect(() => {
     if ((icps as Icp[]).length > 0) {
       const icp = (icps as Icp[])[0];
@@ -167,7 +681,6 @@ export default function Settings() {
       if (icp.excluded_industries) setExcludedIndustries(icp.excluded_industries);
     }
   }, [icps]);
-
   useEffect(() => {
     if (outreachSettings) {
       if (outreachSettings.monthly_lead_target != null) setMonthlyLeadTarget(String(outreachSettings.monthly_lead_target));
@@ -176,8 +689,6 @@ export default function Settings() {
       setLinkedinEnabled(outreachSettings.linkedin_enabled ?? true);
     }
   }, [outreachSettings]);
-
-  // ── handlers (unchanged) ──────────────────────────────────
 
   async function handleSaveProfile() {
     try {
@@ -245,8 +756,6 @@ export default function Settings() {
     setTimeout(() => setUrlCopied(false), 2000);
   }
 
-  // ── Style tokens ──────────────────────────────────────────
-
   const tabs: { id: TabId; label: string }[] = [
     { id: "profile",      label: "Profile" },
     { id: "icp",          label: "ICP" },
@@ -271,18 +780,13 @@ export default function Settings() {
           <p className="text-[#6B7280] text-sm">Manage your profile, ICP, and outreach preferences</p>
         </div>
 
-        {/* Tab bar */}
         <div className="flex gap-1 mb-6 sm:mb-8 bg-[#F5F3FF] border border-[rgba(107,78,255,.12)] rounded-lg p-1 w-full overflow-x-auto">
           {tabs.map(({ id, label }) => (
             <button key={id} onClick={() => setActiveTab(id)}
               className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
                 activeTab === id ? "bg-white text-[#6B4EFF] border border-[rgba(107,78,255,.2)] shadow-sm" : "text-[#6B7280] hover:text-[#1E1B4B]"
-              }`}
-            >
+              }`}>
               {label}
-              {id === "integrations" && replyConnected && (
-                <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 align-middle" />
-              )}
             </button>
           ))}
         </div>
@@ -337,9 +841,10 @@ export default function Settings() {
               <div className="flex flex-wrap gap-2">
                 {COMPANY_SIZES.map((s) => (
                   <button key={s} type="button"
-                    onClick={() => setTargetSize((prev) => prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s])}
-                    className={`${chipBase} ${targetSize.includes(s) ? chipActive : chipInactive}`}
-                  >{s}</button>
+                    onClick={() => setTargetSize(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
+                    className={`${chipBase} ${targetSize.includes(s) ? chipActive : chipInactive}`}>
+                    {s}
+                  </button>
                 ))}
               </div>
             </div>
@@ -372,9 +877,8 @@ export default function Settings() {
                     <p className="text-sm font-medium text-[#1E1B4B]">{label}</p>
                     <p className="text-xs text-[#6B7280]">{sub}</p>
                   </div>
-                  <button type="button" onClick={() => set((v) => !v)}
-                    className={`w-11 h-6 rounded-full transition-colors relative ${val ? "bg-[#6B4EFF]" : "bg-[#E5E7EB]"}`}
-                  >
+                  <button type="button" onClick={() => set(v => !v)}
+                    className={`w-11 h-6 rounded-full transition-colors relative ${val ? "bg-[#6B4EFF]" : "bg-[#E5E7EB]"}`}>
                     <span className={`block w-4 h-4 bg-white rounded-full absolute top-1 shadow-sm transition-transform ${val ? "translate-x-6" : "translate-x-1"}`} />
                   </button>
                 </div>
@@ -445,7 +949,6 @@ export default function Settings() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-emerald-700">Attio is connected</p>
                       {crmConnection?.workspace_id && <p className="text-xs text-emerald-600/80 truncate">Workspace: {crmConnection.workspace_id}</p>}
-                      <p className="text-xs text-emerald-600/80 mt-0.5">Connected {crmConnection?.connected_at ? new Date(crmConnection.connected_at).toLocaleDateString() : ""}</p>
                     </div>
                   </div>
                   <button onClick={handleDisconnectCrm} disabled={disconnectCrm.isPending}
@@ -478,10 +981,11 @@ export default function Settings() {
                       <p className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-widest mb-2">Direct link to your token page</p>
                       <div className="flex items-center gap-2 bg-white border border-[rgba(107,78,255,.12)] rounded-xl px-3 py-2.5">
                         <span className="flex-1 text-xs font-mono text-[#6B7280] truncate select-all">{ATTIO_API_KEY_URL}</span>
-                        <button onClick={copyAttioUrl} className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border border-[rgba(107,78,255,.12)] bg-[#F5F3FF] hover:bg-[#EEF2FF] transition-colors" title="Copy URL">
+                        <button onClick={copyAttioUrl} className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border border-[rgba(107,78,255,.12)] bg-[#F5F3FF] hover:bg-[#EEF2FF] transition-colors">
                           {urlCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-[#6B7280]" />}
                         </button>
-                        <a href={ATTIO_API_KEY_URL} target="_blank" rel="noopener noreferrer" className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border border-[rgba(107,78,255,.12)] bg-[#F5F3FF] hover:bg-[#EEF2FF] transition-colors" title="Open in Attio">
+                        <a href={ATTIO_API_KEY_URL} target="_blank" rel="noopener noreferrer"
+                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border border-[rgba(107,78,255,.12)] bg-[#F5F3FF] hover:bg-[#EEF2FF] transition-colors">
                           <ExternalLink className="w-3.5 h-3.5 text-[#6B7280]" />
                         </a>
                       </div>
@@ -500,7 +1004,7 @@ export default function Settings() {
                   <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
                     <ShieldCheck className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                     <p className="text-xs text-amber-800 leading-relaxed">
-                      <strong className="text-amber-700">Keep your API key safe.</strong> Treat it like a password. If compromised, delete it on the{" "}
+                      <strong className="text-amber-700">Keep your API key safe.</strong> If compromised, delete it on the{" "}
                       <a href={ATTIO_API_KEY_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-700">Developers page</a>{" "}
                       and generate a new one.
                     </p>
@@ -521,7 +1025,7 @@ export default function Settings() {
                         <p className="text-sm font-medium text-[#1E1B4B]">{label}</p>
                         <p className="text-xs text-[#6B7280]">{description}</p>
                       </div>
-                      <button type="button" onClick={() => setFieldMapping((m) => ({ ...m, [key]: !m[key] }))}
+                      <button type="button" onClick={() => setFieldMapping(m => ({ ...m, [key]: !m[key] }))}
                         className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${fieldMapping[key] ? "bg-[#6B4EFF]" : "bg-[#E5E7EB]"}`}>
                         <span className={`block w-4 h-4 bg-white rounded-full absolute top-1 shadow-sm transition-transform ${fieldMapping[key] ? "translate-x-6" : "translate-x-1"}`} />
                       </button>
@@ -544,126 +1048,39 @@ export default function Settings() {
         {/* ── Integrations tab ── */}
         {activeTab === "integrations" && (
           <div className="space-y-4">
+            {/* InboxKit — uses dedicated card with Workspace ID field */}
+            <InboxKitCard />
 
-            {/* Reply.io card */}
-            <div className="bg-white border border-[rgba(107,78,255,.12)] rounded-xl p-6 shadow-sm">
-              <div className="flex items-start gap-4 mb-5">
-                <div className="w-10 h-10 rounded-lg bg-[#F5F3FF] border border-[rgba(107,78,255,.2)] flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 32 32" className="w-6 h-6" fill="none">
-                    <rect width="32" height="32" rx="8" fill="#1a1a2e"/>
-                    <path d="M8 10h10a4 4 0 010 8H12v4" stroke="#6B4EFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <circle cx="22" cy="22" r="2.5" fill="#6B4EFF"/>
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-[#1E1B4B] font-semibold">Reply.io</h2>
-                    {replyChecking ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[#6B7280]" />
-                    ) : replyConnected ? (
-                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
-                        <CheckCircle className="w-3 h-3" /> Connected
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-50 text-gray-500 border border-gray-200 font-medium">
-                        Not connected
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-[#6B7280] mt-0.5">
-                    Use Reply.io sequences for email and LinkedIn outreach. Toggle between native and Reply.io mode on the LinkedIn and Campaigns pages.
-                  </p>
-                </div>
-              </div>
+            {/* Reply.io */}
+            <IntegrationCard
+              service="replyio"
+              name="Reply.io"
+              description="Use Reply.io sequences for email and LinkedIn outreach. HubCredo tracks replies, bounces, and sequence events automatically."
+              logo={
+                <svg viewBox="0 0 32 32" className="w-6 h-6" fill="none">
+                  <rect width="32" height="32" rx="8" fill="#1a1a2e"/>
+                  <path d="M8 10h10a4 4 0 010 8H12v4" stroke="#6B4EFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <circle cx="22" cy="22" r="2.5" fill="#6B4EFF"/>
+                </svg>
+              }
+              docsSteps={[
+                <>Log in to Reply.io → click your avatar → <strong className="font-semibold text-[#1E1B4B]">Settings → API</strong>.</>,
+                <>Copy your API key from the <strong className="font-semibold text-[#1E1B4B]">API Access</strong> section.</>,
+                "Paste it below and click Connect Reply.io. HubCredo will start syncing sequence events immediately.",
+              ]}
+              docsLinkLabel="Direct link to Reply.io API settings"
+              docsLinkUrl={REPLY_IO_API_URL}
+              placeholder="Paste your Reply.io API key…"
+              connectedCapabilities={[
+                { icon: "✉️", title: "Email sequences", desc: "Use Reply.io sequences on the Campaigns page" },
+                { icon: "💼", title: "LinkedIn sequences", desc: "LinkedIn steps handled via Reply.io" },
+                { icon: "📬", title: "Reply tracking", desc: "Replies sync back to HubCredo lead cards" },
+                { icon: "📈", title: "Sequence analytics", desc: "Opens, clicks, and replies in one view" },
+              ]}
+            />
 
-              {replyConnected ? (
-                <div className="space-y-4">
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-3">
-                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium text-emerald-700">Reply.io is connected</p>
-                      {replyUser && <p className="text-xs text-emerald-600/80">{replyUser.email}</p>}
-                    </div>
-                    <button onClick={checkReplyConnection} className="ml-auto text-emerald-600 hover:text-emerald-800">
-                      <RefreshCw className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  {/* What this enables */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { icon: "✉️", title: "Email outreach", desc: "Use Reply.io sequences on the Campaigns page" },
-                      { icon: "💼", title: "LinkedIn outreach", desc: "Use Reply.io sequences on the LinkedIn page" },
-                    ].map(({ icon, title, desc }) => (
-                      <div key={title} className="p-3 bg-[#F5F3FF] border border-[rgba(107,78,255,.12)] rounded-lg">
-                        <p className="text-sm">{icon}</p>
-                        <p className="text-xs font-semibold text-[#1E1B4B] mt-1">{title}</p>
-                        <p className="text-xs text-[#6B7280] mt-0.5">{desc}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <button onClick={handleDisconnectReply} disabled={replyDisconnecting}
-                    className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
-                    {replyDisconnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2Off className="w-4 h-4" />}
-                    Disconnect Reply.io
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* Setup guide */}
-                  <div className="bg-[#F5F3FF] border border-[rgba(107,78,255,.12)] rounded-xl p-4 space-y-2">
-                    <p className="text-sm font-semibold text-[#1E1B4B] flex items-center gap-2"><Key className="w-4 h-4" /> How to get your Reply.io API key</p>
-                    {[
-                      "Log in to Reply.io → click your avatar → Settings.",
-                      "Go to API → copy your API key.",
-                      "Add it to artifacts/api-server/.env as REPLY_IO_API_KEY=your_key and restart the server.",
-                    ].map((step, i) => (
-                      <div key={i} className="flex gap-3">
-                        <span className="w-5 h-5 rounded-full bg-[#6B4EFF] text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
-                        <p className="text-sm text-[#6B7280]">{step}</p>
-                      </div>
-                    ))}
-                    <div className="mt-3 pt-3 border-t border-[rgba(107,78,255,.12)]">
-                      <p className="text-xs font-mono bg-white border border-[rgba(107,78,255,.12)] rounded-lg px-3 py-2 text-[#6B7280]">
-                        REPLY_IO_API_KEY=a1BhMEpns3fSHSdBG3ZefOK9
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-[#1E1B4B] mb-1.5">Reply.io API key</label>
-                    <div className="relative">
-                      <input
-                        type={replyKeyVisible ? "text" : "password"}
-                        value={replyApiKey}
-                        onChange={(e) => setReplyApiKey(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") handleConnectReply(); }}
-                        placeholder="Paste your Reply.io API key…"
-                        className={`${inputClass} font-mono pr-10`}
-                        autoComplete="off"
-                      />
-                      <button type="button" onClick={() => setReplyKeyVisible((v) => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B4EFF]">
-                        {replyKeyVisible ? <Check className="w-4 h-4" /> : <Key className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <button onClick={handleConnectReply} disabled={replySaving || !replyApiKey.trim()} className={saveBtn}>
-                    {replySaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plug className="w-4 h-4" />}
-                    {replySaving ? "Connecting…" : "Connect Reply.io"}
-                  </button>
-
-                  <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
-                    <ShieldCheck className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-800">
-                      <strong className="text-amber-700">Easiest method:</strong> Add <code className="font-mono bg-amber-100 px-1 rounded">REPLY_IO_API_KEY</code> directly to your <code className="font-mono bg-amber-100 px-1 rounded">.env</code> file and restart the api-server. The page will show Connected automatically.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* LinkedIn */}
+            <LinkedInCard />
           </div>
         )}
       </div>

@@ -113,4 +113,34 @@ router.patch("/settings/outreach", requireAuth, async (req: AuthenticatedRequest
   res.json(UpdateOutreachSettingsResponse.parse(data));
 });
 
+// ── Per-user integration key management ─────────────────────
+router.get("/settings/integrations/:service", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data } = await supabase
+    .from("user_integrations")
+    .select("service, workspace_id, updated_at")
+    .eq("user_id", req.userId!)
+    .eq("service", req.params.service)
+    .maybeSingle();
+  if (!data) { res.json({ connected: false, service: req.params.service }); return; }
+  res.json({ connected: true, service: data.service, workspace_id: data.workspace_id ?? null, updated_at: data.updated_at });
+});
+
+router.put("/settings/integrations/:service", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { api_key, workspace_id } = req.body as { api_key?: string; workspace_id?: string };
+  if (!api_key?.trim()) { res.status(400).json({ error: "api_key is required" }); return; }
+  const { error } = await supabase
+    .from("user_integrations")
+    .upsert(
+      { user_id: req.userId!, service: req.params.service, api_key: api_key.trim(), workspace_id: workspace_id?.trim() ?? null, updated_at: new Date().toISOString() },
+      { onConflict: "user_id,service" }
+    );
+  if (error) { req.log.error({ error }, "Failed to save integration"); res.status(500).json({ error: "Failed to save" }); return; }
+  res.json({ success: true });
+});
+
+router.delete("/settings/integrations/:service", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  await supabase.from("user_integrations").delete().eq("user_id", req.userId!).eq("service", req.params.service);
+  res.json({ success: true });
+});
+
 export default router;

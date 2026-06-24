@@ -50,6 +50,67 @@ export default function Leads() {
   const hasCrm = !!crmConnection;
   const [syncingLeadId, setSyncingLeadId] = useState<string | null>(null);
   const [syncingAll, setSyncingAll] = useState(false);
+  const [syncingHubspot, setSyncingHubspot] = useState(false);
+  const [enriching, setEnriching] = useState(false);
+
+  async function handleEnrichList() {
+    if (!activeListId) return;
+    setEnriching(true);
+    try {
+      const token = getToken();
+      const res = await fetch(
+        `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/webhooks/enrich-list/${activeListId}`,
+        { method: "POST", headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data.sent === 0) {
+          toast({ title: "Nothing to enrich", description: "No leads with LinkedIn URLs found in this list.", variant: "destructive" });
+        } else {
+          toast({ title: "Enrichment triggered", description: `${data.sent} LinkedIn profile${data.sent !== 1 ? "s" : ""} sent for enrichment. Results will appear shortly.` });
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast({ title: "Enrichment failed", description: err.error ?? "Could not trigger enrichment.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Enrichment error", description: "An error occurred.", variant: "destructive" });
+    } finally {
+      setEnriching(false);
+    }
+  }
+
+  async function handleSyncHubspot() {
+    if (!activeListId) return;
+    setSyncingHubspot(true);
+    try {
+      const token = getToken();
+      const res = await fetch(
+        `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/crm-hs/sync-list/${activeListId}`,
+        { method: "POST", headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const skippedNote = data.skipped > 0 ? ` (${data.skipped} skipped — no email address)` : "";
+        const failNote = data.failed > 0 ? ` · ${data.failed} failed` : "";
+        toast({
+          title: data.succeeded > 0 ? "HubSpot sync complete" : data.skipped > 0 ? "Nothing to sync" : "HubSpot sync failed",
+          description: data.succeeded > 0
+            ? `${data.succeeded} lead${data.succeeded !== 1 ? "s" : ""} synced to HubSpot${skippedNote}${failNote}.`
+            : `No leads could be synced — HubSpot requires an email address for each contact.${failNote}`,
+          variant: data.succeeded > 0 ? "default" : "destructive",
+        });
+        await refetchLeads();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast({ title: "HubSpot sync failed", description: err.error ?? "Could not sync leads to HubSpot.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "HubSpot sync error", description: "An error occurred.", variant: "destructive" });
+    } finally {
+      setSyncingHubspot(false);
+    }
+  }
 
   async function handleSyncAllApproved() {
     if (!activeListId) return;
@@ -414,6 +475,29 @@ export default function Leads() {
                   {leadsLoading ? "Loading…" : `${(leads as Lead[]).length} leads in "${selectedList.label}"`}
                 </p>
                 <div className="flex items-center gap-2">
+                  {activeListId && (
+                    <button
+                      onClick={handleEnrichList}
+                      disabled={enriching}
+                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50"
+                      style={{ background: "rgba(16,185,129,.1)", borderColor: "rgba(16,185,129,.25)", color: "#059669" }}
+                      title="Send all LinkedIn URLs in this list to enrichment webhook"
+                    >
+                      {enriching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                      Enrich via LinkedIn
+                    </button>
+                  )}
+                  {(leads as Lead[]).some((l) => l.review_status === "approved") && (
+                    <button
+                      onClick={handleSyncHubspot}
+                      disabled={syncingHubspot}
+                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50"
+                      style={{ background: "rgba(255,122,89,.1)", borderColor: "rgba(255,122,89,.25)", color: "#FF7A59" }}
+                    >
+                      {syncingHubspot ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      Sync to HubSpot
+                    </button>
+                  )}
                   {hasCrm && (leads as Lead[]).some((l) => l.review_status === "approved") && (
                     <button
                       onClick={handleSyncAllApproved}
@@ -421,7 +505,7 @@ export default function Leads() {
                       className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-[#F5F3FF] border border-[rgba(107,78,255,0.2)] text-[#6B4EFF] rounded-lg hover:bg-[#EDE9FE] transition-colors disabled:opacity-50"
                     >
                       {syncingAll ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                      Sync approved
+                      Sync to Attio
                     </button>
                   )}
                   {lists.length > 1 && (
@@ -515,6 +599,13 @@ export default function Leads() {
                                <Clock className="w-2.5 h-2.5" />}
                               {lead.crm_sync_status === "synced" ? "CRM synced" :
                                lead.crm_sync_status === "error"  ? "CRM error" : "Not synced"}
+                            </span>
+                          )}
+                          {lead.review_status === "approved" && lead.crm_contact_id?.startsWith("hs:") && (
+                            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium"
+                              style={{ background: "rgba(255,122,89,.1)", color: "#FF7A59", borderColor: "rgba(255,122,89,.3)" }}>
+                              <CheckCircle2 className="w-2.5 h-2.5" />
+                              HubSpot synced
                             </span>
                           )}
                         </div>

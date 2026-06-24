@@ -19,7 +19,9 @@ import Campaigns from "@/pages/dashboard/Campaigns";
 import InboxPage from "@/pages/dashboard/Inbox";
 import LinkedInOutreach from "@/pages/dashboard/LinkedIn";
 import ReplyioPage from "@/pages/dashboard/ReplyioPage";
+import InboxKitPage from "@/pages/dashboard/InboxKitPage";
 import CRM from "@/pages/dashboard/CRM";
+import HubSpot from "@/pages/dashboard/HubSpot";
 import RecommendedTools from "@/pages/dashboard/RecommendedTools";
 import NotFound from "@/pages/not-found";
 
@@ -52,6 +54,9 @@ function Router() {
       <Route path="/dashboard/replyio">
         <ProtectedRoute component={ReplyioPage} />
       </Route>
+      <Route path="/dashboard/inboxkit">
+        <ProtectedRoute component={InboxKitPage} />
+      </Route>
 
       <Route path="/dashboard/settings">
         <ProtectedRoute component={Settings} />
@@ -73,6 +78,9 @@ function Router() {
       </Route>
       <Route path="/dashboard/crm">
         <ProtectedRoute component={CRM} />
+      </Route>
+      <Route path="/dashboard/hubspot">
+        <ProtectedRoute component={HubSpot} />
       </Route>
       <Route path="/dashboard/tools">
         <ProtectedRoute component={RecommendedTools} />

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { getToken } from "@/lib/auth";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { LeadUploadModal } from "@/components/leads/LeadUploadModal";
 import {
   useListLeadLists,
   useCreateLeadList,
@@ -16,7 +17,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Users, Plus, Loader2, ThumbsUp, ThumbsDown, ExternalLink, Zap, ChevronDown, Sparkles, ArrowRight, X, Building2, MapPin, Briefcase, Mail, Globe, Trash2, AlertTriangle, Linkedin, RefreshCw, CheckCircle2, AlertCircle, Clock, Phone } from "lucide-react";
+import { Users, Plus, Loader2, ThumbsUp, ThumbsDown, ExternalLink, Zap, ChevronDown, Sparkles, ArrowRight, X, Building2, MapPin, Briefcase, Mail, Globe, Trash2, AlertTriangle, Linkedin, RefreshCw, CheckCircle2, AlertCircle, Clock, Phone, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Lead, LeadList, Icp } from "@workspace/api-client-react";
 import { useCreditStore } from "@/store/creditStore";
@@ -32,6 +33,7 @@ export default function Leads() {
   const [profileLead, setProfileLead] = useState<Lead | null>(null);
   const [leadCount, setLeadCount] = useState(5);
   const [deleteConfirmList, setDeleteConfirmList] = useState<LeadList | null>(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const { balance, deductOptimistic, fetchBalance } = useCreditStore();
 
   const { data: me } = useGetMe();
@@ -377,12 +379,21 @@ export default function Leads() {
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1 mb-3">
               <p className="text-xs text-[#9CA3AF] uppercase tracking-widest font-medium">Lead lists</p>
-              <button
-                onClick={() => setShowNewList(true)}
-                className="flex items-center gap-1 text-xs text-[#6B4EFF] hover:text-[#5B3FE0] transition-colors font-medium"
-              >
-                <Plus className="w-3.5 h-3.5" /> New
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowUploadModal(true)}
+                  className="flex items-center gap-1 text-xs text-[#059669] hover:text-[#047857] transition-colors font-medium"
+                  title="Upload CSV or Excel"
+                >
+                  <Upload className="w-3.5 h-3.5" /> Upload
+                </button>
+                <button
+                  onClick={() => setShowNewList(true)}
+                  className="flex items-center gap-1 text-xs text-[#6B4EFF] hover:text-[#5B3FE0] transition-colors font-medium"
+                >
+                  <Plus className="w-3.5 h-3.5" /> New
+                </button>
+              </div>
             </div>
 
             {listsLoading ? (
@@ -945,6 +956,17 @@ export default function Leads() {
             </div>
           </div>
         </>
+      )}
+      {showUploadModal && (
+        <LeadUploadModal
+          onClose={() => setShowUploadModal(false)}
+          onSuccess={async (listId, _label, _count) => {
+            setShowUploadModal(false);
+            await refetchLists();
+            setSelectedListId(listId);
+            await refetchLeads();
+          }}
+        />
       )}
     </DashboardLayout>
   );

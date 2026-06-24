@@ -103,6 +103,20 @@ interface ReplyStats {
   bounced: number;
 }
 
+// ── Reply.io LinkedIn account type ───────────────────────────
+interface ReplyLIAccount {
+  connected: boolean;
+  profile_name?: string | null;
+  email?: string | null;
+  subscription?: string | null; // now "premium" | "salesNavigator" | "public"
+  account_id?: string | null;
+  profile_url?: string | null;
+  photo_url?: string | null;
+  status?: string | null;       // "enabled" | "disabled" | "dailyLimitReached" | "cookieInvalid"
+  cookie_status?: string | null;
+  reason?: string;
+}
+
 export default function LinkedIn() {
   const { toast } = useToast();
   const { data: me } = useGetMe();
@@ -166,6 +180,10 @@ export default function LinkedIn() {
   const [enrollLast, setEnrollLast] = useState("");
   const [enrolling, setEnrolling] = useState(false);
 
+  // ── Reply.io LinkedIn account from Reply.io ───────────────
+  const [replyLIAccount, setReplyLIAccount] = useState<ReplyLIAccount | null>(null);
+  const [replyLIAccountLoading, setReplyLIAccountLoading] = useState(false);
+
   // ── Reply.io LinkedIn wizard state ────────────────────────
   const [replyLIWizard, setReplyLIWizard] = useState(false);
   const [replyLIName, setReplyLIName] = useState("");
@@ -185,13 +203,24 @@ export default function LinkedIn() {
     { name: "Industry peer", connection_message: "Hi {{firstName}}, we're both in the B2B space and I'd love to stay connected. I work on GTM infrastructure and outreach automation.", followup_message: "Hey {{firstName}}, great to be connected! Would you be open to a 15-min call to explore if what I do could help your team?" },
   ];
 
-  // Check Reply.io connection on mount
+  // ── Check Reply.io connection on mount ───────────────────
   useEffect(() => {
     fetch(apiUrl("/replyio/validate"), { headers: authHeaders() })
       .then((r) => r.json())
       .then((d) => setReplyConnected(d.valid))
       .catch(() => setReplyConnected(false));
   }, []);
+
+  // ── Fetch Reply.io LinkedIn account when Reply.io is connected ──
+  useEffect(() => {
+    if (!replyConnected) return;
+    setReplyLIAccountLoading(true);
+    fetch(apiUrl("/replyio/linkedin-account"), { headers: authHeaders() })
+      .then((r) => r.json())
+      .then((d: ReplyLIAccount) => setReplyLIAccount(d))
+      .catch(() => setReplyLIAccount({ connected: false }))
+      .finally(() => setReplyLIAccountLoading(false));
+  }, [replyConnected]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -296,9 +325,6 @@ export default function LinkedIn() {
     if (!replyLIConnMsg.trim()) { toast({ title: "Connection message required", variant: "destructive" }); return; }
     setReplyLICreating(true);
     try {
-      // Reply.io v3: LinkedIn step type is "linkedin" (not "linkedInConnectionRequest")
-      // Note: LinkedIn steps require a LinkedIn account connected in Reply.io settings.
-      // Steps will be created; if they fail, stepErrors will be returned and shown.
       const steps = [
         { type: "linkedin", delay_days: 0, body: replyLIConnMsg.trim() },
         ...(replyLIFollowup.trim() ? [{ type: "linkedin", delay_days: replyLIFollowupDelay, body: replyLIFollowup.trim() }] : []),
@@ -678,6 +704,194 @@ export default function LinkedIn() {
 
   const replySelectedSeq = replySeqs.find((s) => s.id === replySelectedId);
 
+  /* ─────────────────────────────────────────────────────────
+     ACCOUNT SECTION — renders differently in Reply.io mode
+  ───────────────────────────────────────────────────────── */
+  function renderAccountSection() {
+    if (loading) {
+      return (
+        <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-6 flex justify-center">
+          <Loader2 className="w-5 h-5 animate-spin text-[#6B4EFF]" />
+        </div>
+      );
+    }
+
+    // ── Reply.io mode: show the LinkedIn account from Reply.io ──
+    if (replyMode) {
+      if (replyLIAccountLoading) {
+        return (
+          <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-6 flex items-center gap-3">
+            <Loader2 className="w-4 h-4 animate-spin text-[#6B4EFF]" />
+            <span className="text-sm text-[#6B7280]">Fetching LinkedIn account from Reply.io…</span>
+          </div>
+        );
+      }
+
+      if (replyLIAccount?.connected) {
+        return (
+          <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-[#F5F3FF] rounded-xl flex items-center justify-center shrink-0">
+                <Linkedin className="w-5 h-5 text-[#6B4EFF]" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-semibold text-[#1E1B4B]">
+                    {replyLIAccount.profile_name ?? "LinkedIn account"}
+                  </p>
+                  <span className="inline-flex items-center gap-1 text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
+                    <CheckCircle2 className="w-3 h-3" /> Active via Reply.io
+                  </span>
+                  {replyLIAccount.subscription && (
+                    <span className="text-xs bg-[#F5F3FF] text-[#6B4EFF] px-2 py-0.5 rounded-full border border-[rgba(107,78,255,0.2)] font-medium">
+                      {replyLIAccount.subscription}
+                    </span>
+                  )}
+                </div>
+                {replyLIAccount.email && (
+                  <p className="text-xs text-[#6B7280] mt-0.5">{replyLIAccount.email}</p>
+                )}
+                <p className="text-xs text-[#9CA3AF] mt-0.5">
+                  LinkedIn steps are handled automatically by Reply.io
+                </p>
+              </div>
+              <a
+                href="https://app.reply.io/settings/linkedin-accounts"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-[rgba(107,78,255,0.2)] text-[#6B4EFF] text-xs font-medium rounded-lg hover:bg-[#F5F3FF] transition-colors shrink-0"
+              >
+                <Settings className="w-3.5 h-3.5" /> Manage
+              </a>
+            </div>
+          </div>
+        );
+      }
+
+      // Reply.io mode but no LinkedIn account found there
+      return (
+        <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-5 shadow-sm">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center shrink-0">
+              <Linkedin className="w-5 h-5 text-amber-500" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-[#1E1B4B]">No LinkedIn account in Reply.io</p>
+              <p className="text-xs text-[#6B7280] mt-1 mb-4">
+                You need to add a LinkedIn account in Reply.io settings before you can send LinkedIn sequences.
+              </p>
+              <a
+                href="https://app.reply.io/settings/linkedin-accounts"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 text-white text-xs font-semibold rounded-lg transition-colors"
+                style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
+              >
+                <Settings className="w-3.5 h-3.5" /> Add LinkedIn account
+              </a>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Native (Unipile) mode ──
+    if (account && account.status === "connected") {
+      return (
+        <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-[#F5F3FF] rounded-xl flex items-center justify-center">
+                <Linkedin className="w-5 h-5 text-[#6B4EFF]" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-[#1E1B4B]">{account.profile_name ?? "LinkedIn connected"}</p>
+                  <span className="inline-flex items-center gap-1 text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
+                    <CheckCircle2 className="w-3 h-3" /> Active
+                  </span>
+                </div>
+                <p className="text-xs text-[#6B7280] mt-0.5">Daily limit: {account.daily_limit} sends · {account.sends_today ?? 0} sent today</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setDailyLimit(account.daily_limit); setShowLimitEditor(true); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-[rgba(107,78,255,0.2)] text-[#6B4EFF] text-xs font-medium rounded-lg hover:bg-[#F5F3FF] transition-colors"
+              >
+                <Settings className="w-3.5 h-3.5" /> Limit
+              </button>
+              <button onClick={handleDisconnect} className="px-3 py-1.5 border border-red-200 text-red-500 text-xs font-medium rounded-lg hover:bg-red-50 transition-colors">
+                Disconnect
+              </button>
+            </div>
+          </div>
+          <div className="mt-4">
+            <div className="flex justify-between text-xs text-[#6B7280] mb-1.5">
+              <span>Sends today</span><span>{account.sends_today ?? 0} / {account.daily_limit}</span>
+            </div>
+            <div className="w-full bg-[#F5F3FF] rounded-full h-1.5">
+              <div
+                className="h-1.5 rounded-full transition-all"
+                style={{ width: `${Math.min(100, ((account.sends_today ?? 0) / account.daily_limit) * 100)}%`, background: "linear-gradient(90deg, #6B4EFF, #8B5CF6)" }}
+              />
+            </div>
+          </div>
+          {showLimitEditor && (
+            <div className="mt-4 pt-4 border-t border-[rgba(107,78,255,0.1)] space-y-3">
+              <p className="text-sm font-medium text-[#1E1B4B]">Update daily limit</p>
+              <div className="flex items-center gap-3">
+                <input type="range" min={1} max={30} value={dailyLimit} onChange={(e) => setDailyLimit(Number(e.target.value))} className="flex-1 accent-[#6B4EFF]" />
+                <span className="w-12 text-center text-sm font-bold text-[#6B4EFF] bg-[#F5F3FF] border border-[rgba(107,78,255,0.2)] rounded-lg py-1.5">{dailyLimit}</span>
+              </div>
+              <p className="text-xs text-[#9CA3AF]">We recommend 15 sends/day to stay below LinkedIn's detection threshold.</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleUpdateLimit}
+                  disabled={savingLimit}
+                  className="flex items-center gap-1.5 px-4 py-2 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+                  style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
+                >
+                  {savingLimit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  {savingLimit ? "Saving…" : "Save"}
+                </button>
+                <button onClick={() => setShowLimitEditor(false)} className="px-4 py-2 border border-[rgba(107,78,255,0.2)] text-[#6B7280] text-sm font-semibold rounded-lg hover:bg-[#F5F3FF] transition-colors">Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-6 shadow-sm">
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 bg-[#F5F3FF] rounded-xl flex items-center justify-center shrink-0">
+            <Linkedin className="w-5 h-5 text-[#6B4EFF]" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-[#1E1B4B]">No LinkedIn account connected</p>
+            <p className="text-xs text-[#6B7280] mt-1 mb-5">Connect your LinkedIn account to start sending automated connection requests and follow-ups.</p>
+            <button
+              onClick={handleConnectLinkedIn}
+              disabled={connecting}
+              className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all disabled:opacity-60"
+              style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
+            >
+              {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                  <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                </svg>
+              )}
+              {connecting ? "Redirecting to Unipile…" : "Connect LinkedIn"}
+            </button>
+            <p className="text-xs text-[#9CA3AF] mt-3">You'll be securely redirected to connect your LinkedIn account via Unipile.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
@@ -713,103 +927,10 @@ export default function LinkedIn() {
           </div>
         </div>
 
-        {/* LinkedIn Account */}
+        {/* LinkedIn Account — dynamic based on mode */}
         <section>
           <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-widest mb-3">Your LinkedIn account</h2>
-          {loading ? (
-            <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-6 flex justify-center">
-              <Loader2 className="w-5 h-5 animate-spin text-[#6B4EFF]" />
-            </div>
-          ) : account && account.status === "connected" ? (
-            <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-5 shadow-sm">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#F5F3FF] rounded-xl flex items-center justify-center">
-                    <Linkedin className="w-5 h-5 text-[#6B4EFF]" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-[#1E1B4B]">{account.profile_name ?? "LinkedIn connected"}</p>
-                      <span className="inline-flex items-center gap-1 text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
-                        <CheckCircle2 className="w-3 h-3" /> Active
-                      </span>
-                    </div>
-                    <p className="text-xs text-[#6B7280] mt-0.5">Daily limit: {account.daily_limit} sends · {account.sends_today ?? 0} sent today</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => { setDailyLimit(account.daily_limit); setShowLimitEditor(true); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-[rgba(107,78,255,0.2)] text-[#6B4EFF] text-xs font-medium rounded-lg hover:bg-[#F5F3FF] transition-colors"
-                  >
-                    <Settings className="w-3.5 h-3.5" /> Limit
-                  </button>
-                  <button onClick={handleDisconnect} className="px-3 py-1.5 border border-red-200 text-red-500 text-xs font-medium rounded-lg hover:bg-red-50 transition-colors">
-                    Disconnect
-                  </button>
-                </div>
-              </div>
-              <div className="mt-4">
-                <div className="flex justify-between text-xs text-[#6B7280] mb-1.5">
-                  <span>Sends today</span><span>{account.sends_today ?? 0} / {account.daily_limit}</span>
-                </div>
-                <div className="w-full bg-[#F5F3FF] rounded-full h-1.5">
-                  <div
-                    className="h-1.5 rounded-full transition-all"
-                    style={{ width: `${Math.min(100, ((account.sends_today ?? 0) / account.daily_limit) * 100)}%`, background: "linear-gradient(90deg, #6B4EFF, #8B5CF6)" }}
-                  />
-                </div>
-              </div>
-              {showLimitEditor && (
-                <div className="mt-4 pt-4 border-t border-[rgba(107,78,255,0.1)] space-y-3">
-                  <p className="text-sm font-medium text-[#1E1B4B]">Update daily limit</p>
-                  <div className="flex items-center gap-3">
-                    <input type="range" min={1} max={30} value={dailyLimit} onChange={(e) => setDailyLimit(Number(e.target.value))} className="flex-1 accent-[#6B4EFF]" />
-                    <span className="w-12 text-center text-sm font-bold text-[#6B4EFF] bg-[#F5F3FF] border border-[rgba(107,78,255,0.2)] rounded-lg py-1.5">{dailyLimit}</span>
-                  </div>
-                  <p className="text-xs text-[#9CA3AF]">We recommend 15 sends/day to stay below LinkedIn's detection threshold.</p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleUpdateLimit}
-                      disabled={savingLimit}
-                      className="flex items-center gap-1.5 px-4 py-2 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
-                      style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
-                    >
-                      {savingLimit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                      {savingLimit ? "Saving…" : "Save"}
-                    </button>
-                    <button onClick={() => setShowLimitEditor(false)} className="px-4 py-2 border border-[rgba(107,78,255,0.2)] text-[#6B7280] text-sm font-semibold rounded-lg hover:bg-[#F5F3FF] transition-colors">Cancel</button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-6 shadow-sm">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-[#F5F3FF] rounded-xl flex items-center justify-center shrink-0">
-                  <Linkedin className="w-5 h-5 text-[#6B4EFF]" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-[#1E1B4B]">No LinkedIn account connected</p>
-                  <p className="text-xs text-[#6B7280] mt-1 mb-5">Connect your LinkedIn account to start sending automated connection requests and follow-ups.</p>
-                  <button
-                    onClick={handleConnectLinkedIn}
-                    disabled={connecting}
-                    className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all disabled:opacity-60"
-                    style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
-                  >
-                    {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : (
-                      <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                      </svg>
-                    )}
-                    {connecting ? "Redirecting to Unipile…" : "Connect LinkedIn"}
-                  </button>
-                  <p className="text-xs text-[#9CA3AF] mt-3">You'll be securely redirected to connect your LinkedIn account via Unipile.</p>
-                </div>
-              </div>
-            </div>
-          )}
+          {renderAccountSection()}
         </section>
 
         {/* Tab switcher */}

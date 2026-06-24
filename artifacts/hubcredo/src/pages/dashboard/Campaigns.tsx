@@ -4,6 +4,7 @@ import {
   Mail, Plus, Loader2, Send, Play, Pause, CheckCircle2, AlertCircle,
   Sparkles, X, Edit3, Globe, ArrowRight, Trash2, RefreshCw, TrendingUp,
   Eye, MessageSquare, MousePointerClick, Users, ChevronLeft, ChevronRight, ChevronDown,
+  Linkedin, Zap, BookmarkPlus, BookOpen, Pencil, Save,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getToken } from "@/lib/auth";
@@ -29,12 +30,15 @@ interface CampaignAnalytics {
   clicked_count?: number;
 }
 
+type StepType = "email" | "linkedin_send_connection_request" | "linkedin_send_message" | "linkedin_view_profile";
+
 interface CampaignSequence {
   id?: string;
   step_number: number;
   subject: string;
   body: string;
   delay_days: number;
+  type?: StepType;
 }
 
 interface Campaign {
@@ -261,6 +265,28 @@ export default function Campaigns() {
   const [replyEnrollListId, setReplyEnrollListId] = useState("");
   const [replyEnrollingList, setReplyEnrollingList] = useState(false);
 
+  // ── Generate Preview state ─────────────────────────────────
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewStepIdx, setPreviewStepIdx] = useState(0);
+  const [previewLead, setPreviewLead] = useState<Record<string, string> | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  // ── LinkedIn accounts ──────────────────────────────────────
+  const [linkedinAccounts, setLinkedinAccounts] = useState<Array<{ id: number; email?: string; name?: string; status?: string }>>([]);
+  const [linkedinAccountsLoaded, setLinkedinAccountsLoaded] = useState(false);
+
+  // ── Saved templates ────────────────────────────────────────
+  interface SavedTemplate { id: string; name: string; steps: CampaignSequence[]; created_at: string; }
+  const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
+  const [templatesLoaded, setTemplatesLoaded] = useState(false);
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [saveTemplateName, setSaveTemplateName] = useState("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [manageTemplatesOpen, setManageTemplatesOpen] = useState(false);
+  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState<SavedTemplate | null>(null);
+  const [editTemplateName, setEditTemplateName] = useState("");
+
   const { data: leadLists = [] } = useListLeadLists();
   const { data: icps = [] } = useListIcps();
   const lists = leadLists as LeadList[];
@@ -343,8 +369,146 @@ export default function Campaigns() {
   }
 
   function resetReplyWizard() { setReplyWizStep(1); setReplyWizName(""); setReplyWizSteps([]); setReplyWizListId(""); }
-  function addReplyWizStep() { setReplyWizSteps((p) => [...p, { step_number: p.length + 1, subject: "", body: "", delay_days: p.length === 0 ? 0 : 3 }]); }
-  function applyReplyTemplate(t: EmailTemplate) { setReplyWizSteps(t.sequences.map((s, i) => ({ ...s, step_number: i + 1 }))); toast({ title: `Template applied` }); }
+  function addReplyWizStep(type: StepType = "email") {
+    setReplyWizSteps((p) => [...p, { step_number: p.length + 1, subject: "", body: "", delay_days: p.length === 0 ? 0 : 3, type }]);
+  }
+  function applyReplyTemplate(t: EmailTemplate) { setReplyWizSteps(t.sequences.map((s, i) => ({ ...s, step_number: i + 1, type: "email" as StepType }))); toast({ title: `Template applied` }); }
+
+  async function loadLinkedinAccounts() {
+    if (linkedinAccountsLoaded) return;
+    try {
+      const res = await apiFetch("/api/replyio/linkedin-accounts");
+      const data = await res.json();
+      setLinkedinAccounts(data.accounts ?? []);
+    } catch { /* ignore */ }
+    setLinkedinAccountsLoaded(true);
+  }
+
+  async function loadSavedTemplates() {
+    if (templatesLoaded) return;
+    try {
+      const res = await apiFetch("/api/campaign-templates");
+      if (res.ok) {
+        const data = await res.json();
+        setSavedTemplates(data ?? []);
+      }
+    } catch { /* ignore */ }
+    setTemplatesLoaded(true);
+  }
+
+  async function handleSaveTemplate() {
+    if (!saveTemplateName.trim()) { toast({ title: "Template name required", variant: "destructive" }); return; }
+    if (replyWizSteps.length === 0) { toast({ title: "Add at least one step first", variant: "destructive" }); return; }
+    setSavingTemplate(true);
+    try {
+      const res = await apiFetch("/api/campaign-templates", {
+        method: "POST",
+        body: JSON.stringify({ name: saveTemplateName.trim(), steps: replyWizSteps }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to save");
+      setSavedTemplates((prev) => [data, ...prev]);
+      setSaveTemplateOpen(false);
+      setSaveTemplateName("");
+      toast({ title: "Template saved!", description: `"${data.name}" is ready to reuse.` });
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Could not save template", variant: "destructive" });
+    } finally { setSavingTemplate(false); }
+  }
+
+  async function handleDeleteTemplate(id: string) {
+    setDeletingTemplateId(id);
+    try {
+      const res = await apiFetch(`/api/campaign-templates/${id}`, { method: "DELETE" });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+      setSavedTemplates((prev) => prev.filter((t) => t.id !== id));
+      toast({ title: "Template deleted" });
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Could not delete", variant: "destructive" });
+    } finally { setDeletingTemplateId(null); }
+  }
+
+  async function handleRenameTemplate() {
+    if (!editingTemplate || !editTemplateName.trim()) return;
+    try {
+      const res = await apiFetch(`/api/campaign-templates/${editingTemplate.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name: editTemplateName.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setSavedTemplates((prev) => prev.map((t) => t.id === editingTemplate.id ? { ...t, name: data.name } : t));
+      setEditingTemplate(null);
+      toast({ title: "Template renamed" });
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Could not rename", variant: "destructive" });
+    }
+  }
+
+  function applySavedTemplate(tpl: { name: string; steps: CampaignSequence[] }) {
+    setReplyWizSteps(tpl.steps.map((s, i) => ({ ...s, step_number: i + 1 })));
+    toast({ title: `Template applied`, description: `"${tpl.name}" loaded into sequence.` });
+  }
+
+  async function handleGeneratePreview(listId?: string) {
+    const lid = listId || replyWizListId;
+    if (!lid) {
+      toast({ title: "Select a lead list first", description: "Choose a lead list in Step 2 to preview with real lead data.", variant: "destructive" });
+      return;
+    }
+    if (replyWizSteps.length === 0) {
+      toast({ title: "No steps to preview", variant: "destructive" });
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      const res = await apiFetch(`/api/leads?lead_list_id=${lid}&limit=1`);
+      const data = await res.json();
+      const leads = Array.isArray(data) ? data : data.leads ?? data.items ?? data;
+      const lead = leads[0] ?? null;
+      if (!lead) {
+        toast({ title: "No leads in list", description: "Upload or generate leads first.", variant: "destructive" });
+        return;
+      }
+      setPreviewLead({
+        firstName: lead.first_name || "Jane",
+        lastName: lead.last_name || "Smith",
+        fullName: [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Jane Smith",
+        email: lead.email || "jane@company.com",
+        title: lead.job_title || "VP Sales",
+        companyName: lead.company_name || "Acme Corp",
+        linkedInUrl: lead.linkedin_url || "",
+        industry: lead.industry || "",
+        country: lead.hq_country || "",
+        city: lead.hq_city || "",
+      });
+      setPreviewStepIdx(0);
+      setPreviewOpen(true);
+    } catch {
+      toast({ title: "Preview failed", variant: "destructive" });
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  function fillTemplate(text: string, lead: Record<string, string>): string {
+    return text
+      .replace(/\{\{firstName\}\}/gi, lead.firstName || "")
+      .replace(/\{\{lastName\}\}/gi, lead.lastName || "")
+      .replace(/\{\{fullName\}\}/gi, lead.fullName || "")
+      .replace(/\{\{companyName\}\}/gi, lead.companyName || "")
+      .replace(/\{\{title\}\}/gi, lead.title || "")
+      .replace(/\{\{email\}\}/gi, lead.email || "")
+      .replace(/\{\{industry\}\}/gi, lead.industry || "")
+      .replace(/\{\{country\}\}/gi, lead.country || "")
+      .replace(/\{\{city\}\}/gi, lead.city || "")
+      .replace(/\[First Name\]/gi, lead.firstName || "")
+      .replace(/\[Last Name\]/gi, lead.lastName || "")
+      .replace(/\[Company\]/gi, lead.companyName || "")
+      .replace(/\[Job Title\]/gi, lead.title || "")
+      .replace(/\[Industry\]/gi, lead.industry || "")
+      .replace(/\[Country\]/gi, lead.country || "");
+  }
 
   async function handleCreateReplySeq() {
     if (!replyWizName.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
@@ -354,7 +518,7 @@ export default function Campaigns() {
         method: "POST",
         body: JSON.stringify({
           name: replyWizName.trim(),
-          steps: replyWizSteps.map((s) => ({ type: "email", delay_days: s.delay_days, subject: s.subject, body: s.body })),
+          steps: replyWizSteps.map((s) => ({ type: s.type ?? "email", delay_days: s.delay_days, subject: s.subject, body: s.body })),
         }),
       });
       const seq = await res.json();
@@ -619,7 +783,7 @@ export default function Campaigns() {
                   <Users className="w-3 h-3" /> Enroll Contact
                 </button>
                 <button
-                  onClick={() => { setReplyWizard(true); resetReplyWizard(); }}
+                  onClick={() => { setReplyWizard(true); resetReplyWizard(); loadSavedTemplates(); }}
                   className={`flex items-center gap-1.5 px-3 py-1.5 ${btnPrimary}`}
                 >
                   <Plus className="w-3.5 h-3.5" /> New Campaign
@@ -640,7 +804,7 @@ export default function Campaigns() {
                 <p className="text-sm font-semibold text-[#1a1a2e]">No Reply.io sequences yet</p>
                 <p className="text-xs text-[#6B7280] mt-1">Create your first campaign directly from HubCredo.</p>
                 <button
-                  onClick={() => { setReplyWizard(true); resetReplyWizard(); }}
+                  onClick={() => { setReplyWizard(true); resetReplyWizard(); loadSavedTemplates(); }}
                   className={`mt-4 flex items-center gap-1.5 px-4 py-2 mx-auto ${btnPrimary}`}
                 >
                   <Plus className="w-3.5 h-3.5" /> Create first campaign
@@ -1255,15 +1419,35 @@ export default function Campaigns() {
                   </div>
 
                   {/* Template picker */}
-                  <div>
-                    <label className="block text-xs font-medium text-[#6B7280] mb-1.5">Apply template (optional)</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {([] as EmailTemplate[]).concat(
-                        (() => {
-                          try { return (window as any).__hcTemplates ?? []; } catch { return []; }
-                        })()
-                      ).length === 0 ? null : null}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-medium text-[#6B7280]">Apply template (optional)</label>
+                      <button
+                        onClick={() => { setManageTemplatesOpen(true); }}
+                        className="flex items-center gap-1 text-xs text-[#6B7280] hover:text-[#5B4FE8] font-medium transition-colors"
+                      >
+                        <BookOpen className="w-3 h-3" /> Manage
+                      </button>
                     </div>
+
+                    {/* Saved templates row */}
+                    {savedTemplates.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-1">
+                        {savedTemplates.map((tpl) => (
+                          <button
+                            key={tpl.id}
+                            onClick={() => applySavedTemplate(tpl)}
+                            className="flex items-center gap-1 text-xs bg-[#F5F3FF] text-[#5B4FE8] border border-[#5B4FE8]/20 px-2.5 py-1.5 rounded-lg hover:bg-[#EDE9FF] transition-colors font-medium"
+                          >
+                            <BookmarkPlus className="w-3 h-3 shrink-0" />
+                            {tpl.name}
+                            <span className="text-[10px] text-[#9CA3AF] font-normal ml-0.5">{tpl.steps.length}s</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Built-in templates dropdown */}
                     <select
                       onChange={(e) => {
                         const val = e.target.value;
@@ -1277,47 +1461,114 @@ export default function Campaigns() {
                       }}
                       className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-[#5B4FE8]"
                     >
-                      <option value="">Pick a template…</option>
+                      <option value="">Pick a built-in template…</option>
                       <option value={JSON.stringify({ sequences: [{ step_number: 1, delay_days: 0, subject: "Quick question", body: "Hi {{firstName}},\n\nI work with B2B companies to improve their outbound sales infrastructure. I thought you might be a great fit.\n\nWould love to connect — are you open to a quick 15-min call?\n\nBest,\n{{senderName}}" }, { step_number: 2, delay_days: 3, subject: "Re: Quick question", body: "Hi {{firstName}},\n\nJust following up in case this slipped through. Would you be open to a quick chat about improving your outbound?\n\nBest,\n{{senderName}}" }] })}>Cold Outreach (2-step)</option>
                       <option value={JSON.stringify({ sequences: [{ step_number: 1, delay_days: 0, subject: "Idea for {{companyName}}", body: "Hi {{firstName}},\n\nI noticed {{companyName}} is growing fast. I have a few ideas on how to scale your pipeline — mind if I share?\n\n{{senderName}}" }, { step_number: 2, delay_days: 4, subject: "One more thought", body: "Hey {{firstName}}, just wanted to drop one more note. Happy to show you how we've helped similar companies 2x their reply rates.\n\n{{senderName}}" }, { step_number: 3, delay_days: 7, subject: "Last note", body: "Hi {{firstName}}, I'll leave you alone after this — but if you ever want to talk outbound, I'm here. {{senderName}}" }] })}>Value-First (3-step)</option>
                     </select>
                   </div>
 
-                  {/* Email steps */}
+                  {/* Sequence steps (email + LinkedIn) */}
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-medium text-[#6B7280]">Email steps</label>
-                      <button onClick={addReplyWizStep} className="flex items-center gap-1 text-xs text-[#5B4FE8] font-medium hover:text-[#4A3FD6]">
-                        <Plus className="w-3 h-3" /> Add step
-                      </button>
+                      <label className="text-xs font-medium text-[#6B7280]">Sequence steps</label>
+                      <div className="flex items-center gap-2">
+                        {replyWizSteps.length > 0 && (
+                          <button
+                            onClick={() => { setSaveTemplateName(""); setSaveTemplateOpen(true); }}
+                            className="flex items-center gap-1 text-xs text-[#059669] font-medium hover:text-[#047857] border border-[#059669]/30 bg-[#F0FDF4] px-2 py-1 rounded-lg transition-colors"
+                          >
+                            <BookmarkPlus className="w-3 h-3" /> Save as template
+                          </button>
+                        )}
+                        <button onClick={() => addReplyWizStep("email")} className="flex items-center gap-1 text-xs text-[#5B4FE8] font-medium hover:text-[#4A3FD6]">
+                          <Mail className="w-3 h-3" /> Email
+                        </button>
+                        <button onClick={() => { addReplyWizStep("linkedin_send_connection_request"); loadLinkedinAccounts(); }} className="flex items-center gap-1 text-xs text-[#0A66C2] font-medium hover:text-[#084e9a]">
+                          <Linkedin className="w-3 h-3" /> LinkedIn
+                        </button>
+                      </div>
                     </div>
                     {replyWizSteps.length === 0 ? (
                       <div className="bg-[#F9FAFB] border border-dashed border-[#E5E7EB] rounded-xl p-6 text-center">
                         <p className="text-sm text-[#9CA3AF] mb-2">No steps yet</p>
-                        <button onClick={addReplyWizStep} className="text-xs text-[#5B4FE8] hover:underline font-medium">Add first email step →</button>
+                        <div className="flex items-center justify-center gap-3">
+                          <button onClick={() => addReplyWizStep("email")} className="text-xs text-[#5B4FE8] hover:underline font-medium flex items-center gap-1"><Mail className="w-3 h-3" /> Add email step</button>
+                          <span className="text-[#E5E7EB]">|</span>
+                          <button onClick={() => { addReplyWizStep("linkedin_send_connection_request"); loadLinkedinAccounts(); }} className="text-xs text-[#0A66C2] hover:underline font-medium flex items-center gap-1"><Linkedin className="w-3 h-3" /> Add LinkedIn step</button>
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        {replyWizSteps.map((step, i) => (
-                          <div key={i} className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-4 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-semibold text-[#5B4FE8]">Step {i + 1}</span>
-                              <div className="flex items-center gap-2">
-                                {i > 0 && (
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[10px] text-[#9CA3AF]">Delay:</span>
-                                    <input type="number" min={1} value={step.delay_days} onChange={(e) => setReplyWizSteps((prev) => prev.map((s, j) => j === i ? { ...s, delay_days: Number(e.target.value) } : s))} className="w-14 px-1.5 py-0.5 border border-[#E5E7EB] rounded text-xs text-center focus:outline-none focus:border-[#5B4FE8]" />
-                                    <span className="text-[10px] text-[#9CA3AF]">days</span>
-                                  </div>
-                                )}
-                                {i === 0 && <span className="text-[10px] text-[#9CA3AF]">Sends immediately</span>}
-                                <button onClick={() => setReplyWizSteps((p) => p.filter((_, j) => j !== i))} className="text-[#9CA3AF] hover:text-red-400"><X className="w-3 h-3" /></button>
+                        {replyWizSteps.map((step, i) => {
+                          const isLinkedIn = step.type && step.type !== "email";
+                          const stepColor = isLinkedIn ? "#0A66C2" : "#5B4FE8";
+                          const stepBg = isLinkedIn ? "bg-[#F0F7FF]" : "bg-[#F9FAFB]";
+                          const stepBorder = isLinkedIn ? "border-[#0A66C2]/20" : "border-[#E5E7EB]";
+                          const inputFocus = isLinkedIn ? "focus:border-[#0A66C2]" : "focus:border-[#5B4FE8]";
+                          return (
+                            <div key={i} className={`${stepBg} border ${stepBorder} rounded-xl p-4 space-y-2`}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-semibold" style={{ color: stepColor }}>Step {i + 1}</span>
+                                  {isLinkedIn ? (
+                                    <span className="flex items-center gap-0.5 text-[10px] bg-[#0A66C2]/10 text-[#0A66C2] px-1.5 py-0.5 rounded-full font-medium">
+                                      <Linkedin className="w-2.5 h-2.5" /> LinkedIn
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center gap-0.5 text-[10px] bg-[#5B4FE8]/10 text-[#5B4FE8] px-1.5 py-0.5 rounded-full font-medium">
+                                      <Mail className="w-2.5 h-2.5" /> Email
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {i > 0 && (
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-[10px] text-[#9CA3AF]">Delay:</span>
+                                      <input type="number" min={1} value={step.delay_days} onChange={(e) => setReplyWizSteps((prev) => prev.map((s, j) => j === i ? { ...s, delay_days: Number(e.target.value) } : s))} className="w-14 px-1.5 py-0.5 border border-[#E5E7EB] rounded text-xs text-center focus:outline-none focus:border-[#5B4FE8]" />
+                                      <span className="text-[10px] text-[#9CA3AF]">days</span>
+                                    </div>
+                                  )}
+                                  {i === 0 && <span className="text-[10px] text-[#9CA3AF]">Sends immediately</span>}
+                                  <button onClick={() => setReplyWizSteps((p) => p.filter((_, j) => j !== i))} className="text-[#9CA3AF] hover:text-red-400"><X className="w-3 h-3" /></button>
+                                </div>
                               </div>
+
+                              {isLinkedIn ? (
+                                <>
+                                  <select
+                                    value={step.type}
+                                    onChange={(e) => setReplyWizSteps((p) => p.map((s, j) => j === i ? { ...s, type: e.target.value as StepType } : s))}
+                                    className={`w-full px-3 py-1.5 border border-[#E5E7EB] rounded-lg text-xs focus:outline-none ${inputFocus} bg-white`}
+                                  >
+                                    <option value="linkedin_view_profile">View profile</option>
+                                    <option value="linkedin_send_connection_request">Send connection request</option>
+                                    <option value="linkedin_send_message">Send message (to connected leads)</option>
+                                  </select>
+                                  {step.type !== "linkedin_view_profile" && (
+                                    <textarea
+                                      value={step.body}
+                                      onChange={(e) => setReplyWizSteps((p) => p.map((s, j) => j === i ? { ...s, body: e.target.value } : s))}
+                                      placeholder={step.type === "linkedin_send_connection_request" ? "Connection note (optional, max 300 chars)… use {{firstName}}, {{companyName}}" : "LinkedIn message… use {{firstName}}, {{companyName}}"}
+                                      rows={3}
+                                      maxLength={step.type === "linkedin_send_connection_request" ? 300 : undefined}
+                                      className={`w-full px-3 py-1.5 border border-[#E5E7EB] rounded-lg text-xs focus:outline-none ${inputFocus} bg-white resize-none`}
+                                    />
+                                  )}
+                                  {linkedinAccounts.length === 0 && linkedinAccountsLoaded && (
+                                    <p className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+                                      No LinkedIn accounts found in Reply.io. Connect one in your Reply.io account settings first.
+                                    </p>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  <input value={step.subject} onChange={(e) => setReplyWizSteps((p) => p.map((s, j) => j === i ? { ...s, subject: e.target.value } : s))} placeholder="Email subject" className={`w-full px-3 py-1.5 border border-[#E5E7EB] rounded-lg text-xs focus:outline-none ${inputFocus} bg-white`} />
+                                  <textarea value={step.body} onChange={(e) => setReplyWizSteps((p) => p.map((s, j) => j === i ? { ...s, body: e.target.value } : s))} placeholder="Email body… use {{firstName}}, {{companyName}}, {{title}}" rows={4} className={`w-full px-3 py-1.5 border border-[#E5E7EB] rounded-lg text-xs focus:outline-none ${inputFocus} bg-white resize-none`} />
+                                </>
+                              )}
                             </div>
-                            <input value={step.subject} onChange={(e) => setReplyWizSteps((p) => p.map((s, j) => j === i ? { ...s, subject: e.target.value } : s))} placeholder="Email subject" className="w-full px-3 py-1.5 border border-[#E5E7EB] rounded-lg text-xs focus:outline-none focus:border-[#5B4FE8] bg-white" />
-                            <textarea value={step.body} onChange={(e) => setReplyWizSteps((p) => p.map((s, j) => j === i ? { ...s, body: e.target.value } : s))} placeholder="Email body… (use {{firstName}}, {{companyName}} for personalization)" rows={4} className="w-full px-3 py-1.5 border border-[#E5E7EB] rounded-lg text-xs focus:outline-none focus:border-[#5B4FE8] bg-white resize-none" />
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1329,7 +1580,18 @@ export default function Campaigns() {
                   <div className="bg-[#F5F3FF] border border-[#5B4FE8]/20 rounded-xl p-4">
                     <p className="text-xs font-semibold text-[#5B4FE8] mb-0.5">Campaign ready to create</p>
                     <p className="text-sm font-bold text-[#1a1a2e]">{replyWizName}</p>
-                    <p className="text-xs text-[#6B7280] mt-1">{replyWizSteps.length} email step{replyWizSteps.length !== 1 ? "s" : ""}</p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {(() => {
+                        const emailSteps = replyWizSteps.filter((s) => !s.type || s.type === "email").length;
+                        const liSteps = replyWizSteps.filter((s) => s.type && s.type !== "email").length;
+                        return (
+                          <>
+                            {emailSteps > 0 && <span className="flex items-center gap-0.5 text-[10px] bg-[#5B4FE8]/10 text-[#5B4FE8] px-1.5 py-0.5 rounded-full font-medium"><Mail className="w-2.5 h-2.5" /> {emailSteps} email</span>}
+                            {liSteps > 0 && <span className="flex items-center gap-0.5 text-[10px] bg-[#0A66C2]/10 text-[#0A66C2] px-1.5 py-0.5 rounded-full font-medium"><Linkedin className="w-2.5 h-2.5" /> {liSteps} LinkedIn</span>}
+                          </>
+                        );
+                      })()}
+                    </div>
                   </div>
 
                   <div>
@@ -1339,6 +1601,27 @@ export default function Campaigns() {
                       {lists.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
                     </select>
                     {replyWizListId && <p className="text-[11px] text-[#9CA3AF] mt-1">All approved leads from this list will be enrolled once the campaign is created.</p>}
+                  </div>
+
+                  {/* Generate Preview */}
+                  <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-[#6B7280]">Preview with real lead data</p>
+                      <button
+                        onClick={() => handleGeneratePreview()}
+                        disabled={previewLoading}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#5B4FE8] hover:bg-[#4A3FD6] px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
+                      >
+                        {previewLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
+                        Generate Preview
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-[#9CA3AF]">
+                      Fills in {`{{firstName}}`}, {`{{companyName}}`} etc. using the first lead from your selected list to show exactly what each message will look like.
+                    </p>
+                    {!replyWizListId && (
+                      <p className="text-[11px] text-amber-600">Select a lead list above to enable preview.</p>
+                    )}
                   </div>
 
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
@@ -1412,6 +1695,265 @@ export default function Campaigns() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* ── Save Template modal ── */}
+      {saveTemplateOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white border border-[#E5E7EB] rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB]">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-[#F0FDF4] rounded-lg flex items-center justify-center">
+                  <BookmarkPlus className="w-4 h-4 text-[#059669]" />
+                </div>
+                <h3 className="text-sm font-bold text-[#1a1a2e]">Save as Template</h3>
+              </div>
+              <button onClick={() => setSaveTemplateOpen(false)} className="text-[#9CA3AF] hover:text-[#1a1a2e]"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-[#6B7280] mb-1.5">Template name <span className="text-red-400">*</span></label>
+                <input
+                  autoFocus
+                  value={saveTemplateName}
+                  onChange={(e) => setSaveTemplateName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleSaveTemplate(); }}
+                  placeholder="e.g. Cold Outreach + LinkedIn"
+                  className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-[#5B4FE8] focus:ring-2 focus:ring-[#5B4FE8]/10"
+                />
+              </div>
+              <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-3 space-y-1">
+                <p className="text-[10px] uppercase tracking-widest font-medium text-[#9CA3AF] mb-1.5">Steps to save</p>
+                {replyWizSteps.map((s, i) => {
+                  const isLi = s.type && s.type !== "email";
+                  return (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0 ${isLi ? "bg-[#0A66C2]" : "bg-[#5B4FE8]"}`}>{i + 1}</span>
+                      {isLi ? <Linkedin className="w-3 h-3 text-[#0A66C2] shrink-0" /> : <Mail className="w-3 h-3 text-[#5B4FE8] shrink-0" />}
+                      <span className="text-xs text-[#6B7280] truncate">{s.subject || s.body?.slice(0, 40) || (s.type === "linkedin_view_profile" ? "View profile" : "No content")}</span>
+                      <span className="text-[10px] text-[#9CA3AF] ml-auto shrink-0">Day {s.delay_days}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setSaveTemplateOpen(false)} className={`flex-1 py-2 ${btnBack}`}>Cancel</button>
+                <button
+                  onClick={handleSaveTemplate}
+                  disabled={savingTemplate || !saveTemplateName.trim()}
+                  className="flex-1 py-2 flex items-center justify-center gap-1.5 bg-[#059669] hover:bg-[#047857] text-white text-sm font-semibold rounded-xl disabled:opacity-50 transition-colors"
+                >
+                  {savingTemplate ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  {savingTemplate ? "Saving…" : "Save template"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Manage Templates modal ── */}
+      {manageTemplatesOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white border border-[#E5E7EB] rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB] flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-[#F5F3FF] rounded-lg flex items-center justify-center">
+                  <BookOpen className="w-4 h-4 text-[#5B4FE8]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#1a1a2e]">My Templates</h3>
+                  <p className="text-xs text-[#9CA3AF]">{savedTemplates.length} saved template{savedTemplates.length !== 1 ? "s" : ""}</p>
+                </div>
+              </div>
+              <button onClick={() => setManageTemplatesOpen(false)} className="text-[#9CA3AF] hover:text-[#1a1a2e]"><X className="w-4 h-4" /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-3">
+              {savedTemplates.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-12 h-12 bg-[#F5F3FF] rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <BookmarkPlus className="w-6 h-6 text-[#5B4FE8]" />
+                  </div>
+                  <p className="text-sm font-semibold text-[#1a1a2e]">No templates yet</p>
+                  <p className="text-xs text-[#6B7280] mt-1">Build a sequence and click "Save as template" to reuse it later.</p>
+                </div>
+              ) : (
+                savedTemplates.map((tpl) => (
+                  <div key={tpl.id} className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-[#E5E7EB]">
+                      {editingTemplate?.id === tpl.id ? (
+                        <div className="flex items-center gap-2 flex-1 mr-2">
+                          <input
+                            autoFocus
+                            value={editTemplateName}
+                            onChange={(e) => setEditTemplateName(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") handleRenameTemplate(); if (e.key === "Escape") setEditingTemplate(null); }}
+                            className="flex-1 px-2 py-1 text-sm border border-[#5B4FE8] rounded-lg focus:outline-none"
+                          />
+                          <button onClick={handleRenameTemplate} className="text-[#5B4FE8] hover:text-[#4A3FD6]"><Save className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => setEditingTemplate(null)} className="text-[#9CA3AF] hover:text-[#6B7280]"><X className="w-3.5 h-3.5" /></button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 flex-1">
+                          <BookmarkPlus className="w-3.5 h-3.5 text-[#5B4FE8] shrink-0" />
+                          <span className="text-sm font-semibold text-[#1a1a2e] truncate">{tpl.name}</span>
+                          <span className="text-[10px] text-[#9CA3AF] bg-white border border-[#E5E7EB] px-1.5 py-0.5 rounded-full ml-1 shrink-0">{tpl.steps.length} step{tpl.steps.length !== 1 ? "s" : ""}</span>
+                        </div>
+                      )}
+                      {editingTemplate?.id !== tpl.id && (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => { applySavedTemplate(tpl); setManageTemplatesOpen(false); }}
+                            className="flex items-center gap-1 text-xs text-[#5B4FE8] font-medium bg-[#F5F3FF] hover:bg-[#EDE9FF] border border-[#5B4FE8]/20 px-2 py-1 rounded-lg transition-colors"
+                          >
+                            <ArrowRight className="w-3 h-3" /> Use
+                          </button>
+                          <button
+                            onClick={() => { setEditingTemplate(tpl); setEditTemplateName(tpl.name); }}
+                            className="p-1.5 text-[#9CA3AF] hover:text-[#5B4FE8] hover:bg-[#F5F3FF] rounded-lg transition-colors"
+                            title="Rename"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTemplate(tpl.id)}
+                            disabled={deletingTemplateId === tpl.id}
+                            className="p-1.5 text-[#9CA3AF] hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                            title="Delete"
+                          >
+                            {deletingTemplateId === tpl.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="px-4 py-2 flex flex-wrap gap-1.5">
+                      {tpl.steps.map((s, i) => {
+                        const isLi = s.type && s.type !== "email";
+                        return (
+                          <span key={i} className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium ${isLi ? "bg-[#0A66C2]/10 text-[#0A66C2]" : "bg-[#5B4FE8]/10 text-[#5B4FE8]"}`}>
+                            {isLi ? <Linkedin className="w-2.5 h-2.5" /> : <Mail className="w-2.5 h-2.5" />}
+                            {s.subject || (s.type === "linkedin_view_profile" ? "View profile" : s.type === "linkedin_send_connection_request" ? "Connect request" : "LinkedIn msg") || "Step"} · Day {s.delay_days}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="px-5 py-4 border-t border-[#E5E7EB] flex-shrink-0">
+              <button onClick={() => setManageTemplatesOpen(false)} className={`w-full py-2 ${btnPrimary}`}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Generate Preview modal ── */}
+      {previewOpen && previewLead && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white border border-[#E5E7EB] rounded-2xl shadow-2xl w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB] flex-shrink-0">
+              <div>
+                <h3 className="text-sm font-bold text-[#1a1a2e]">Template Preview</h3>
+                <p className="text-xs text-[#6B7280] mt-0.5">Filled with data from: <span className="font-medium text-[#1a1a2e]">{previewLead.fullName}</span> · {previewLead.companyName}</p>
+              </div>
+              <button onClick={() => setPreviewOpen(false)} className="text-[#9CA3AF] hover:text-[#1a1a2e]"><X className="w-4 h-4" /></button>
+            </div>
+
+            {/* Step tabs */}
+            {replyWizSteps.length > 1 && (
+              <div className="flex gap-1 px-5 pt-3 pb-0 flex-shrink-0 flex-wrap">
+                {replyWizSteps.map((s, i) => {
+                  const isLi = s.type && s.type !== "email";
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => setPreviewStepIdx(i)}
+                      className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${previewStepIdx === i ? (isLi ? "bg-[#0A66C2] text-white" : "bg-[#5B4FE8] text-white") : "bg-[#F3F4F6] text-[#6B7280] hover:bg-[#E5E7EB]"}`}
+                    >
+                      {isLi ? <Linkedin className="w-3 h-3" /> : <Mail className="w-3 h-3" />}
+                      Step {i + 1}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-3">
+              {(() => {
+                const step = replyWizSteps[previewStepIdx];
+                if (!step) return null;
+                const isLi = step.type && step.type !== "email";
+                const filledSubject = fillTemplate(step.subject, previewLead);
+                const filledBody = fillTemplate(step.body, previewLead);
+                return (
+                  <>
+                    <div className="flex items-center gap-2">
+                      {isLi ? (
+                        <span className="flex items-center gap-1 text-xs bg-[#0A66C2]/10 text-[#0A66C2] px-2 py-1 rounded-lg font-medium">
+                          <Linkedin className="w-3 h-3" />
+                          {step.type === "linkedin_view_profile" ? "View Profile" : step.type === "linkedin_send_connection_request" ? "Connection Request" : "Direct Message"}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-xs bg-[#5B4FE8]/10 text-[#5B4FE8] px-2 py-1 rounded-lg font-medium">
+                          <Mail className="w-3 h-3" /> Email
+                        </span>
+                      )}
+                      <span className="text-xs text-[#9CA3AF]">Day {step.delay_days}</span>
+                    </div>
+
+                    {!isLi && filledSubject && (
+                      <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-3">
+                        <p className="text-[10px] uppercase tracking-widest font-medium text-[#9CA3AF] mb-1">Subject</p>
+                        <p className="text-sm font-semibold text-[#1a1a2e]">{filledSubject || <span className="text-[#9CA3AF] italic">No subject</span>}</p>
+                      </div>
+                    )}
+
+                    <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-3">
+                      <p className="text-[10px] uppercase tracking-widest font-medium text-[#9CA3AF] mb-1">
+                        {step.type === "linkedin_view_profile" ? "Action" : "Message"}
+                      </p>
+                      {step.type === "linkedin_view_profile" ? (
+                        <p className="text-sm text-[#6B7280] italic">Automatically views {previewLead.fullName}'s LinkedIn profile.</p>
+                      ) : (
+                        <pre className="text-sm text-[#1a1a2e] whitespace-pre-wrap leading-relaxed font-sans">
+                          {filledBody || <span className="text-[#9CA3AF] italic">No message body</span>}
+                        </pre>
+                      )}
+                    </div>
+
+                    <div className="bg-[#F0FDF4] border border-emerald-200 rounded-xl p-3">
+                      <p className="text-[10px] uppercase tracking-widest font-medium text-emerald-600 mb-1.5">Lead data used</p>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        {Object.entries(previewLead).filter(([, v]) => v).map(([k, v]) => (
+                          <div key={k} className="flex items-center gap-1">
+                            <span className="text-[10px] text-emerald-600 font-mono shrink-0">{`{{${k}}}`}</span>
+                            <span className="text-[10px] text-[#6B7280] truncate">→ {v}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            <div className="flex gap-3 px-5 py-4 border-t border-[#E5E7EB] flex-shrink-0">
+              {replyWizSteps.length > 1 && (
+                <>
+                  <button onClick={() => setPreviewStepIdx((p) => Math.max(0, p - 1))} disabled={previewStepIdx === 0} className="flex items-center gap-1 px-3 py-2 text-xs font-medium border border-[#E5E7EB] rounded-lg text-[#6B7280] hover:bg-[#F9FAFB] disabled:opacity-40">
+                    ← Prev
+                  </button>
+                  <button onClick={() => setPreviewStepIdx((p) => Math.min(replyWizSteps.length - 1, p + 1))} disabled={previewStepIdx === replyWizSteps.length - 1} className="flex items-center gap-1 px-3 py-2 text-xs font-medium border border-[#E5E7EB] rounded-lg text-[#6B7280] hover:bg-[#F9FAFB] disabled:opacity-40">
+                    Next →
+                  </button>
+                </>
+              )}
+              <button onClick={() => setPreviewOpen(false)} className={`flex-1 py-2 ${btnPrimary}`}>Done</button>
+            </div>
           </div>
         </div>
       )}

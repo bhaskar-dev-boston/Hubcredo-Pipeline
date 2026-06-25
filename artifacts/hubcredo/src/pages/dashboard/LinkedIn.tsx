@@ -193,6 +193,8 @@ export default function LinkedIn() {
   const [replyLICreating, setReplyLICreating] = useState(false);
   const [replyLIActivatingId, setReplyLIActivatingId] = useState<number | null>(null);
   const [replyLIPausingId, setReplyLIPausingId] = useState<number | null>(null);
+  const [replyLIDeletingId, setReplyLIDeletingId] = useState<number | null>(null);
+const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | null>(null);
   const [replyLIEnrollListId, setReplyLIEnrollListId] = useState("");
   const [replyLIEnrollingList, setReplyLIEnrollingList] = useState(false);
 
@@ -321,41 +323,55 @@ export default function LinkedIn() {
   function resetLIWizard() { setReplyLIName(""); setReplyLIConnMsg(""); setReplyLIFollowup(""); setReplyLIFollowupDelay(3); setReplyLIEnrollListId(""); }
 
   async function handleCreateReplyLISeq() {
-    if (!replyLIName.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
-    if (!replyLIConnMsg.trim()) { toast({ title: "Connection message required", variant: "destructive" }); return; }
-    setReplyLICreating(true);
-    try {
-      const steps = [
-        { type: "linkedin", delay_days: 0, body: replyLIConnMsg.trim() },
-        ...(replyLIFollowup.trim() ? [{ type: "linkedin", delay_days: replyLIFollowupDelay, body: replyLIFollowup.trim() }] : []),
-      ];
-      const res = await fetch(apiUrl("/replyio/sequences"), {
+  if (!replyLIName.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
+  if (!replyLIConnMsg.trim()) { toast({ title: "Connection message required", variant: "destructive" }); return; }
+  setReplyLICreating(true);
+  try {
+    const steps = [
+      { type: "linkedin", delay_days: 0, body: replyLIConnMsg.trim() },
+      ...(replyLIFollowup.trim() ? [{ type: "linkedin", delay_days: replyLIFollowupDelay, body: replyLIFollowup.trim() }] : []),
+    ];
+    const res = await fetch(apiUrl("/replyio/sequences"), {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ name: replyLIName.trim(), steps }),
+    });
+    const seq = await res.json();
+    if (!res.ok) throw new Error(seq.error ?? "Failed to create sequence");
+
+    const stepsFailed = seq.stepErrors?.length ?? 0;
+    const stepWarning = stepsFailed > 0
+      ? " LinkedIn steps need a connected LinkedIn account in Reply.io settings."
+      : "";
+
+    if (replyLIEnrollListId) {
+      const eRes = await fetch(apiUrl(`/replyio/sequences/${seq.id}/enroll-list`), {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ name: replyLIName.trim(), steps }),
+        body: JSON.stringify({ lead_list_id: replyLIEnrollListId, require_linkedin_url: true }),
       });
-      const seq = await res.json();
-      if (!res.ok) throw new Error(seq.error ?? "Failed to create sequence");
-      const stepsFailed = seq.stepErrors?.length ?? 0;
-      const stepWarning = stepsFailed > 0
-        ? ` LinkedIn steps need a connected LinkedIn account in Reply.io settings.`
-        : "";
-      if (replyLIEnrollListId) {
-        const eRes = await fetch(apiUrl(`/replyio/sequences/${seq.id}/enroll-list`), {
-          method: "POST",
-          headers: authHeaders(),
-          body: JSON.stringify({ lead_list_id: replyLIEnrollListId }),
+      const eData = await eRes.json();
+
+      if (!eRes.ok) {
+        toast({ title: "Sequence created — enroll failed", description: `${eData.error ?? "Could not enroll leads"}${stepWarning}`, variant: "destructive" });
+      } else if (eData.enrolled === 0) {
+        toast({
+          title: "Sequence created — 0 leads enrolled",
+          description: `Leads need a LinkedIn URL to be enrolled in LinkedIn sequences. Check your lead list has linkedin_url populated.${stepWarning}`,
+          variant: "destructive",
         });
-        const eData = await eRes.json();
-        toast({ title: "Sequence created!", description: (eRes.ok ? `Enrolled ${eData.enrolled} of ${eData.total} leads.` : `Created — enroll failed: ${eData.error}`) + stepWarning });
       } else {
-        toast({ title: "Sequence created!", description: `"${seq.name}" is ready in Reply.io.${stepWarning}` });
+        toast({ title: "Sequence created! 🎉", description: `Enrolled ${eData.enrolled} of ${eData.total} leads.${stepWarning}` });
       }
-      setReplyLIWizard(false); resetLIWizard(); loadReplySeqs();
-    } catch (err) {
-      toast({ title: "Error", description: err instanceof Error ? err.message : "Could not create sequence", variant: "destructive" });
-    } finally { setReplyLICreating(false); }
-  }
+    } else {
+      toast({ title: "Sequence created!", description: `"${seq.name}" is ready in Reply.io.${stepWarning}` });
+    }
+
+    setReplyLIWizard(false); resetLIWizard(); loadReplySeqs();
+  } catch (err) {
+    toast({ title: "Error", description: err instanceof Error ? err.message : "Could not create sequence", variant: "destructive" });
+  } finally { setReplyLICreating(false); }
+}
 
   async function handleActivateLIReply(id: number) {
     setReplyLIActivatingId(id);
@@ -379,21 +395,44 @@ export default function LinkedIn() {
     finally { setReplyLIPausingId(null); }
   }
 
+
+  async function handleDeleteLIReplySeq(id: number) {
+  setReplyLIDeletingId(id);
+  try {
+    const res = await fetch(apiUrl(`/replyio/sequences/${id}`), { method: "DELETE", headers: authHeaders() });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+    setReplySeqs((prev) => prev.filter((s) => s.id !== id));
+    if (replySelectedId === id) { setReplySelectedId(null); setReplyContacts([]); setReplyStats(null); }
+    setReplyLIDeleteConfirmId(null);
+    toast({ title: "Sequence deleted." });
+  } catch (err) { toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" }); }
+  finally { setReplyLIDeletingId(null); }
+}
+
   async function handleEnrollListLI(seqId: number, listId: string) {
-    if (!listId) { toast({ title: "Select a lead list first", variant: "destructive" }); return; }
-    setReplyLIEnrollingList(true);
-    try {
-      const res = await fetch(apiUrl(`/replyio/sequences/${seqId}/enroll-list`), {
-        method: "POST", headers: authHeaders(),
-        body: JSON.stringify({ lead_list_id: listId }),
+  if (!listId) { toast({ title: "Select a lead list first", variant: "destructive" }); return; }
+  setReplyLIEnrollingList(true);
+  try {
+    const res = await fetch(apiUrl(`/replyio/sequences/${seqId}/enroll-list`), {
+      method: "POST", headers: authHeaders(),
+      body: JSON.stringify({ lead_list_id: listId, require_linkedin_url: true }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    if (data.enrolled === 0) {
+      toast({
+        title: "0 leads enrolled",
+        description: "Leads need a LinkedIn URL to join LinkedIn sequences. Ensure your leads have linkedin_url populated.",
+        variant: "destructive",
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+    } else {
       toast({ title: "Leads enrolled!", description: `${data.enrolled} of ${data.total} contacts added.` });
-      if (replySelectedId === seqId) loadReplyDetail(seqId);
-    } catch (err) { toast({ title: "Enroll failed", description: err instanceof Error ? err.message : "Error", variant: "destructive" }); }
-    finally { setReplyLIEnrollingList(false); }
-  }
+    }
+    if (replySelectedId === seqId) loadReplyDetail(seqId);
+  } catch (err) { toast({ title: "Enroll failed", description: err instanceof Error ? err.message : "Error", variant: "destructive" }); }
+  finally { setReplyLIEnrollingList(false); }
+}
 
   async function loadAnalytics(seqId: string) {
     setLoadingAnalytics((prev) => ({ ...prev, [seqId]: true }));
@@ -1346,18 +1385,24 @@ export default function LinkedIn() {
                             </span>
                           </button>
                           <div className="flex items-center gap-1 px-4 pb-2">
-                            {seq.status !== "active" ? (
-                              <button onClick={() => handleActivateLIReply(seq.id)} disabled={replyLIActivatingId === seq.id}
-                                className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:text-emerald-700 disabled:opacity-50">
-                                {replyLIActivatingId === seq.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Play className="w-2.5 h-2.5" />} Launch
-                              </button>
-                            ) : (
-                              <button onClick={() => handlePauseLIReply(seq.id)} disabled={replyLIPausingId === seq.id}
-                                className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 hover:text-amber-700 disabled:opacity-50">
-                                {replyLIPausingId === seq.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Pause className="w-2.5 h-2.5" />} Pause
-                              </button>
-                            )}
-                          </div>
+  {seq.status !== "active" ? (
+    <button onClick={() => handleActivateLIReply(seq.id)} disabled={replyLIActivatingId === seq.id}
+      className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:text-emerald-700 disabled:opacity-50">
+      {replyLIActivatingId === seq.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Play className="w-2.5 h-2.5" />} Launch
+    </button>
+  ) : (
+    <button onClick={() => handlePauseLIReply(seq.id)} disabled={replyLIPausingId === seq.id}
+      className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 hover:text-amber-700 disabled:opacity-50">
+      {replyLIPausingId === seq.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Pause className="w-2.5 h-2.5" />} Pause
+    </button>
+  )}
+  <button
+    onClick={(e) => { e.stopPropagation(); setReplyLIDeleteConfirmId(seq.id); }}
+    className="ml-auto flex items-center gap-1 text-[10px] font-semibold text-[#9CA3AF] hover:text-red-500 transition-colors"
+  >
+    <Trash2 className="w-2.5 h-2.5" /> Delete
+  </button>
+</div>
                         </div>
                       ))}
                     </div>
@@ -1436,9 +1481,9 @@ export default function LinkedIn() {
                                         <p className="text-[11px] text-[#9CA3AF] truncate">{c.email}</p>
                                       </div>
                                     </div>
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium capitalize flex-shrink-0 ${c.status.status === "active" ? "bg-emerald-50 text-emerald-700" : c.status.status === "finished" ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-500"}`}>
-                                      {c.status.status.replace(/_/g, " ")}
-                                    </span>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium capitalize flex-shrink-0 ${c.status?.status === "active" ? "bg-emerald-50 text-emerald-700" : c.status?.status === "finished" ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-500"}`}>
+  {c.status?.status?.replace(/_/g, " ") ?? "unknown"}
+</span>
                                   </div>
                                 ))}
                               </div>
@@ -1672,6 +1717,43 @@ export default function LinkedIn() {
           </div>
         </div>
       )}
+
+      {/* Reply.io LinkedIn Delete Sequence confirm */}
+{replyLIDeleteConfirmId !== null && (
+  <>
+    <div className="fixed inset-0 bg-black/20 z-[60] backdrop-blur-[2px]" onClick={() => setReplyLIDeleteConfirmId(null)} />
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center shrink-0">
+            <ShieldAlert className="w-5 h-5 text-red-500" />
+          </div>
+          <div>
+            <p className="text-[#1E1B4B] font-semibold text-base">Delete sequence?</p>
+            <p className="text-[#6B7280] text-sm mt-1">This will permanently delete the sequence and all its contacts from Reply.io.</p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setReplyLIDeleteConfirmId(null)}
+            className="flex-1 py-2.5 border border-[rgba(107,78,255,0.2)] text-[#6B7280] text-sm font-semibold rounded-lg hover:bg-[#F5F3FF]"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => handleDeleteLIReplySeq(replyLIDeleteConfirmId!)}
+            disabled={replyLIDeletingId === replyLIDeleteConfirmId}
+            className="flex-1 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {replyLIDeletingId === replyLIDeleteConfirmId
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Deleting…</>
+              : <><Trash2 className="w-4 h-4" /> Yes, delete</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  </>
+)}
     </DashboardLayout>
   );
 }

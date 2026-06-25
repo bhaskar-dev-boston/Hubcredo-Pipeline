@@ -15,6 +15,10 @@ function getApiKey(): string {
   return key;
 }
 
+// FIX: Send both Authorization: Bearer AND X-API-Key headers.
+// Reply.io v3 endpoints use X-API-Key as the primary auth mechanism;
+// some newer beta endpoints also accept Authorization: Bearer.
+// Sending both ensures all endpoints work correctly.
 async function replyFetch<T>(
   method: string,
   path: string,
@@ -27,8 +31,8 @@ async function replyFetch<T>(
     method,
     headers: {
       Authorization: `Bearer ${apiKey}`,
+      "X-API-Key": apiKey,               // Required by most v3 endpoints
       "Content-Type": "application/json",
-      "X-API-Key": apiKey,
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
@@ -154,6 +158,8 @@ export async function enrollLeadInSequence(
 export async function listContactsInSequence(
   sequenceId: number
 ): Promise<ReplySequenceContact[]> {
+  // FIX: path is correct (/contacts/extended exists in v3); was failing due to
+  // missing X-API-Key header — now fixed in replyFetch above.
   const res = await replyFetch<{ items: ReplySequenceContact[] }>(
     "GET",
     `/sequences/${sequenceId}/contacts/extended`
@@ -171,7 +177,9 @@ export async function pauseContactInSequence(
 // ── Statistics Methods ────────────────────────────────────────
 
 export async function getSequenceStats(sequenceId: number): Promise<ReplyStats> {
-  return replyFetch<ReplyStats>("GET", `/statistics/sequences/${sequenceId}`);
+  // FIX: Correct v3 path is /sequences/{id}/statistics
+  // The old path /statistics/sequences/{id} was a v1/v2 legacy path that does not exist in v3.
+  return replyFetch<ReplyStats>("GET", `/sequences/${sequenceId}/statistics`);
 }
 
 // ── Webhook Methods ───────────────────────────────────────────
@@ -208,9 +216,9 @@ export async function listWebhooks(): Promise<unknown[]> {
 // ── Validation ────────────────────────────────────────────────
 
 /**
- * Test API key validity.
- * Reply.io v3 has no /whoami endpoint — we use /sequences (limit=1) as a
- * lightweight health-check instead. A 200 response means the key is valid.
+ * Test API key validity using the v3 /whoami endpoint.
+ * Confirmed available per official v3 docs:
+ *   curl https://api.reply.io/v3/whoami -H "Authorization: Bearer YOUR_API_KEY"
  */
 export async function validateApiKey(): Promise<{
   valid: boolean;
@@ -223,8 +231,19 @@ export async function validateApiKey(): Promise<{
   }
 
   try {
-    await replyFetch<unknown>("GET", "/sequences?page=1&limit=1");
-    return { valid: true, user: { email: "Reply.io", name: "Connected" } };
+    // FIX: v3 /whoami is valid — restored from the incorrect workaround
+    // that was using /sequences?page=1&limit=1 as a health-check proxy.
+    const user = await replyFetch<{ email: string; firstName?: string; lastName?: string }>(
+      "GET",
+      "/whoami"
+    );
+    return {
+      valid: true,
+      user: {
+        email: user.email,
+        name: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Reply.io User",
+      },
+    };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.error("Reply.io validateApiKey failed:", msg);

@@ -328,11 +328,14 @@ router.get(
         return;
       }
 
-      // ✅ Official v3 endpoint — returns a plain JSON array
+      // FIX: Send both Authorization: Bearer AND X-API-Key headers.
+      // Reply.io v3 endpoints use X-API-Key as the primary auth mechanism;
+      // only sending Authorization: Bearer caused 404s on certain endpoints.
       const response = await fetch("https://api.reply.io/v3/linkedin-accounts", {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${apiKey}`,
+          "X-API-Key": apiKey,             // Required by most v3 endpoints
           "Content-Type": "application/json",
         },
       });

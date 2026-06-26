@@ -20,6 +20,7 @@ import inboxRouter from "./inbox";
 import replyioRouter from "./replyio";
 import hubspotRouter from "./crm-hubspot";
 import templatesRouter from "./templates";
+import replyioLinkedinRouter from "./replyio-linkedin";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(inboxRouter);
 router.use(replyioRouter);
 router.use(hubspotRouter);
 router.use(templatesRouter);
+router.use(replyioLinkedinRouter);
 
 export default router;

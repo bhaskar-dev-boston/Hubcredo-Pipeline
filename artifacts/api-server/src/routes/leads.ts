@@ -292,18 +292,7 @@ router.post("/leads/upload-manual", requireAuth, async (req: AuthenticatedReques
     first_name: row.first_name || row.firstName || row["First Name"] || row["first name"] || null,
     last_name: row.last_name || row.lastName || row["Last Name"] || row["last name"] || null,
     email: row.email || row.Email || row["Email Address"] || null,
-    linkedin_url:
-  row.linkedin_url ||
-  row.linkedin ||
-  row["LinkedIn URL"] ||
-  row["LinkedIn"] ||
-  row["Linkedin Url"] ||       // ← your spreadsheet's exact header
-  row["Linkedin URL"] ||       // ← common variation
-  row["linkedin url"] ||       // ← lowercase variation
-  row["LINKEDIN_URL"] ||       // ← uppercase variation
-  row["linkedinUrl"] ||        // ← camelCase variation
-  row["LinkedinUrl"] ||        // ← PascalCase variation
-  null,
+    linkedin_url: row.linkedin_url || row.linkedin || row["LinkedIn URL"] || row["LinkedIn"] || null,
     job_title: row.job_title || row.title || row["Job Title"] || row["Title"] || null,
     company_name: row.company_name || row.company || row["Company"] || row["Company Name"] || null,
     company_domain: row.company_domain || row["Company Domain"] || row["Website"] || null,

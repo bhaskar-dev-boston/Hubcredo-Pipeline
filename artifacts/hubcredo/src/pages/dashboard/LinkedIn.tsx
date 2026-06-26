@@ -331,46 +331,65 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
       { type: "linkedin", delay_days: 0, body: replyLIConnMsg.trim() },
       ...(replyLIFollowup.trim() ? [{ type: "linkedin", delay_days: replyLIFollowupDelay, body: replyLIFollowup.trim() }] : []),
     ];
-    const res = await fetch(apiUrl("/replyio/sequences"), {
+
+    const res = await fetch(apiUrl("/replyio-linkedin/sequences/create"), {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ name: replyLIName.trim(), steps }),
+      body: JSON.stringify({
+        name: replyLIName.trim(),
+        steps,
+        ...(replyLIEnrollListId ? { lead_list_id: replyLIEnrollListId } : {}),
+      }),
     });
-    const seq = await res.json();
-    if (!res.ok) throw new Error(seq.error ?? "Failed to create sequence");
 
-    const stepsFailed = seq.stepErrors?.length ?? 0;
-    const stepWarning = stepsFailed > 0
-      ? " LinkedIn steps need a connected LinkedIn account in Reply.io settings."
-      : "";
+    const data = await res.json();
 
-    if (replyLIEnrollListId) {
-      const eRes = await fetch(apiUrl(`/replyio/sequences/${seq.id}/enroll-list`), {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ lead_list_id: replyLIEnrollListId, require_linkedin_url: true }),
+    // LinkedIn account not connected in Reply.io — steps couldn't be added
+    if (!res.ok && data.code === "STEPS_FAILED") {
+      toast({
+        title: "LinkedIn account not linked in Reply.io",
+        description: `Go to Reply.io → Settings → LinkedIn Accounts and connect your account first, then create the sequence again.`,
+        variant: "destructive",
       });
-      const eData = await eRes.json();
+      return;
+    }
 
-      if (!eRes.ok) {
-        toast({ title: "Sequence created — enroll failed", description: `${eData.error ?? "Could not enroll leads"}${stepWarning}`, variant: "destructive" });
-      } else if (eData.enrolled === 0) {
-        toast({
-          title: "Sequence created — 0 leads enrolled",
-          description: `Leads need a LinkedIn URL to be enrolled in LinkedIn sequences. Check your lead list has linkedin_url populated.${stepWarning}`,
-          variant: "destructive",
-        });
-      } else {
-        toast({ title: "Sequence created! 🎉", description: `Enrolled ${eData.enrolled} of ${eData.total} leads.${stepWarning}` });
-      }
+    if (!res.ok) {
+      throw new Error(data.error ?? "Failed to create sequence");
+    }
+
+    // 207 = sequence created + steps OK, but enroll was blocked
+    if (res.status === 207 && data.enrollError) {
+      toast({
+        title: `Sequence "${data.name}" created`,
+        description: data.enrollCode === "NO_STEPS"
+          ? "Add a LinkedIn step in Reply.io, then enroll leads manually."
+          : `Enroll skipped: ${data.enrollError}`,
+        variant: "destructive",
+      });
+      setReplyLIWizard(false); resetLIWizard(); loadReplySeqs();
+      return;
+    }
+
+    // Full success
+    if (data.enrolled > 0) {
+      toast({ title: "Sequence created! 🎉", description: `Enrolled ${data.enrolled} of ${data.total} leads.` });
+    } else if (replyLIEnrollListId) {
+      toast({
+        title: `Sequence "${data.name}" created`,
+        description: "0 leads enrolled — ensure your leads have emails populated.",
+        variant: "destructive",
+      });
     } else {
-      toast({ title: "Sequence created!", description: `"${seq.name}" is ready in Reply.io.${stepWarning}` });
+      toast({ title: "Sequence created!", description: `"${data.name}" is ready in Reply.io.` });
     }
 
     setReplyLIWizard(false); resetLIWizard(); loadReplySeqs();
   } catch (err) {
     toast({ title: "Error", description: err instanceof Error ? err.message : "Could not create sequence", variant: "destructive" });
-  } finally { setReplyLICreating(false); }
+  } finally {
+    setReplyLICreating(false);
+  }
 }
 
   async function handleActivateLIReply(id: number) {
@@ -413,7 +432,7 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
   if (!listId) { toast({ title: "Select a lead list first", variant: "destructive" }); return; }
   setReplyLIEnrollingList(true);
   try {
-    const res = await fetch(apiUrl(`/replyio/sequences/${seqId}/enroll-list`), {
+    const res = await fetch(apiUrl(`/replyio-linkedin/sequences/${seqId}/enroll-list`), {
       method: "POST", headers: authHeaders(),
       body: JSON.stringify({ lead_list_id: listId, require_linkedin_url: true }),
     });

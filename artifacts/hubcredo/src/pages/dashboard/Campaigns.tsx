@@ -89,11 +89,17 @@ interface ReplyContact {
 }
 
 interface ReplyStats {
-  total: number;
-  active: number;
+  sequenceId: number;
+  total: number;          // contacted
+  active: number;         // always 0 from v3 reporting
+  delivered: number;
   replied: number;
   opened: number;
   bounced: number;
+  deliveredPercentage: number;
+  openedPercentage: number;
+  repliedPercentage: number;
+  bouncedPercentage: number;
 }
 
 const LEAD_STATUS_MAP: Record<number, { label: string; color: string }> = {
@@ -924,23 +930,24 @@ async function handleConfirmLaunch() {
                     <div className="flex justify-center py-16"><Loader2 className="w-5 h-5 animate-spin text-[#5B4FE8]" /></div>
                   ) : (
                     <div className="space-y-3">
-                      {replyStats && (
-                        <div className="grid grid-cols-5 gap-2">
-                          {[
-                            { label: "Total",   value: replyStats.total,   color: "text-[#1a1a2e]" },
-                            { label: "Active",  value: replyStats.active,  color: "text-[#5B4FE8]" },
-                            { label: "Replied", value: replyStats.replied, color: "text-blue-600" },
-                            { label: "Opened",  value: replyStats.opened,  color: "text-indigo-600" },
-                            { label: "Bounced", value: replyStats.bounced, color: "text-red-500" },
-                          ].map(({ label, value, color }) => (
-                            <div key={label} className="bg-white border border-[#E5E7EB] rounded-xl p-3 text-center">
-                              <p className={`text-xl font-bold ${color}`}>{value}</p>
-                              <p className="text-[10px] text-[#9CA3AF] mt-0.5">{label}</p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
+                     
+{replyStats && (
+  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+    {[
+      { label: "Contacted",  value: replyStats.total,     sub: null,                                                        color: "text-[#1a1a2e]" },
+{ label: "Delivered",  value: replyStats.delivered, sub: `${(replyStats.deliveredPercentage ?? 0).toFixed(0)}%`, color: "text-[#5B4FE8]" },
+{ label: "Opened",     value: replyStats.opened,    sub: `${(replyStats.openedPercentage    ?? 0).toFixed(0)}%`, color: "text-indigo-600" },
+{ label: "Replied",    value: replyStats.replied,   sub: `${(replyStats.repliedPercentage   ?? 0).toFixed(0)}%`, color: "text-blue-600" },
+{ label: "Bounced",    value: replyStats.bounced,   sub: `${(replyStats.bouncedPercentage   ?? 0).toFixed(0)}%`, color: "text-red-500" },
+    ].map(({ label, value, sub, color }) => (
+      <div key={label} className="bg-white border border-[#E5E7EB] rounded-xl p-3 text-center">
+        <p className={`text-xl font-bold ${color}`}>{value}</p>
+        {sub && <p className="text-xs font-semibold text-[#5B4FE8]">{sub}</p>}
+        <p className="text-[10px] text-[#9CA3AF] mt-0.5">{label}</p>
+      </div>
+    ))}
+  </div>
+)}
                       {/* Bulk enroll from lead list */}
                       <div className="bg-white border border-[#E5E7EB] rounded-xl p-4">
                         <p className="text-xs font-semibold text-[#1a1a2e] mb-2">Enroll from lead list</p>

@@ -88,40 +88,29 @@ async function assignEmailAccountToSequence(
   );
 }
 
-
 // ── Convert plain text body to Reply.io HTML + fix variables ─
-// Reply.io renders "message" as HTML. Plain text = one giant block.
-// We need to:
-//   1. Convert {{firstName}} → {{ firstName }} (spaces, Reply.io format)
-//   2. Convert [First Name] bracket vars → {{ firstName }}
-//   3. Wrap each paragraph in <p> tags, preserve line breaks as <br>
 function toReplyHtml(text: string): string {
   if (!text) return text;
 
-  // Step 1: fix variables — {{firstName}} → {{ firstName }}
   let result = text.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_match, key: string) => {
     const normalized = key.trim().toLowerCase().replace(/\s+/g, "");
     return REPLY_VAR_MAP[normalized] ?? `{{ ${key.trim()} }}`;
   });
 
-  // Step 2: bracket vars [First Name] → {{ firstName }}
   result = result
-  .replace(/\[First Name\]/gi,    "{{FirstName}}")
-  .replace(/\[Last Name\]/gi,     "{{LastName}}")
-  .replace(/\[Full Name\]/gi,     "{{FullName}}")
-  .replace(/\[Company\]/gi,       "{{CompanyName}}")
-  .replace(/\[Job Title\]/gi,     "{{JobTitle}}")
-  .replace(/\[Industry\]/gi,      "{{Industry}}")
-  .replace(/\[Country\]/gi,       "{{Country}}")
-  .replace(/\[City\]/gi,          "{{City}}");
-  // Step 3: convert plain text to HTML paragraphs
-  // Split on double newlines (paragraphs), then handle single newlines as <br>
+    .replace(/\[First Name\]/gi,    "{{FirstName}}")
+    .replace(/\[Last Name\]/gi,     "{{LastName}}")
+    .replace(/\[Full Name\]/gi,     "{{FullName}}")
+    .replace(/\[Company\]/gi,       "{{CompanyName}}")
+    .replace(/\[Job Title\]/gi,     "{{JobTitle}}")
+    .replace(/\[Industry\]/gi,      "{{Industry}}")
+    .replace(/\[Country\]/gi,       "{{Country}}")
+    .replace(/\[City\]/gi,          "{{City}}");
+
   const paragraphs = result.split(/\n\n+/);
   const html = paragraphs
     .map((para) => {
-      const inner = para
-        .trim()
-        .replace(/\n/g, "<br>");
+      const inner = para.trim().replace(/\n/g, "<br>");
       return inner ? `<p>${inner}</p>` : "";
     })
     .filter(Boolean)
@@ -130,7 +119,64 @@ function toReplyHtml(text: string): string {
   return html;
 }
 
-// Updated REPLY_VAR_MAP (keyed by normalized no-space lowercase):
+// ── Strip quoted replies, disclaimers, and signatures from email body ──
+function cleanEmailBody(raw: string): string {
+  if (!raw) return "";
+
+  // 1. Strip HTML — remove blockquotes and gmail quote divs entirely first
+  let text = raw
+    .replace(/<blockquote[\s\S]*?<\/blockquote>/gi, "")
+    .replace(/<div[^>]*class="[^"]*quote[^"]*"[\s\S]*?<\/div>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<[^>]+>/g, "");
+
+  // 2. Decode HTML entities
+  text = text
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+
+  // 3. Split into lines and stop at noise markers
+  const lines = text.split("\n").map((l) => l.trim());
+
+  const cleanLines: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Stop at quoted reply header: "On Sun, Jun 28... wrote:"
+    if (/^On .+wrote:$/i.test(line)) break;
+    // Stop at multi-line "On ... wrote:" that got collapsed
+    if (/^On .{10,}wrote:/i.test(line)) break;
+    // Stop at "Sun Jun 28, 2026, at 6:39 PM Name :" style attribution
+    if (/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun).+\d{4}.+\d+:\d+/i.test(line)) break;
+    // Stop at > quoted text
+    if (line.startsWith(">")) break;
+    // Stop at disclaimer blocks
+    if (/^Disclaimer:/i.test(line)) break;
+    if (/^This email is governed by/i.test(line)) break;
+    if (/^Messages from '.+' mail server/i.test(line)) break;
+    if (/^If you are not the intended/i.test(line)) break;
+    if (/^If you have received (this|the) (message|email) in error/i.test(line)) break;
+    if (/^Please also scan/i.test(line)) break;
+    if (/^Thank you for your time/i.test(line)) break;
+    // Stop at signature separator
+    if (line === "--") break;
+
+    cleanLines.push(line);
+  }
+
+  // 4. Collapse excessive blank lines and trim
+  return cleanLines
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+// Updated REPLY_VAR_MAP
 const REPLY_VAR_MAP: Record<string, string> = {
   "firstname":   "{{FirstName}}",
   "lastname":    "{{LastName}}",
@@ -143,13 +189,10 @@ const REPLY_VAR_MAP: Record<string, string> = {
   "industry":    "{{Industry}}",
   "country":     "{{Country}}",
   "city":        "{{City}}",
-};// ─────────────────────────────────────────────────────────────
+};
+
+// ─────────────────────────────────────────────────────────────
 // CORE ENROLL HELPER
-// Verified from official v3 OpenAPI spec:
-//   1. POST /v3/contacts/import with options.sequenceId
-//      → upserts contacts, returns items[].id
-//   2. POST /v3/sequences/{id}/contact-links/bulk with contactIds[]
-//      → synchronously enrolls; indexed immediately for /start
 // ─────────────────────────────────────────────────────────────
 async function importAndEnrollLeads(
   leads: Array<{
@@ -166,26 +209,24 @@ async function importAndEnrollLeads(
   const total = leads.length;
   if (total === 0) return { enrolled: 0, total: 0 };
 
-  // Step 1: Import contacts into Reply.io and capture their IDs.
-  // options.sequenceId is a single int (not an array) per the v3 spec.
   const importPayload = {
     items: leads.map((l) => ({
       email: l.email,
-    ...(l.first_name ? { firstName: l.first_name.split(" ")[0] } : {}),
-...(l.last_name
-  ? { lastName: l.last_name }
-  : l.first_name && l.first_name.includes(" ")
-    ? { lastName: l.first_name.split(" ").slice(1).join(" ") }
-    : {}),
-      ...(l.company_name ? { company: l.company_name }   : {}),
-      ...(l.job_title    ? { title: l.job_title }        : {}),
+      ...(l.first_name ? { firstName: l.first_name.split(" ")[0] } : {}),
+      ...(l.last_name
+        ? { lastName: l.last_name }
+        : l.first_name && l.first_name.includes(" ")
+          ? { lastName: l.first_name.split(" ").slice(1).join(" ") }
+          : {}),
+      ...(l.company_name ? { company: l.company_name }     : {}),
+      ...(l.job_title    ? { title: l.job_title }          : {}),
       ...(l.linkedin_url ? { linkedInUrl: l.linkedin_url } : {}),
     })),
     options: {
-  overwriteExisting: true,   // ← update firstName if contact already exists
-  skipExisting: false,       // ← don't skip, fix the data
-  skipWithoutEmails: true,
-},
+      overwriteExisting: true,
+      skipExisting: false,
+      skipWithoutEmails: true,
+    },
   };
 
   const importResult = await replyFetch<{
@@ -201,7 +242,6 @@ async function importAndEnrollLeads(
     `skipped=${importResult.skipped} failed=${importResult.failed} for seq ${seqId}`
   );
 
-  // Collect all resolved contact IDs (created, updated, or skipped all return an id)
   const contactIds = importResult.items
     .filter((item) => item.id != null)
     .map((item) => item.id as number);
@@ -211,9 +251,6 @@ async function importAndEnrollLeads(
     return { enrolled: 0, total };
   }
 
-  // Step 2: Bulk-enroll into sequence using the correct endpoint:
-  // POST /v3/sequences/{id}/contact-links/bulk  { contactIds: [...] }
-  // This is synchronous — Reply.io indexes these immediately.
   const bulkResult = await replyFetch<{
     added: number[];
     notProcessed: Record<string, { error: number; errorDetails: string | null }>;
@@ -227,9 +264,7 @@ async function importAndEnrollLeads(
   );
 
   if (notProcessed > 0) {
-    logger.warn(
-      `Reply.io notProcessed details: ${JSON.stringify(bulkResult.notProcessed)}`
-    );
+    logger.warn(`Reply.io notProcessed details: ${JSON.stringify(bulkResult.notProcessed)}`);
   }
 
   return { enrolled, total };
@@ -288,7 +323,6 @@ router.get("/replyio/sequences", requireAuth, async (req: AuthenticatedRequest, 
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
-
 
 router.get("/replyio/sequences/:id/steps", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const apiKey = await getUserReplyApiKey(req.userId!);
@@ -355,22 +389,20 @@ router.post("/replyio/enroll", requireAuth, async (req: AuthenticatedRequest, re
     if (!contact?.email) { res.status(400).json({ error: "contact.email is required" }); return; }
     if (!sequenceId)     { res.status(400).json({ error: "sequenceId is required" }); return; }
 
-    // Import single contact to get/create their ID
     const importResult = await replyFetch<{
       items: Array<{ id: number | null; status: string; error: string | null }>;
     }>("POST", "/contacts/import", {
       items: [{
-  ...contact,
-  email: contact.email,
-  ...(contact.firstName ? { firstName: (contact.firstName as string).split(" ")[0] } : {}),
-}],
+        ...contact,
+        email: contact.email,
+        ...(contact.firstName ? { firstName: (contact.firstName as string).split(" ")[0] } : {}),
+      }],
       options: { skipExisting: true, skipWithoutEmails: true },
     }, apiKey);
 
     const contactId = importResult.items?.[0]?.id;
     if (!contactId) throw new Error("Could not create or find contact in Reply.io");
 
-    // Enroll via the correct bulk endpoint
     await replyFetch("POST", `/sequences/${sequenceId}/contact-links/bulk`, { contactIds: [contactId] }, apiKey);
     res.status(201).json({ contact: { id: contactId, email: contact.email }, enrolled: true });
   } catch (err: unknown) {
@@ -457,31 +489,16 @@ router.post("/replyio/sequences", requireAuth, async (req: AuthenticatedRequest,
     if (steps?.length) {
       for (const step of steps) {
         const stepType = step.type ?? "email";
-        // AFTER
-const variant: Record<string, string> = { message: toReplyHtml(step.body) };
-if (stepType === "email" && step.subject) {
-  // Normalize variables in subject too (e.g. {{firstName}} → {{ firstName }})
-  variant.subject = step.subject.replace(
-    /\{\{\s*([^}]+?)\s*\}\}/g,
-    (_match: string, key: string) => {
-      const normalized = key.trim().toLowerCase().replace(/\s+/g, "");
-      const REPLY_VAR_MAP: Record<string, string> = {
-  "firstname":   "{{FirstName}}",
-  "lastname":    "{{LastName}}",
-  "fullname":    "{{FullName}}",
-  "companyname": "{{CompanyName}}",
-  "company":     "{{CompanyName}}",
-  "title":       "{{JobTitle}}",
-  "jobtitle":    "{{JobTitle}}",
-  "email":       "{{Email}}",
-  "industry":    "{{Industry}}",
-  "country":     "{{Country}}",
-  "city":        "{{City}}",
-};
-      return REPLY_VAR_MAP[normalized] ?? `{{ ${key.trim()} }}`;
-    }
-  );
-}
+        const variant: Record<string, string> = { message: toReplyHtml(step.body) };
+        if (stepType === "email" && step.subject) {
+          variant.subject = step.subject.replace(
+            /\{\{\s*([^}]+?)\s*\}\}/g,
+            (_match: string, key: string) => {
+              const normalized = key.trim().toLowerCase().replace(/\s+/g, "");
+              return REPLY_VAR_MAP[normalized] ?? `{{ ${key.trim()} }}`;
+            }
+          );
+        }
         try {
           await replyFetch("POST", `/sequences/${sequence.id}/steps`, {
             type: stepType,
@@ -509,12 +526,6 @@ if (stepType === "email" && step.subject) {
   }
 });
 
-// POST /api/replyio/sequences/:id/activate
-// Verified flow from official v3 OpenAPI spec:
-//   1. Resolve & assign mailbox
-//   2. POST /v3/contacts/import  → get contact IDs
-//   3. POST /v3/sequences/{id}/contact-links/bulk  → enroll synchronously
-//   4. POST /v3/sequences/{id}/start
 router.post("/replyio/sequences/:id/activate", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const apiKey = await getUserReplyApiKey(req.userId!);
   if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
@@ -526,7 +537,6 @@ router.post("/replyio/sequences/:id/activate", requireAuth, async (req: Authenti
   };
 
   try {
-    // ── Step 1: Resolve mailbox ──────────────────────────────
     let resolvedAccountId: number;
     let resolvedEmail: string;
 
@@ -552,14 +562,11 @@ router.post("/replyio/sequences/:id/activate", requireAuth, async (req: Authenti
       resolvedEmail = account.email;
     }
 
-    // ── Step 2: Link mailbox to sequence ─────────────────────
     await assignEmailAccountToSequence(seqId, resolvedAccountId, apiKey);
 
-    // ── Step 3: Import + enroll leads ────────────────────────
     let enrollResult: { enrolled: number; total: number } | null = null;
 
     if (lead_list_id) {
-      // No review_status filter — enroll all leads with valid emails
       const { data: leads, error: dbErr } = await supabase
         .from("leads")
         .select("email, first_name, last_name, company_name, job_title, linkedin_url")
@@ -594,7 +601,6 @@ router.post("/replyio/sequences/:id/activate", requireAuth, async (req: Authenti
       }
     }
 
-    // ── Step 4: Start sequence ────────────────────────────────
     await replyFetch("POST", `/sequences/${seqId}/start`, undefined, apiKey);
 
     res.json({
@@ -620,8 +626,6 @@ router.post("/replyio/sequences/:id/pause-seq", requireAuth, async (req: Authent
   }
 });
 
-// POST /api/replyio/sequences/:id/enroll-list
-// Same two-step flow: import → bulk contact-links
 router.post("/replyio/sequences/:id/enroll-list", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const apiKey = await getUserReplyApiKey(req.userId!);
   if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
@@ -631,7 +635,6 @@ router.post("/replyio/sequences/:id/enroll-list", requireAuth, async (req: Authe
 
     const seqId = String(req.params.id);
 
-    // No review_status filter
     const { data: leads, error: dbErr } = await supabase
       .from("leads")
       .select("email, first_name, last_name, company_name, job_title, linkedin_url")
@@ -678,6 +681,151 @@ router.delete("/replyio/sequences/:id", requireAuth, async (req: AuthenticatedRe
     const status = msg.includes("400") ? 400 : msg.includes("403") ? 403 : msg.includes("429") ? 429 : 500;
     logger.error(`Reply.io delete sequence ${seqId} error: ${msg}`);
     res.status(status).json({ error: msg });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+//  EMAIL INBOX — list threads (email channel only)
+// ─────────────────────────────────────────────────────────────
+
+interface ReplyV3Thread {
+  id: number;
+  channel: "email" | "linkedIn" | "unknown";
+  isRead: boolean;
+  subject: string | null;
+  bodyPreview: string | null;
+  lastActivityDate: string;
+  isLastMessagePlanned: boolean;
+  contact: {
+    id: number | null;
+    ownerId: number | null;
+    fullName: string | null;
+    email: string | null;
+    linkedInProfileUrl: string | null;
+    phone: string | null;
+    companyName: string | null;
+    title: string | null;
+    isDeleted: boolean;
+  };
+  sequence: { id: number; name: string } | null;
+  category: { id: number; name: string } | null;
+  hasMeetingIntent: boolean;
+  status: { state: "ok" | "needsAttention" };
+}
+
+router.get("/replyio/inbox/threads", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const apiKey = await getUserReplyApiKey(req.userId!);
+  if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
+
+  const sequenceId = req.query.sequenceId as string | undefined;
+
+  try {
+    const data = await replyFetch<{ items: ReplyV3Thread[]; hasMore: boolean }>(
+      "GET", "/inbox/threads?top=1000", undefined, apiKey
+    );
+
+    let threads = (data.items ?? []).filter((t) => t.channel === "email");
+
+    if (sequenceId) {
+      threads = threads.filter((t) => t.sequence?.id === Number(sequenceId));
+    }
+
+    const normalised = threads.map((t) => ({
+      threadId:         t.id,
+      contactId:        t.contact.id,
+      name:             t.contact.fullName ?? t.contact.email ?? `Thread ${t.id}`,
+      email:            t.contact.email ?? null,
+      sequenceId:       t.sequence?.id ?? null,
+      sequenceName:     t.sequence?.name ?? null,
+      subject:          t.subject ?? null,
+      lastMessage:      t.bodyPreview ?? null,
+      lastMessageAt:    t.lastActivityDate,
+      isRead:           t.isRead,
+      unreadCount:      t.isRead ? 0 : 1,
+      category:         t.category?.name ?? null,
+      hasMeetingIntent: t.hasMeetingIntent,
+      status:           t.status?.state ?? null,
+    }));
+
+    res.json({ threads: normalised });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error(`Reply.io inbox threads error: ${msg}`);
+    res.status(500).json({ error: msg });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+//  EMAIL INBOX — messages in a thread
+// ─────────────────────────────────────────────────────────────
+
+router.get("/replyio/inbox/threads/:threadId/messages", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const apiKey = await getUserReplyApiKey(req.userId!);
+  if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
+
+  const { threadId } = req.params;
+
+  try {
+    const raw = await replyFetch<{
+      items: Array<{
+        channel: "email" | "linkedIn";
+        date: string;
+        body: string | null;
+        fromName: string | null;
+        isOutbound: boolean;
+        status: { state: string; code: string | null } | null;
+        subject?: string | null;
+        fromAddress?: string | null;
+        to?: string[] | null;
+      }>;
+      hasMore: boolean;
+    }>("GET", `/inbox/threads/${threadId}/messages?top=200`, undefined, apiKey);
+
+    const messages = (raw.items ?? []).map((m, i) => ({
+      id:         i,
+      text:       cleanEmailBody(m.body ?? ""),
+      isOutgoing: m.isOutbound,
+      sentAt:     m.date,
+      fromName:   m.fromName ?? null,
+      subject:    m.subject ?? null,
+      fromEmail:  m.fromAddress ?? null,
+      to:         m.to ?? [],
+      channel:    m.channel,
+    }));
+
+    res.json({ messages });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error(`Reply.io thread messages error for ${threadId}: ${msg}`);
+    res.status(500).json({ error: msg });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+//  EMAIL INBOX — send reply in a thread
+// ─────────────────────────────────────────────────────────────
+
+router.post("/replyio/inbox/threads/:threadId/reply", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const apiKey = await getUserReplyApiKey(req.userId!);
+  if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
+
+  const { threadId } = req.params;
+  const { message } = req.body as { message: string };
+
+  if (!message?.trim()) { res.status(400).json({ error: "message is required" }); return; }
+
+  try {
+    await replyFetch(
+      "POST",
+      `/inbox/threads/${threadId}/messages`,
+      { channel: "email", message: message.trim() },
+      apiKey
+    );
+    res.json({ success: true });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error(`Reply.io inbox reply error for thread ${threadId}: ${msg}`);
+    res.status(500).json({ error: msg });
   }
 });
 

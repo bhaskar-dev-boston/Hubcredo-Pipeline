@@ -8,7 +8,6 @@ const REPLY_BASE = "https://api.reply.io/v3";
 
 const LI_HEALTHY_STATUSES = new Set(["enabled"]);
 
-// ── Variable normalisation + HTML (same as replyio.ts) ───────
 
 const REPLY_VAR_MAP: Record<string, string> = {
   "firstname":   "{{FirstName}}",
@@ -26,14 +25,10 @@ const REPLY_VAR_MAP: Record<string, string> = {
 
 function toReplyHtml(text: string): string {
   if (!text) return text;
-
-  // 1. Normalise {{firstName}} → {{FirstName}} etc.
   let result = text.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_match, key: string) => {
     const normalized = key.trim().toLowerCase().replace(/\s+/g, "");
     return REPLY_VAR_MAP[normalized] ?? `{{ ${key.trim()} }}`;
   });
-
-  // 2. Convert bracket-style [First Name] → {{FirstName}}
   result = result
     .replace(/\[First Name\]/gi,  "{{FirstName}}")
     .replace(/\[Last Name\]/gi,   "{{LastName}}")
@@ -43,8 +38,6 @@ function toReplyHtml(text: string): string {
     .replace(/\[Industry\]/gi,    "{{Industry}}")
     .replace(/\[Country\]/gi,     "{{Country}}")
     .replace(/\[City\]/gi,        "{{City}}");
-
-  // 3. Wrap paragraphs in <p> tags (single newlines → <br>)
   const paragraphs = result.split(/\n\n+/);
   return paragraphs
     .map((para) => {
@@ -54,8 +47,6 @@ function toReplyHtml(text: string): string {
     .filter(Boolean)
     .join("\n");
 }
-
-// ── Helpers ──────────────────────────────────────────────────
 
 async function getUserReplyApiKey(userId: string): Promise<string> {
   try {
@@ -99,15 +90,6 @@ async function replyFetch<T>(
   if (!ct.includes("application/json")) return {} as T;
   return res.json() as Promise<T>;
 }
-
-// ── LinkedIn step types ──────────────────────────────────────
-//
-// FIX: Do NOT embed actionType:"connect" steps inside POST /v3/sequences.
-// The inline steps array in sequence creation only supports actionType:"message".
-// For actionType:"connect" steps, use POST /v3/sequences/{id}/steps/bulk AFTER
-// the sequence is created. See Reply.io docs:
-// https://docs.reply.io/api-reference/sequences/create-a-sequence
-// https://docs.reply.io/api-reference/sequence-steps/bulk-create-sequence-steps
 
 interface LinkedInStep {
   type: "linkedIn";
@@ -171,12 +153,7 @@ async function getSequence(seqId: string, apiKey: string): Promise<ReplySequence
 
 async function listLinkedInAccounts(apiKey: string): Promise<ReplyLinkedInAccount[]> {
   try {
-    const data = await replyFetch<ReplyLinkedInAccount[]>(
-      "GET",
-      "/linkedin-accounts",
-      undefined,
-      apiKey
-    );
+    const data = await replyFetch<ReplyLinkedInAccount[]>("GET", "/linkedin-accounts", undefined, apiKey);
     return Array.isArray(data) ? data : [];
   } catch (err) {
     logger.warn(`[LinkedIn] listLinkedInAccounts error: ${err}`);
@@ -328,9 +305,7 @@ async function importAndEnrollLeads(
   const enrolled = bulkResult.added?.length ?? 0;
   const notProcessed = Object.keys(bulkResult.notProcessed ?? {}).length;
 
-  logger.info(
-    `[LinkedIn] /contact-links/bulk: enrolled=${enrolled} notProcessed=${notProcessed} for seq ${seqId}`
-  );
+  logger.info(`[LinkedIn] /contact-links/bulk: enrolled=${enrolled} notProcessed=${notProcessed} for seq ${seqId}`);
 
   if (notProcessed > 0) {
     logger.warn(`[LinkedIn] notProcessed: ${JSON.stringify(bulkResult.notProcessed)}`);
@@ -345,16 +320,10 @@ async function importAndEnrollLeads(
 
 router.get("/replyio-linkedin/sequences", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const apiKey = await getUserReplyApiKey(req.userId!);
-  if (!apiKey) {
-    res.status(401).json({ error: "No Reply.io API key configured" });
-    return;
-  }
+  if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
   try {
     const data = await replyFetch<{ items: ReplySequence[]; hasMore: boolean }>(
-      "GET",
-      "/sequences?top=1000",
-      undefined,
-      apiKey
+      "GET", "/sequences?top=1000", undefined, apiKey
     );
     const sequences = data.items ?? [];
     res.json({ sequences: sequences.filter((s) => !s.isArchived) });
@@ -365,10 +334,7 @@ router.get("/replyio-linkedin/sequences", requireAuth, async (req: Authenticated
 
 router.get("/replyio-linkedin/account-status", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const apiKey = await getUserReplyApiKey(req.userId!);
-  if (!apiKey) {
-    res.status(401).json({ error: "No Reply.io API key configured" });
-    return;
-  }
+  if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
   try {
     const account = await getLinkedInAccount(apiKey);
     res.json({ connected: !!account, account: account ?? null });
@@ -382,18 +348,12 @@ router.post(
   requireAuth,
   async (req: AuthenticatedRequest, res: Response) => {
     const apiKey = await getUserReplyApiKey(req.userId!);
-    if (!apiKey) {
-      res.status(401).json({ error: "No Reply.io API key configured" });
-      return;
-    }
+    if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
 
     const seqId = String(req.params.id);
     const { lead_list_id } = req.body as { lead_list_id: string };
 
-    if (!lead_list_id) {
-      res.status(400).json({ error: "lead_list_id is required" });
-      return;
-    }
+    if (!lead_list_id) { res.status(400).json({ error: "lead_list_id is required" }); return; }
 
     try {
       const blocked = await preflightCheck(seqId, apiKey);
@@ -412,11 +372,7 @@ router.post(
         .eq("lead_list_id", lead_list_id)
         .not("email", "is", null);
 
-      if (dbErr) {
-        res.status(500).json({ error: dbErr.message });
-        return;
-      }
-
+      if (dbErr) { res.status(500).json({ error: dbErr.message }); return; }
       if (!leads || leads.length === 0) {
         res.status(400).json({ error: "No leads with valid emails found in the selected list." });
         return;
@@ -458,25 +414,44 @@ router.post(
   requireAuth,
   async (req: AuthenticatedRequest, res: Response) => {
     const apiKey = await getUserReplyApiKey(req.userId!);
-    if (!apiKey) {
-      res.status(401).json({ error: "No Reply.io API key configured" });
-      return;
-    }
+    if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
 
     const seqId = String(req.params.id);
     const { lead_list_id } = req.body as { lead_list_id?: string };
 
     try {
-      const blocked = await preflightCheck(seqId, apiKey);
-      if (blocked) {
-        res.status(blocked.status).json({
-          error: blocked.error,
-          code: blocked.code,
-          ...(blocked.connectUrl ? { connectUrl: blocked.connectUrl } : {}),
+      // ── 1. Verify LinkedIn account is healthy (skip status/steps check
+      //        because a freshly-created sequence is always "new" with steps
+      //        already added — the old preflightCheck would wrongly block it)
+      const linkedInAccount = await getLinkedInAccount(apiKey);
+      if (!linkedInAccount) {
+        res.status(400).json({
+          error: "No LinkedIn account connected in Reply.io. Go to Reply.io → Settings → LinkedIn Accounts and connect your account.",
+          code: "NO_LINKEDIN_ACCOUNT",
+          connectUrl: "https://app.reply.io/settings/linkedin-accounts",
         });
         return;
       }
 
+      if (linkedInAccount.status === "cookieInvalid") {
+        res.status(400).json({
+          error: `Your LinkedIn account "${linkedInAccount.name}" needs to be reconnected in Reply.io (session expired).`,
+          code: "LINKEDIN_COOKIE_INVALID",
+          connectUrl: "https://app.reply.io/settings/linkedin-accounts",
+        });
+        return;
+      }
+
+      if (linkedInAccount.status === "disabled") {
+        res.status(400).json({
+          error: `Your LinkedIn account "${linkedInAccount.name}" is disabled in Reply.io.`,
+          code: "LINKEDIN_ACCOUNT_DISABLED",
+          connectUrl: "https://app.reply.io/settings/linkedin-accounts",
+        });
+        return;
+      }
+
+      // ── 2. Optionally enroll a lead list first
       let enrollResult: { enrolled: number; total: number } | null = null;
 
       if (lead_list_id) {
@@ -486,11 +461,7 @@ router.post(
           .eq("lead_list_id", lead_list_id)
           .not("email", "is", null);
 
-        if (dbErr) {
-          res.status(500).json({ error: dbErr.message });
-          return;
-        }
-
+        if (dbErr) { res.status(500).json({ error: dbErr.message }); return; }
         if (!leads || leads.length === 0) {
           res.status(400).json({ error: "No leads with valid emails found." });
           return;
@@ -513,9 +484,28 @@ router.post(
           res.status(400).json({ error: "No contacts could be enrolled.", code: "ENROLL_FAILED" });
           return;
         }
+
+        // ── 3. Give Reply.io a moment to process newly enrolled contacts
+        //        before calling /start — without this, Reply.io returns
+        //        400 sequenceAction.noContacts immediately after enrollment
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
 
-      await replyFetch("POST", `/sequences/${seqId}/start`, undefined, apiKey);
+      // ── 4. Start the sequence — idempotent per docs (already active = 200)
+      try {
+        await replyFetch("POST", `/sequences/${seqId}/start`, undefined, apiKey);
+      } catch (startErr: unknown) {
+        const startMsg = startErr instanceof Error ? startErr.message : String(startErr);
+
+        // Reply.io returns 400 with code sequenceAction.noContacts when there
+        // are no contacts yet. If we just enrolled some, wait longer and retry.
+        if (startMsg.includes("noContacts") && enrollResult && enrollResult.enrolled > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+          await replyFetch("POST", `/sequences/${seqId}/start`, undefined, apiKey);
+        } else {
+          throw startErr;
+        }
+      }
 
       res.json({
         success: true,
@@ -524,7 +514,21 @@ router.post(
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.error(`[LinkedIn] activate seq ${seqId} error: ${msg}`);
-      res.status(400).json({ error: msg });
+
+      // Surface a clean error to the frontend
+      if (msg.includes("noContacts")) {
+        res.status(400).json({
+          error: "Sequence has no contacts yet. Enroll contacts first, then activate.",
+          code: "NO_CONTACTS",
+        });
+      } else if (msg.includes("noEmailAccounts")) {
+        res.status(400).json({
+          error: "Sequence has no email accounts assigned. This is a LinkedIn-only sequence — check Reply.io settings.",
+          code: "NO_EMAIL_ACCOUNTS",
+        });
+      } else {
+        res.status(400).json({ error: msg });
+      }
     }
   }
 );
@@ -534,10 +538,7 @@ router.post(
   requireAuth,
   async (req: AuthenticatedRequest, res: Response) => {
     const apiKey = await getUserReplyApiKey(req.userId!);
-    if (!apiKey) {
-      res.status(401).json({ error: "No Reply.io API key configured" });
-      return;
-    }
+    if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
     const seqId = String(req.params.id);
     try {
       await replyFetch("POST", `/sequences/${seqId}/pause`, undefined, apiKey);
@@ -555,10 +556,7 @@ router.delete(
   requireAuth,
   async (req: AuthenticatedRequest, res: Response) => {
     const apiKey = await getUserReplyApiKey(req.userId!);
-    if (!apiKey) {
-      res.status(401).json({ error: "No Reply.io API key configured" });
-      return;
-    }
+    if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
     const seqId = String(req.params.id);
     try {
       await replyFetch("DELETE", `/sequences/${seqId}`, undefined, apiKey);
@@ -571,27 +569,12 @@ router.delete(
   }
 );
 
-// POST /api/replyio-linkedin/sequences/create
-//
-// FIX APPLIED: Reply.io v3 returns 500 when you embed actionType:"connect" steps
-// inside the POST /v3/sequences body. The inline steps array in sequence creation
-// only accepts actionType:"message" per the official docs example.
-//
-// Correct approach (per docs):
-//   1. POST /v3/sequences          → create sequence with name + linkedInAccounts (NO steps)
-//   2. POST /v3/sequences/{id}/steps/bulk → add connect + follow-up steps separately
-//
-// Docs: https://docs.reply.io/api-reference/sequences/create-a-sequence
-//       https://docs.reply.io/api-reference/sequence-steps/bulk-create-sequence-steps
 router.post(
   "/replyio-linkedin/sequences/create",
   requireAuth,
   async (req: AuthenticatedRequest, res: Response) => {
     const apiKey = await getUserReplyApiKey(req.userId!);
-    if (!apiKey) {
-      res.status(401).json({ error: "No Reply.io API key configured" });
-      return;
-    }
+    if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
 
     const { name, steps, lead_list_id } = req.body as {
       name: string;
@@ -599,14 +582,8 @@ router.post(
       lead_list_id?: string;
     };
 
-    if (!name?.trim()) {
-      res.status(400).json({ error: "name is required" });
-      return;
-    }
-    if (!steps?.length) {
-      res.status(400).json({ error: "At least one step is required" });
-      return;
-    }
+    if (!name?.trim()) { res.status(400).json({ error: "name is required" }); return; }
+    if (!steps?.length) { res.status(400).json({ error: "At least one step is required" }); return; }
 
     try {
       const linkedInAccount = await getLinkedInAccount(apiKey);
@@ -627,9 +604,7 @@ router.post(
           cookieInvalid: "needs to be reconnected (session expired)",
         };
         res.status(400).json({
-          error: `Your LinkedIn account "${linkedInAccount.name}" ${
-            statusMessages[linkedInAccount.status] ?? "is not usable right now"
-          } in Reply.io. Fix this under Settings → LinkedIn Accounts, then try again.`,
+          error: `Your LinkedIn account "${linkedInAccount.name}" ${statusMessages[linkedInAccount.status] ?? "is not usable right now"} in Reply.io. Fix this under Settings → LinkedIn Accounts, then try again.`,
           code: "LINKEDIN_ACCOUNT_NOT_READY",
           connectUrl: "https://app.reply.io/settings/linkedin-accounts",
         });
@@ -642,24 +617,12 @@ router.post(
           : buildMessageStep(step.body, (step.delay_days ?? 0) * 1440)
       );
 
-      // ── STEP 1: Create the sequence with name only ──────────────────────────────
-      // DO NOT pass linkedInAccounts or steps in this call.
-      // Passing linkedInAccounts inline causes Reply.io to return 500
-      // (their endpoint cannot handle LinkedIn-only sequences without email accounts).
-      // Docs: https://docs.reply.io/api-reference/sequences/create-a-sequence
       const sequence = await replyFetch<ReplySequence>(
-        "POST",
-        "/sequences",
-        { name: name.trim() },
-        apiKey
+        "POST", "/sequences", { name: name.trim() }, apiKey
       );
 
       logger.info(`[LinkedIn] Created sequence id=${sequence.id} name="${sequence.name}"`);
 
-      // ── STEP 2: Assign the LinkedIn account via the dedicated link endpoint ──────
-      // Endpoint: POST /v3/sequences/{id}/linkedin-account-links
-      // Body: { linkedInAccountId: number }
-      // Docs: https://docs.reply.io/api-reference/sequence-linkedin-accounts/assign-a-linkedin-account-to-a-sequence
       await replyFetch(
         "POST",
         `/sequences/${sequence.id}/linkedin-account-links`,
@@ -669,14 +632,8 @@ router.post(
 
       logger.info(`[LinkedIn] Assigned LinkedIn account ${linkedInAccount.id} to seq ${sequence.id}`);
 
-      // ── STEP 3: Add steps via the dedicated bulk steps endpoint ─────────────────
-      // POST /v3/sequences/{id}/steps/bulk accepts all actionTypes including "connect".
-      // Docs: https://docs.reply.io/api-reference/sequence-steps/bulk-create-sequence-steps
       const bulkStepResults = await replyFetch<Array<{ id: number; error: number | null; errorDetails: string | null }>>(
-        "POST",
-        `/sequences/${sequence.id}/steps/bulk`,
-        builtSteps,
-        apiKey
+        "POST", `/sequences/${sequence.id}/steps/bulk`, builtSteps, apiKey
       );
 
       const failedSteps = (bulkStepResults ?? []).filter((r) => r.error != null);
@@ -686,7 +643,6 @@ router.post(
 
       logger.info(`[LinkedIn] Added ${(bulkStepResults ?? []).length} steps to seq ${sequence.id}`);
 
-      // ── STEP 3: Enroll leads if a list was provided ──
       if (lead_list_id) {
         const { data: leads, error: dbErr } = await supabase
           .from("leads")
@@ -731,13 +687,357 @@ router.post(
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.error(`[LinkedIn] create-sequence error: ${msg}`);
-
       const code = /sequence\.\w+/.exec(msg)?.[0];
       res.status(400).json({
         error: msg,
         ...(code ? { code: "STEPS_FAILED", replyCode: code } : { code: "CREATE_FAILED" }),
         connectUrl: "https://app.reply.io/settings/linkedin-accounts",
       });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────
+//  LINKEDIN STATS — using official Reply.io v3 API
+//  POST https://api.reply.io/v3/reporting/linkedin/overview
+// ─────────────────────────────────────────────────────────────
+
+// Exact response shape from the v3 API spec
+interface ReplyV3LinkedInOverview {
+  connectionsSent?: number;
+  connectionsAccepted?: number;
+  connectionsAcceptedPercentage?: number;
+  messagesSent?: number;
+  replied?: number;
+  repliedPercentage?: number;
+  inMailsSent?: number;
+  inMailsReplied?: number;
+  inMailsRepliedPercentage?: number;
+  connectionNotesSent?: number;
+  connectionNotesReplied?: number;
+  connectionNotesRepliedPercentage?: number;
+  profileViews?: number;
+  likes?: number;
+  follows?: number;
+  endorses?: number;
+  regularMessagesSent?: number;
+  regularMessagesReplied?: number;
+  regularMessagesRepliedPercentage?: number;
+}
+
+// What your frontend expects (keep your existing contract)
+interface ReplyLIStats {
+  totalPeopleContacted: number;
+  connectionsSent: number;
+  acceptedAutomatedConnections: number;
+  automatedConnectionsConversionRate: number;
+  messagesSent: number;
+  replies: number;
+  repliesConversionRate: number;
+  inMailsSent: number;
+  inMailsReplied: number;
+  inMailsConversionRate: number;
+  connectionNotesSent: number;
+  connectionNotesReplied: number;
+  connectionNotesConversionRate: number;
+  profileViews: number;
+  likes: number;
+  follows: number;
+  endorses: number;
+  regularMessagesSent: number;
+  regularMessagesReplied: number;
+  regularMessagesConversionRate: number;
+}
+
+router.get(
+  "/replyio-linkedin/sequences/:id/li-stats",
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response) => {
+    const apiKey = await getUserReplyApiKey(req.userId!);
+    if (!apiKey) {
+      res.status(401).json({ error: "No Reply.io API key configured" });
+      return;
+    }
+
+    const seqId = req.params.id;
+    const sequenceIdNum = parseInt(seqId, 10);
+
+    if (isNaN(sequenceIdNum)) {
+      res.status(400).json({ error: "Invalid sequence ID" });
+      return;
+    }
+
+    // Optional date range from query params
+    const { from, to, dateRangePreset } = req.query as {
+      from?: string;
+      to?: string;
+      dateRangePreset?: "lastWeek" | "lastMonth" | "lastYear" | "allTime";
+    };
+
+    // Build the filters object — "filters" key is REQUIRED by the v3 API
+    // sequenceIds filters to just this sequence's stats
+    const filters: Record<string, unknown> = {
+      sequenceIds: [sequenceIdNum],
+    };
+
+    if (from && to) {
+      filters.from = from;
+      filters.to = to;
+    } else if (dateRangePreset) {
+      filters.dateRangePreset = dateRangePreset;
+    } else {
+      // Default to all time so stats aren't empty for new sequences
+      filters.dateRangePreset = "allTime";
+    }
+
+    try {
+      // ✅ Correct: api.reply.io (NOT run.reply.io) with Bearer auth
+      const overviewRes = await fetch(
+        "https://api.reply.io/v3/reporting/linkedin/overview",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({ filters }),
+        }
+      );
+
+      if (!overviewRes.ok) {
+        const text = await overviewRes.text();
+        throw new Error(
+          `Reply.io v3 reporting ${overviewRes.status}: ${text}`
+        );
+      }
+
+      const raw = (await overviewRes.json()) as ReplyV3LinkedInOverview;
+
+      // Map v3 field names → your frontend's expected field names
+      const stats: ReplyLIStats = {
+        // v3 doesn't have a dedicated "totalPeopleContacted";
+        // connectionsSent is the best proxy (people who received an outreach)
+        totalPeopleContacted:               raw.connectionsSent                  ?? 0,
+        connectionsSent:                    raw.connectionsSent                  ?? 0,
+        acceptedAutomatedConnections:       raw.connectionsAccepted              ?? 0,
+        automatedConnectionsConversionRate: raw.connectionsAcceptedPercentage    ?? 0,
+        messagesSent:                       raw.messagesSent                     ?? 0,
+        replies:                            raw.replied                          ?? 0,
+        repliesConversionRate:              raw.repliedPercentage                ?? 0,
+        inMailsSent:                        raw.inMailsSent                      ?? 0,
+        inMailsReplied:                     raw.inMailsReplied                   ?? 0,
+        inMailsConversionRate:              raw.inMailsRepliedPercentage         ?? 0,
+        connectionNotesSent:                raw.connectionNotesSent              ?? 0,
+        connectionNotesReplied:             raw.connectionNotesReplied           ?? 0,
+        connectionNotesConversionRate:      raw.connectionNotesRepliedPercentage ?? 0,
+        profileViews:                       raw.profileViews                     ?? 0,
+        likes:                              raw.likes                            ?? 0,
+        follows:                            raw.follows                          ?? 0,
+        endorses:                           raw.endorses                         ?? 0,
+        regularMessagesSent:                raw.regularMessagesSent              ?? 0,
+        regularMessagesReplied:             raw.regularMessagesReplied           ?? 0,
+        regularMessagesConversionRate:      raw.regularMessagesRepliedPercentage ?? 0,
+      };
+
+      res.json(stats);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error(`[LinkedIn] li-stats error for seq ${seqId}: ${msg}`);
+      res.status(500).json({ error: msg });
+    }
+  }
+);
+// ─────────────────────────────────────────────────────────────
+//  INBOX — list threads
+//  GET /api/replyio-linkedin/inbox
+//  Query: ?sequenceId=xxx  ?channel=linkedIn
+//
+//  Uses v3: GET /v3/inbox/threads
+//  Docs: https://docs.reply.io/api-reference/inbox/list-inbox-threads
+// ─────────────────────────────────────────────────────────────
+
+interface ReplyV3InboxThread {
+  id: number;
+  channel: "email" | "linkedIn" | "unknown";
+  isRead: boolean;
+  subject: string | null;
+  bodyPreview: string | null;
+  lastActivityDate: string;
+  isLastMessagePlanned: boolean;
+  contact: {
+    id: number | null;
+    ownerId: number | null;
+    fullName: string | null;
+    email: string | null;
+    linkedInProfileUrl: string | null;
+    phone: string | null;
+    companyName: string | null;
+    title: string | null;
+    isDeleted: boolean;
+  };
+  sequence: { id: number; name: string } | null;
+  category: { id: number; name: string } | null;
+  hasMeetingIntent: boolean;
+  status: { state: "ok" | "needsAttention" };
+}
+
+router.get(
+  "/replyio-linkedin/inbox",
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response) => {
+    const apiKey = await getUserReplyApiKey(req.userId!);
+    if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
+
+    const sequenceId    = req.query.sequenceId as string | undefined;
+    const channelFilter = (req.query.channel as string | undefined) ?? "linkedIn";
+
+    try {
+      const data = await replyFetch<{ items: ReplyV3InboxThread[]; hasMore: boolean }>(
+        "GET", "/inbox/threads?top=1000", undefined, apiKey
+      );
+
+      let threads = data.items ?? [];
+
+      // Filter by channel (default: linkedIn only)
+      if (channelFilter) {
+        threads = threads.filter((t) => t.channel === channelFilter);
+      }
+
+      // Optionally filter to a specific sequence
+      if (sequenceId) {
+        threads = threads.filter((t) => t.sequence?.id === Number(sequenceId));
+      }
+
+      // Normalise to the shape the frontend expects.
+      // threadId = v3 inbox thread ID — used for ALL subsequent messages/reply calls.
+      // personId = contact ID for display only (may be null for deleted contacts).
+      const normalised = threads.map((t) => ({
+        threadId:      t.id,
+        personId:      t.contact.id,
+        name:          t.contact.fullName ?? t.contact.email ?? `Thread ${t.id}`,
+        email:         t.contact.email ?? null,
+        linkedInUrl:   t.contact.linkedInProfileUrl ?? null,
+        sequenceId:    t.sequence?.id ?? null,
+        sequenceName:  t.sequence?.name ?? null,
+        lastMessage:   t.bodyPreview ?? null,
+        lastMessageAt: t.lastActivityDate,
+        unreadCount:   t.isRead ? 0 : 1,
+        status:        t.status?.state ?? null,
+        category:      t.category?.name ?? null,
+        channel:       t.channel,
+      }));
+
+      res.json({ threads: normalised });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error(`[LinkedIn] inbox list error: ${msg}`);
+      res.status(500).json({ error: msg });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────
+//  INBOX — messages in a thread
+//  GET /api/replyio-linkedin/inbox/:threadId/messages
+//
+//  Uses v3: GET /v3/inbox/threads/{id}/messages
+//  Docs: https://docs.reply.io/api-reference/inbox/list-messages-in-an-inbox-thread
+//
+//  NOTE: param is threadId (the v3 inbox thread ID), NOT a person/contact ID.
+// ─────────────────────────────────────────────────────────────
+
+interface ReplyInboxMessage {
+  id?: string | number;
+  text: string;
+  isOutgoing: boolean;
+  sentAt: string;
+  fromName?: string | null;
+}
+
+router.get(
+  "/replyio-linkedin/inbox/:threadId/messages",
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response) => {
+    const apiKey = await getUserReplyApiKey(req.userId!);
+    if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
+
+    const { threadId } = req.params;
+
+    try {
+      const raw = await replyFetch<{
+        items: Array<{
+          channel: "email" | "linkedIn";
+          date: string;
+          body: string | null;
+          fromName: string | null;
+          isOutbound: boolean;
+          status: { state: string; code: string | null; occurredAt: string | null } | null;
+          subject?: string | null;
+          fromAddress?: string | null;
+          to?: string[] | null;
+        }>;
+        hasMore: boolean;
+      }>("GET", `/inbox/threads/${threadId}/messages?top=200`, undefined, apiKey);
+
+      const messages: ReplyInboxMessage[] = (raw.items ?? []).map((m, i) => ({
+        id:         i,
+        text:       m.body ?? "",
+        isOutgoing: m.isOutbound,
+        sentAt:     m.date,
+        fromName:   m.fromName ?? null,
+      }));
+
+      res.json({ messages });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error(`[LinkedIn] inbox messages error for thread ${threadId}: ${msg}`);
+      res.status(500).json({ error: msg });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────
+//  INBOX — send reply in a thread
+//  POST /api/replyio-linkedin/inbox/:threadId/reply
+//  Body: { message: string, channel?: "linkedIn" | "email" }
+//
+//  Uses v3: POST /v3/inbox/threads/{id}/messages
+//  Docs: https://docs.reply.io/api-reference/inbox/send-a-reply-within-a-thread
+//
+//  NOTE: param is threadId (the v3 inbox thread ID), NOT a person/contact ID.
+//        channel must match the thread's channel — defaults to "linkedIn".
+// ─────────────────────────────────────────────────────────────
+
+router.post(
+  "/replyio-linkedin/inbox/:threadId/reply",
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response) => {
+    const apiKey = await getUserReplyApiKey(req.userId!);
+    if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
+
+    const { threadId } = req.params;
+    const { message, channel = "linkedIn" } = req.body as {
+      message: string;
+      channel?: "linkedIn" | "email";
+    };
+
+    if (!message?.trim()) {
+      res.status(400).json({ error: "message is required" });
+      return;
+    }
+
+    try {
+      await replyFetch(
+        "POST",
+        `/inbox/threads/${threadId}/messages`,
+        { channel, message: message.trim() },
+        apiKey
+      );
+      res.json({ success: true });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error(`[LinkedIn] inbox reply error for thread ${threadId}: ${msg}`);
+      res.status(500).json({ error: msg });
     }
   }
 );

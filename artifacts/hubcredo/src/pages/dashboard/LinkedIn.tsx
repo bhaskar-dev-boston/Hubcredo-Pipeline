@@ -70,10 +70,9 @@ interface ChatMessage {
   timestamp?: string;
   is_event?: boolean;
   hidden?: boolean;
-  attachments?: any[];
+  attachments?: unknown[];
 }
 
-// ── Reply.io types ────────────────────────────────────────────
 interface ReplySeq {
   id: number;
   name: string;
@@ -103,16 +102,51 @@ interface ReplyStats {
   bounced: number;
 }
 
-// ── Reply.io LinkedIn account type ───────────────────────────
+interface ReplyLIStats {
+  totalPeopleContacted: number;
+  connectionsSent: number;
+  acceptedAutomatedConnections: number;
+  automatedConnectionsConversionRate: number;
+  messagesSent: number;
+  replies: number;
+  repliesConversionRate: number;
+}
+
+// FIX: threadId is the v3 inbox thread ID — used for messages & reply API calls.
+// personId is the contact ID (display only, may be null for deleted contacts).
+interface ReplyLIThread {
+  threadId: number;
+  personId: number | null;
+  name: string;
+  email?: string | null;
+  linkedInUrl?: string | null;
+  sequenceId?: number | null;
+  sequenceName?: string | null;
+  channel?: string;
+  lastMessage?: string | null;
+  lastMessageAt?: string | null;
+  unreadCount?: number;
+  status?: string | null;
+  category?: string | null;
+}
+
+interface ReplyLIMessage {
+  id?: string | number;
+  text: string;
+  isOutgoing: boolean;
+  sentAt: string;
+  fromName?: string | null;
+}
+
 interface ReplyLIAccount {
   connected: boolean;
   profile_name?: string | null;
   email?: string | null;
-  subscription?: string | null; // now "premium" | "salesNavigator" | "public"
+  subscription?: string | null;
   account_id?: string | null;
   profile_url?: string | null;
   photo_url?: string | null;
-  status?: string | null;       // "enabled" | "disabled" | "dailyLimitReached" | "cookieInvalid"
+  status?: string | null;
   cookie_status?: string | null;
   reason?: string;
 }
@@ -126,11 +160,9 @@ export default function LinkedIn() {
   const [sequences, setSequences] = useState<Sequence[]>([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
-
   const [showLimitEditor, setShowLimitEditor] = useState(false);
   const [dailyLimit, setDailyLimit] = useState(15);
   const [savingLimit, setSavingLimit] = useState(false);
-
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingSeq, setEditingSeq] = useState<Sequence | null>(null);
   const [seqName, setSeqName] = useState("My LinkedIn Sequence");
@@ -141,21 +173,17 @@ export default function LinkedIn() {
   const [seqDailyLimit, setSeqDailyLimit] = useState(15);
   const [savingSeq, setSavingSeq] = useState(false);
   const [prefilling, setPrefilling] = useState(false);
-
   const [launchingId, setLaunchingId] = useState<string | null>(null);
   const [pausingId, setPausingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
   const [analyticsMap, setAnalyticsMap] = useState<Record<string, Analytics>>({});
   const [loadingAnalytics, setLoadingAnalytics] = useState<Record<string, boolean>>({});
   const [expandedAnalytics, setExpandedAnalytics] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<"sequences" | "inbox">("sequences");
   const [showTemplates, setShowTemplates] = useState(false);
   const [refreshingAnalytics, setRefreshingAnalytics] = useState<Record<string, boolean>>({});
-
   const [inbox, setInbox] = useState<InboxChat[]>([]);
   const [loadingInbox, setLoadingInbox] = useState(false);
-
   const [openChat, setOpenChat] = useState<InboxChat | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -164,7 +192,6 @@ export default function LinkedIn() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // ── Reply.io state ────────────────────────────────────────
   const [replyMode, setReplyMode] = useState(false);
   const [replyConnected, setReplyConnected] = useState(false);
   const [replySeqs, setReplySeqs] = useState<ReplySeq[]>([]);
@@ -179,12 +206,8 @@ export default function LinkedIn() {
   const [enrollFirst, setEnrollFirst] = useState("");
   const [enrollLast, setEnrollLast] = useState("");
   const [enrolling, setEnrolling] = useState(false);
-
-  // ── Reply.io LinkedIn account from Reply.io ───────────────
   const [replyLIAccount, setReplyLIAccount] = useState<ReplyLIAccount | null>(null);
   const [replyLIAccountLoading, setReplyLIAccountLoading] = useState(false);
-
-  // ── Reply.io LinkedIn wizard state ────────────────────────
   const [replyLIWizard, setReplyLIWizard] = useState(false);
   const [replyLIName, setReplyLIName] = useState("");
   const [replyLIConnMsg, setReplyLIConnMsg] = useState("");
@@ -194,9 +217,18 @@ export default function LinkedIn() {
   const [replyLIActivatingId, setReplyLIActivatingId] = useState<number | null>(null);
   const [replyLIPausingId, setReplyLIPausingId] = useState<number | null>(null);
   const [replyLIDeletingId, setReplyLIDeletingId] = useState<number | null>(null);
-const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | null>(null);
+  const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | null>(null);
   const [replyLIEnrollListId, setReplyLIEnrollListId] = useState("");
   const [replyLIEnrollingList, setReplyLIEnrollingList] = useState(false);
+  const [replyLIStats, setReplyLIStats] = useState<ReplyLIStats | null>(null);
+  const [replyLIInbox, setReplyLIInbox] = useState<ReplyLIThread[]>([]);
+  const [replyLIInboxLoading, setReplyLIInboxLoading] = useState(false);
+  const [replyLIOpenThread, setReplyLIOpenThread] = useState<ReplyLIThread | null>(null);
+  const [replyLIMessages, setReplyLIMessages] = useState<ReplyLIMessage[]>([]);
+  const [replyLIMessagesLoading, setReplyLIMessagesLoading] = useState(false);
+  const [replyLIMessageInput, setReplyLIMessageInput] = useState("");
+  const [replyLISending, setReplyLISending] = useState(false);
+  const replyLIMessagesEndRef = useRef<HTMLDivElement>(null);
 
   const LINKEDIN_TEMPLATES = [
     { name: "Cold outreach", connection_message: "Hi {{firstName}}, I help B2B companies build reliable sales infrastructure. Thought we'd connect well — open to it?", followup_message: "Hey {{firstName}}, thanks for connecting! I work with founders to set up scalable outbound. Worth a quick 15-min chat?" },
@@ -205,7 +237,6 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
     { name: "Industry peer", connection_message: "Hi {{firstName}}, we're both in the B2B space and I'd love to stay connected. I work on GTM infrastructure and outreach automation.", followup_message: "Hey {{firstName}}, great to be connected! Would you be open to a 15-min call to explore if what I do could help your team?" },
   ];
 
-  // ── Check Reply.io connection on mount ───────────────────
   useEffect(() => {
     fetch(apiUrl("/replyio/validate"), { headers: authHeaders() })
       .then((r) => r.json())
@@ -213,7 +244,6 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
       .catch(() => setReplyConnected(false));
   }, []);
 
-  // ── Fetch Reply.io LinkedIn account when Reply.io is connected ──
   useEffect(() => {
     if (!replyConnected) return;
     setReplyLIAccountLoading(true);
@@ -256,12 +286,13 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
   useEffect(() => { loadData(); }, [me]);
 
   useEffect(() => {
-    if (chatMessages.length > 0) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
+    if (chatMessages.length > 0) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
-  // ── Reply.io functions ────────────────────────────────────
+  useEffect(() => {
+    if (replyLIMessages.length > 0) replyLIMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [replyLIMessages]);
+
   async function loadReplySeqs() {
     setReplySeqsLoading(true);
     try {
@@ -278,13 +309,18 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
   async function loadReplyDetail(id: number) {
     setReplySelectedId(id);
     setReplyDetailLoading(true);
+    setReplyLIStats(null);
     try {
       const [cRes, sRes] = await Promise.all([
         fetch(apiUrl(`/replyio/sequences/${id}/contacts`), { headers: authHeaders() }),
-        fetch(apiUrl(`/replyio/sequences/${id}/stats`), { headers: authHeaders() }),
+        fetch(apiUrl(`/replyio-linkedin/sequences/${id}/li-stats`), { headers: authHeaders() }),
       ]);
       if (cRes.ok) setReplyContacts((await cRes.json()).contacts ?? []);
-      if (sRes.ok) setReplyStats(await sRes.json());
+      if (sRes.ok) {
+        const li = await sRes.json() as ReplyLIStats;
+        setReplyLIStats(li);
+        setReplyStats({ total: li.totalPeopleContacted, active: 0, replied: li.replies, opened: 0, bounced: 0 });
+      }
     } finally {
       setReplyDetailLoading(false);
     }
@@ -320,87 +356,67 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
     if (on && replySeqs.length === 0) loadReplySeqs();
   }
 
-  function resetLIWizard() { setReplyLIName(""); setReplyLIConnMsg(""); setReplyLIFollowup(""); setReplyLIFollowupDelay(3); setReplyLIEnrollListId(""); }
+  function resetLIWizard() {
+    setReplyLIName(""); setReplyLIConnMsg(""); setReplyLIFollowup("");
+    setReplyLIFollowupDelay(3); setReplyLIEnrollListId("");
+  }
 
   async function handleCreateReplyLISeq() {
-  if (!replyLIName.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
-  if (!replyLIConnMsg.trim()) { toast({ title: "Connection message required", variant: "destructive" }); return; }
-  setReplyLICreating(true);
-  try {
-    const steps = [
-      { type: "linkedin", delay_days: 0, body: replyLIConnMsg.trim() },
-      ...(replyLIFollowup.trim() ? [{ type: "linkedin", delay_days: replyLIFollowupDelay, body: replyLIFollowup.trim() }] : []),
-    ];
-
-    const res = await fetch(apiUrl("/replyio-linkedin/sequences/create"), {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify({
-        name: replyLIName.trim(),
-        steps,
-        ...(replyLIEnrollListId ? { lead_list_id: replyLIEnrollListId } : {}),
-      }),
-    });
-
-    const data = await res.json();
-
-    // LinkedIn account not connected in Reply.io — steps couldn't be added
-    if (!res.ok && data.code === "STEPS_FAILED") {
-      toast({
-        title: "LinkedIn account not linked in Reply.io",
-        description: `Go to Reply.io → Settings → LinkedIn Accounts and connect your account first, then create the sequence again.`,
-        variant: "destructive",
+    if (!replyLIName.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
+    if (!replyLIConnMsg.trim()) { toast({ title: "Connection message required", variant: "destructive" }); return; }
+    setReplyLICreating(true);
+    try {
+      const steps = [
+        { type: "linkedin", delay_days: 0, body: replyLIConnMsg.trim() },
+        ...(replyLIFollowup.trim() ? [{ type: "linkedin", delay_days: replyLIFollowupDelay, body: replyLIFollowup.trim() }] : []),
+      ];
+      const res = await fetch(apiUrl("/replyio-linkedin/sequences/create"), {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          name: replyLIName.trim(),
+          steps,
+          ...(replyLIEnrollListId ? { lead_list_id: replyLIEnrollListId } : {}),
+        }),
       });
-      return;
-    }
-
-    if (!res.ok) {
-      throw new Error(data.error ?? "Failed to create sequence");
-    }
-
-    // 207 = sequence created + steps OK, but enroll was blocked
-    if (res.status === 207 && data.enrollError) {
-      toast({
-        title: `Sequence "${data.name}" created`,
-        description: data.enrollCode === "NO_STEPS"
-          ? "Add a LinkedIn step in Reply.io, then enroll leads manually."
-          : `Enroll skipped: ${data.enrollError}`,
-        variant: "destructive",
-      });
+      const data = await res.json();
+      if (!res.ok && data.code === "STEPS_FAILED") {
+        toast({ title: "LinkedIn account not linked in Reply.io", description: "Go to Reply.io → Settings → LinkedIn Accounts and connect your account first, then create the sequence again.", variant: "destructive" });
+        return;
+      }
+      if (!res.ok) throw new Error(data.error ?? "Failed to create sequence");
+      if (res.status === 207 && data.enrollError) {
+        toast({ title: `Sequence "${data.name}" created`, description: data.enrollCode === "NO_STEPS" ? "Add a LinkedIn step in Reply.io, then enroll leads manually." : `Enroll skipped: ${data.enrollError}`, variant: "destructive" });
+        setReplyLIWizard(false); resetLIWizard(); loadReplySeqs();
+        return;
+      }
+      if (data.enrolled > 0) {
+        toast({ title: "Sequence created! 🎉", description: `Enrolled ${data.enrolled} of ${data.total} leads.` });
+      } else if (replyLIEnrollListId) {
+        toast({ title: `Sequence "${data.name}" created`, description: "0 leads enrolled — ensure your leads have emails populated.", variant: "destructive" });
+      } else {
+        toast({ title: "Sequence created!", description: `"${data.name}" is ready in Reply.io.` });
+      }
       setReplyLIWizard(false); resetLIWizard(); loadReplySeqs();
-      return;
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Could not create sequence", variant: "destructive" });
+    } finally {
+      setReplyLICreating(false);
     }
-
-    // Full success
-    if (data.enrolled > 0) {
-      toast({ title: "Sequence created! 🎉", description: `Enrolled ${data.enrolled} of ${data.total} leads.` });
-    } else if (replyLIEnrollListId) {
-      toast({
-        title: `Sequence "${data.name}" created`,
-        description: "0 leads enrolled — ensure your leads have emails populated.",
-        variant: "destructive",
-      });
-    } else {
-      toast({ title: "Sequence created!", description: `"${data.name}" is ready in Reply.io.` });
-    }
-
-    setReplyLIWizard(false); resetLIWizard(); loadReplySeqs();
-  } catch (err) {
-    toast({ title: "Error", description: err instanceof Error ? err.message : "Could not create sequence", variant: "destructive" });
-  } finally {
-    setReplyLICreating(false);
   }
-}
 
   async function handleActivateLIReply(id: number) {
     setReplyLIActivatingId(id);
     try {
-      const res = await fetch(apiUrl(`/replyio/sequences/${id}/activate`), { method: "POST", headers: authHeaders() });
+      const res = await fetch(apiUrl(`/replyio-linkedin/sequences/${id}/activate`), { method: "POST", headers: authHeaders() });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
       setReplySeqs((prev) => prev.map((s) => s.id === id ? { ...s, status: "active" } : s));
       toast({ title: "Sequence activated! 🚀" });
-    } catch (err) { toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" }); }
-    finally { setReplyLIActivatingId(null); }
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
+    } finally {
+      setReplyLIActivatingId(null);
+    }
   }
 
   async function handlePauseLIReply(id: number) {
@@ -410,48 +426,175 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
       if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
       setReplySeqs((prev) => prev.map((s) => s.id === id ? { ...s, status: "paused" } : s));
       toast({ title: "Sequence paused." });
-    } catch (err) { toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" }); }
-    finally { setReplyLIPausingId(null); }
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
+    } finally {
+      setReplyLIPausingId(null);
+    }
   }
 
-
   async function handleDeleteLIReplySeq(id: number) {
-  setReplyLIDeletingId(id);
-  try {
-    const res = await fetch(apiUrl(`/replyio/sequences/${id}`), { method: "DELETE", headers: authHeaders() });
-    if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
-    setReplySeqs((prev) => prev.filter((s) => s.id !== id));
-    if (replySelectedId === id) { setReplySelectedId(null); setReplyContacts([]); setReplyStats(null); }
-    setReplyLIDeleteConfirmId(null);
-    toast({ title: "Sequence deleted." });
-  } catch (err) { toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" }); }
-  finally { setReplyLIDeletingId(null); }
-}
+    setReplyLIDeletingId(id);
+    try {
+      const res = await fetch(apiUrl(`/replyio/sequences/${id}`), { method: "DELETE", headers: authHeaders() });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+      setReplySeqs((prev) => prev.filter((s) => s.id !== id));
+      if (replySelectedId === id) { setReplySelectedId(null); setReplyContacts([]); setReplyStats(null); setReplyLIStats(null); }
+      setReplyLIDeleteConfirmId(null);
+      toast({ title: "Sequence deleted." });
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
+    } finally {
+      setReplyLIDeletingId(null);
+    }
+  }
 
   async function handleEnrollListLI(seqId: number, listId: string) {
-  if (!listId) { toast({ title: "Select a lead list first", variant: "destructive" }); return; }
-  setReplyLIEnrollingList(true);
-  try {
-    const res = await fetch(apiUrl(`/replyio-linkedin/sequences/${seqId}/enroll-list`), {
-      method: "POST", headers: authHeaders(),
-      body: JSON.stringify({ lead_list_id: listId, require_linkedin_url: true }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-
-    if (data.enrolled === 0) {
-      toast({
-        title: "0 leads enrolled",
-        description: "Leads need a LinkedIn URL to join LinkedIn sequences. Ensure your leads have linkedin_url populated.",
-        variant: "destructive",
+    if (!listId) { toast({ title: "Select a lead list first", variant: "destructive" }); return; }
+    setReplyLIEnrollingList(true);
+    try {
+      const res = await fetch(apiUrl(`/replyio-linkedin/sequences/${seqId}/enroll-list`), {
+        method: "POST", headers: authHeaders(),
+        body: JSON.stringify({ lead_list_id: listId }),
       });
-    } else {
-      toast({ title: "Leads enrolled!", description: `${data.enrolled} of ${data.total} contacts added.` });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (data.enrolled === 0) {
+        toast({ title: "0 leads enrolled", description: "Leads need a LinkedIn URL to join LinkedIn sequences. Ensure your leads have linkedin_url populated.", variant: "destructive" });
+      } else {
+        toast({ title: "Leads enrolled!", description: `${data.enrolled} of ${data.total} contacts added.` });
+      }
+      if (replySelectedId === seqId) loadReplyDetail(seqId);
+    } catch (err) {
+      toast({ title: "Enroll failed", description: err instanceof Error ? err.message : "Error", variant: "destructive" });
+    } finally {
+      setReplyLIEnrollingList(false);
     }
-    if (replySelectedId === seqId) loadReplyDetail(seqId);
-  } catch (err) { toast({ title: "Enroll failed", description: err instanceof Error ? err.message : "Error", variant: "destructive" }); }
-  finally { setReplyLIEnrollingList(false); }
-}
+  }
+
+  // ── Reply.io LinkedIn Inbox functions ─────────────────────
+  // FIX: All inbox API calls now use threadId (v3 inbox thread ID),
+  // not personId (contact ID). The backend returns threadId in the
+  // normalised thread object from GET /v3/inbox/threads.
+
+  async function loadReplyLIInbox(seqId?: number) {
+    setReplyLIInboxLoading(true);
+    try {
+      const qs = seqId ? `?sequenceId=${seqId}` : "";
+      const res = await fetch(apiUrl(`/replyio-linkedin/inbox${qs}`), { headers: authHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setReplyLIInbox(data.threads ?? []);
+      } else {
+        toast({ title: "Failed to load LinkedIn inbox", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Failed to load LinkedIn inbox", variant: "destructive" });
+    } finally {
+      setReplyLIInboxLoading(false);
+    }
+  }
+
+  // FIX: use thread.threadId (v3 thread ID) for the messages API call
+  async function openReplyLIThread(thread: ReplyLIThread) {
+    setReplyLIOpenThread(thread);
+    setReplyLIMessages([]);
+    setReplyLIMessageInput("");
+    setReplyLIMessagesLoading(true);
+    try {
+      const res = await fetch(
+        apiUrl(`/replyio-linkedin/inbox/${thread.threadId}/messages`), // ← threadId not personId
+        { headers: authHeaders() }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setReplyLIMessages(data.messages ?? []);
+      } else {
+        toast({ title: "Failed to load messages", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Failed to load messages", variant: "destructive" });
+    } finally {
+      setReplyLIMessagesLoading(false);
+    }
+  }
+
+  // FIX: use replyLIOpenThread.threadId for refresh
+  async function refreshReplyLIMessages() {
+    if (!replyLIOpenThread) return;
+    setReplyLIMessagesLoading(true);
+    try {
+      const res = await fetch(
+        apiUrl(`/replyio-linkedin/inbox/${replyLIOpenThread.threadId}/messages`), // ← threadId
+        { headers: authHeaders() }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setReplyLIMessages(data.messages ?? []);
+      }
+    } finally {
+      setReplyLIMessagesLoading(false);
+    }
+  }
+
+  // FIX: use thread.threadId for reply URL; body is { channel, message }
+  async function handleReplyLISendMessage() {
+    if (!replyLIOpenThread || !replyLIMessageInput.trim() || replyLISending) return;
+    const text = replyLIMessageInput.trim();
+    setReplyLIMessageInput("");
+    setReplyLISending(true);
+    const optimistic: ReplyLIMessage = {
+      id: `opt-${Date.now()}`,
+      text,
+      isOutgoing: true,
+      sentAt: new Date().toISOString(),
+    };
+    setReplyLIMessages((prev) => [...prev, optimistic]);
+    try {
+      const res = await fetch(
+        apiUrl(`/replyio-linkedin/inbox/${replyLIOpenThread.threadId}/reply`), // ← threadId
+        {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            channel: replyLIOpenThread.channel ?? "linkedIn", // ← channel, not sequenceId
+            message: text,
+          }),
+        }
+      );
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error ?? "Failed to send");
+      }
+      // Update inbox list preview using threadId as the key
+      setReplyLIInbox((prev) =>
+        prev.map((t) =>
+          t.threadId === replyLIOpenThread.threadId // ← match on threadId
+            ? { ...t, lastMessage: text, lastMessageAt: new Date().toISOString() }
+            : t
+        )
+      );
+    } catch (err) {
+      setReplyLIMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+      setReplyLIMessageInput(text);
+      toast({ title: "Failed to send message", description: err instanceof Error ? err.message : "Error", variant: "destructive" });
+    } finally {
+      setReplyLISending(false);
+    }
+  }
+
+  function formatReplyLITime(ts: string | null | undefined): string {
+    if (!ts) return "";
+    try {
+      const d = new Date(ts);
+      const now = new Date();
+      const diff = Math.floor((now.getTime() - d.getTime()) / 86400000);
+      if (diff === 0) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      if (diff === 1) return "Yesterday";
+      if (diff < 7) return d.toLocaleDateString([], { weekday: "short" });
+      return d.toLocaleDateString([], { month: "short", day: "numeric" });
+    } catch { return ""; }
+  }
 
   async function loadAnalytics(seqId: string) {
     setLoadingAnalytics((prev) => ({ ...prev, [seqId]: true }));
@@ -462,9 +605,7 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
         setAnalyticsMap((prev) => ({ ...prev, [seqId]: data }));
       }
     } catch { }
-    finally {
-      setLoadingAnalytics((prev) => ({ ...prev, [seqId]: false }));
-    }
+    finally { setLoadingAnalytics((prev) => ({ ...prev, [seqId]: false })); }
   }
 
   function toggleAnalytics(seqId: string) {
@@ -521,12 +662,8 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
     setLoadingInbox(true);
     try {
       const res = await fetch(apiUrl("/linkedin/inbox"), { headers: authHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        setInbox(data.chats || []);
-      } else {
-        toast({ title: "Failed to load inbox", variant: "destructive" });
-      }
+      if (res.ok) { const data = await res.json(); setInbox(data.chats || []); }
+      else { toast({ title: "Failed to load inbox", variant: "destructive" }); }
     } catch {
       toast({ title: "Failed to load inbox", variant: "destructive" });
     } finally {
@@ -543,8 +680,7 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
       const res = await fetch(apiUrl(`/linkedin/inbox/${chat.id}/messages`), { headers: authHeaders() });
       if (res.ok) {
         const data = await res.json();
-        const real = (data.messages || []).filter((m: ChatMessage) => !m.hidden && !m.is_event);
-        setChatMessages(real);
+        setChatMessages((data.messages || []).filter((m: ChatMessage) => !m.hidden && !m.is_event));
       } else {
         toast({ title: "Failed to load messages", variant: "destructive" });
       }
@@ -574,30 +710,14 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
     const text = messageInput.trim();
     setMessageInput("");
     setSendingMessage(true);
-    const optimisticMsg: ChatMessage = {
-      id: `optimistic-${Date.now()}`,
-      text,
-      is_sender: true,
-      timestamp: new Date().toISOString(),
-    };
+    const optimisticMsg: ChatMessage = { id: `optimistic-${Date.now()}`, text, is_sender: true, timestamp: new Date().toISOString() };
     setChatMessages((prev) => [...prev, optimisticMsg]);
     try {
       const res = await fetch(apiUrl(`/linkedin/inbox/${openChat.id}/messages`), {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ text }),
+        method: "POST", headers: authHeaders(), body: JSON.stringify({ text }),
       });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error || "Failed to send");
-      }
-      setInbox((prev) =>
-        prev.map((c) =>
-          c.id === openChat.id
-            ? { ...c, last_message_text: text, last_message_sender_is_me: true, timestamp: new Date().toISOString() }
-            : c
-        )
-      );
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed to send"); }
+      setInbox((prev) => prev.map((c) => c.id === openChat.id ? { ...c, last_message_text: text, last_message_sender_is_me: true, timestamp: new Date().toISOString() } : c));
     } catch (err: unknown) {
       setChatMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
       setMessageInput(text);
@@ -609,10 +729,7 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
   }
 
   function handleInputKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
   }
 
   async function refreshAnalyticsFromLinkedIn(seqId: string) {
@@ -622,10 +739,7 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
       if (res.ok) {
         const data = await res.json();
         if (data.analytics) setAnalyticsMap((prev) => ({ ...prev, [seqId]: { ...prev[seqId], ...data.analytics } }));
-        toast({
-          title: `Synced ${data.synced} update${data.synced !== 1 ? "s" : ""} from LinkedIn`,
-          description: data.synced === 0 ? "No new connections or replies detected." : undefined,
-        });
+        toast({ title: `Synced ${data.synced} update${data.synced !== 1 ? "s" : ""} from LinkedIn`, description: data.synced === 0 ? "No new connections or replies detected." : undefined });
       }
     } catch {
       toast({ title: "Sync failed", variant: "destructive" });
@@ -698,10 +812,7 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
       if (!res.ok) throw new Error(d.error);
       await loadData();
       if (expandedAnalytics[seq.id]) loadAnalytics(seq.id);
-      toast({
-        title: "Outreach launched!",
-        description: `${d.leads_queued} connection requests sent. ${d.sends_today}/${d.daily_limit} today.${d.skipped ? ` ${d.skipped} skipped.` : ""}${!d.via_unipile ? " (Simulation mode)" : ""}`,
-      });
+      toast({ title: "Outreach launched!", description: `${d.leads_queued} connection requests sent. ${d.sends_today}/${d.daily_limit} today.${d.skipped ? ` ${d.skipped} skipped.` : ""}${!d.via_unipile ? " (Simulation mode)" : ""}` });
     } catch (err: unknown) {
       toast({ title: "Launch failed", description: (err as Error).message, variant: "destructive" });
     } finally {
@@ -759,12 +870,8 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
 
   const inputClass = "w-full px-3 py-2.5 text-sm bg-white border border-[rgba(107,78,255,0.2)] rounded-lg text-[#1E1B4B] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[rgba(107,78,255,0.15)] focus:border-[#6B4EFF] transition-colors";
   const lists = leadLists as LeadList[];
-
   const replySelectedSeq = replySeqs.find((s) => s.id === replySelectedId);
 
-  /* ─────────────────────────────────────────────────────────
-     ACCOUNT SECTION — renders differently in Reply.io mode
-  ───────────────────────────────────────────────────────── */
   function renderAccountSection() {
     if (loading) {
       return (
@@ -774,7 +881,6 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
       );
     }
 
-    // ── Reply.io mode: show the LinkedIn account from Reply.io ──
     if (replyMode) {
       if (replyLIAccountLoading) {
         return (
@@ -784,7 +890,6 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
           </div>
         );
       }
-
       if (replyLIAccount?.connected) {
         return (
           <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-5 shadow-sm">
@@ -794,9 +899,7 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-semibold text-[#1E1B4B]">
-                    {replyLIAccount.profile_name ?? "LinkedIn account"}
-                  </p>
+                  <p className="text-sm font-semibold text-[#1E1B4B]">{replyLIAccount.profile_name ?? "LinkedIn account"}</p>
                   <span className="inline-flex items-center gap-1 text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
                     <CheckCircle2 className="w-3 h-3" /> Active via Reply.io
                   </span>
@@ -806,27 +909,17 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
                     </span>
                   )}
                 </div>
-                {replyLIAccount.email && (
-                  <p className="text-xs text-[#6B7280] mt-0.5">{replyLIAccount.email}</p>
-                )}
-                <p className="text-xs text-[#9CA3AF] mt-0.5">
-                  LinkedIn steps are handled automatically by Reply.io
-                </p>
+                {replyLIAccount.email && <p className="text-xs text-[#6B7280] mt-0.5">{replyLIAccount.email}</p>}
+                <p className="text-xs text-[#9CA3AF] mt-0.5">LinkedIn steps are handled automatically by Reply.io</p>
               </div>
-              <a
-                href="https://app.reply.io/settings/linkedin-accounts"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 border border-[rgba(107,78,255,0.2)] text-[#6B4EFF] text-xs font-medium rounded-lg hover:bg-[#F5F3FF] transition-colors shrink-0"
-              >
+              <a href="https://app.reply.io/settings/linkedin-accounts" target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-[rgba(107,78,255,0.2)] text-[#6B4EFF] text-xs font-medium rounded-lg hover:bg-[#F5F3FF] transition-colors shrink-0">
                 <Settings className="w-3.5 h-3.5" /> Manage
               </a>
             </div>
           </div>
         );
       }
-
-      // Reply.io mode but no LinkedIn account found there
       return (
         <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-5 shadow-sm">
           <div className="flex items-start gap-4">
@@ -835,16 +928,10 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
             </div>
             <div className="flex-1">
               <p className="text-sm font-semibold text-[#1E1B4B]">No LinkedIn account in Reply.io</p>
-              <p className="text-xs text-[#6B7280] mt-1 mb-4">
-                You need to add a LinkedIn account in Reply.io settings before you can send LinkedIn sequences.
-              </p>
-              <a
-                href="https://app.reply.io/settings/linkedin-accounts"
-                target="_blank"
-                rel="noopener noreferrer"
+              <p className="text-xs text-[#6B7280] mt-1 mb-4">You need to add a LinkedIn account in Reply.io settings before you can send LinkedIn sequences.</p>
+              <a href="https://app.reply.io/settings/linkedin-accounts" target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-4 py-2 text-white text-xs font-semibold rounded-lg transition-colors"
-                style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
-              >
+                style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
                 <Settings className="w-3.5 h-3.5" /> Add LinkedIn account
               </a>
             </div>
@@ -853,7 +940,6 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
       );
     }
 
-    // ── Native (Unipile) mode ──
     if (account && account.status === "connected") {
       return (
         <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-5 shadow-sm">
@@ -873,10 +959,8 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => { setDailyLimit(account.daily_limit); setShowLimitEditor(true); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 border border-[rgba(107,78,255,0.2)] text-[#6B4EFF] text-xs font-medium rounded-lg hover:bg-[#F5F3FF] transition-colors"
-              >
+              <button onClick={() => { setDailyLimit(account.daily_limit); setShowLimitEditor(true); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-[rgba(107,78,255,0.2)] text-[#6B4EFF] text-xs font-medium rounded-lg hover:bg-[#F5F3FF] transition-colors">
                 <Settings className="w-3.5 h-3.5" /> Limit
               </button>
               <button onClick={handleDisconnect} className="px-3 py-1.5 border border-red-200 text-red-500 text-xs font-medium rounded-lg hover:bg-red-50 transition-colors">
@@ -889,10 +973,8 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
               <span>Sends today</span><span>{account.sends_today ?? 0} / {account.daily_limit}</span>
             </div>
             <div className="w-full bg-[#F5F3FF] rounded-full h-1.5">
-              <div
-                className="h-1.5 rounded-full transition-all"
-                style={{ width: `${Math.min(100, ((account.sends_today ?? 0) / account.daily_limit) * 100)}%`, background: "linear-gradient(90deg, #6B4EFF, #8B5CF6)" }}
-              />
+              <div className="h-1.5 rounded-full transition-all"
+                style={{ width: `${Math.min(100, ((account.sends_today ?? 0) / account.daily_limit) * 100)}%`, background: "linear-gradient(90deg, #6B4EFF, #8B5CF6)" }} />
             </div>
           </div>
           {showLimitEditor && (
@@ -904,12 +986,9 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
               </div>
               <p className="text-xs text-[#9CA3AF]">We recommend 15 sends/day to stay below LinkedIn's detection threshold.</p>
               <div className="flex gap-2">
-                <button
-                  onClick={handleUpdateLimit}
-                  disabled={savingLimit}
+                <button onClick={handleUpdateLimit} disabled={savingLimit}
                   className="flex items-center gap-1.5 px-4 py-2 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
-                  style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
-                >
+                  style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
                   {savingLimit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                   {savingLimit ? "Saving…" : "Save"}
                 </button>
@@ -930,12 +1009,9 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
           <div className="flex-1">
             <p className="text-sm font-semibold text-[#1E1B4B]">No LinkedIn account connected</p>
             <p className="text-xs text-[#6B7280] mt-1 mb-5">Connect your LinkedIn account to start sending automated connection requests and follow-ups.</p>
-            <button
-              onClick={handleConnectLinkedIn}
-              disabled={connecting}
+            <button onClick={handleConnectLinkedIn} disabled={connecting}
               className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all disabled:opacity-60"
-              style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
-            >
+              style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
               {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : (
                 <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
                   <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
@@ -958,17 +1034,14 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-[#1E1B4B] flex items-center gap-2.5">
-              <Linkedin className="w-6 h-6 text-[#6B4EFF]" />
-              LinkedIn Outreach
+              <Linkedin className="w-6 h-6 text-[#6B4EFF]" /> LinkedIn Outreach
             </h1>
             <p className="text-sm text-[#6B7280] mt-1">Send connection requests and follow-ups to leads automatically.</p>
           </div>
           {!replyMode && (
-            <button
-              onClick={() => openBuilder()}
+            <button onClick={() => openBuilder()}
               className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-xl transition-colors shrink-0"
-              style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
-            >
+              style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
               <Plus className="w-4 h-4" /> New sequence
             </button>
           )}
@@ -985,7 +1058,7 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
           </div>
         </div>
 
-        {/* LinkedIn Account — dynamic based on mode */}
+        {/* LinkedIn Account */}
         <section>
           <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-widest mb-3">Your LinkedIn account</h2>
           {renderAccountSection()}
@@ -995,98 +1068,255 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
         <div className="flex items-center gap-1 border-b border-[rgba(107,78,255,0.12)]">
           <button
             onClick={() => { setActiveTab("sequences"); setOpenChat(null); }}
-            className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${activeTab === "sequences" ? "border-[#6B4EFF] text-[#6B4EFF]" : "border-transparent text-[#6B7280] hover:text-[#1E1B4B]"}`}
-          >
+            className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${activeTab === "sequences" ? "border-[#6B4EFF] text-[#6B4EFF]" : "border-transparent text-[#6B7280] hover:text-[#1E1B4B]"}`}>
             Sequences
           </button>
           <button
-            onClick={() => { setActiveTab("inbox"); setOpenChat(null); if (inbox.length === 0) loadInbox(); }}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${activeTab === "inbox" ? "border-[#6B4EFF] text-[#6B4EFF]" : "border-transparent text-[#6B7280] hover:text-[#1E1B4B]"}`}
-          >
+            onClick={() => {
+              setActiveTab("inbox");
+              setOpenChat(null);
+              setReplyLIOpenThread(null);
+              if (replyMode) {
+                if (replyLIInbox.length === 0) loadReplyLIInbox(replySelectedId ?? undefined);
+              } else {
+                if (inbox.length === 0) loadInbox();
+              }
+            }}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${activeTab === "inbox" ? "border-[#6B4EFF] text-[#6B4EFF]" : "border-transparent text-[#6B7280] hover:text-[#1E1B4B]"}`}>
             <Mail className="w-3.5 h-3.5" /> LinkedIn Inbox
-            {inbox.some((c) => (c.unread_count ?? 0) > 0) && <span className="w-2 h-2 bg-[#6B4EFF] rounded-full" />}
+            {(replyMode ? replyLIInbox : inbox).some((c) => ((c as { unread_count?: number; unreadCount?: number }).unread_count ?? (c as { unreadCount?: number }).unreadCount ?? 0) > 0) && (
+              <span className="w-2 h-2 bg-[#6B4EFF] rounded-full" />
+            )}
           </button>
         </div>
 
         {/* ── INBOX PANEL ── */}
         {activeTab === "inbox" && (
           <section className="pt-2">
-            {openChat ? (
-              <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-2xl overflow-hidden flex flex-col shadow-sm" style={{ height: "560px" }}>
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-[rgba(107,78,255,0.1)] bg-[#F5F3FF] shrink-0">
-                  <button onClick={() => setOpenChat(null)} className="p-1.5 text-[#6B7280] hover:text-[#1E1B4B] hover:bg-white rounded-lg transition-colors">
-                    <ArrowLeft className="w-4 h-4" />
-                  </button>
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
-                    {(openChat.display_name ?? "?").charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[#1E1B4B] truncate">{openChat.display_name ?? "Unknown contact"}</p>
-                    <p className="text-xs text-[#9CA3AF]">LinkedIn · via Unipile</p>
-                  </div>
-                  <button onClick={refreshMessages} className="p-1.5 text-[#6B7280] hover:text-[#1E1B4B] hover:bg-white rounded-lg transition-colors">
-                    <RefreshCcw className={`w-3.5 h-3.5 ${loadingMessages ? "animate-spin" : ""}`} />
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[#FAFAF9]">
-                  {loadingMessages ? (
-                    <div className="flex flex-col items-center justify-center h-full gap-2">
-                      <Loader2 className="w-5 h-5 animate-spin text-[#6B4EFF]" />
-                      <p className="text-xs text-[#9CA3AF]">Loading messages…</p>
+            {replyMode ? (
+              replyLIOpenThread ? (
+                /* Thread / conversation view */
+                <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-2xl overflow-hidden flex flex-col shadow-sm" style={{ height: "560px" }}>
+                  <div className="flex items-center gap-3 px-4 py-3 border-b border-[rgba(107,78,255,0.1)] bg-[#F5F3FF] shrink-0">
+                    <button onClick={() => setReplyLIOpenThread(null)} className="p-1.5 text-[#6B7280] hover:text-[#1E1B4B] hover:bg-white rounded-lg transition-colors">
+                      <ArrowLeft className="w-4 h-4" />
+                    </button>
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
+                      style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
+                      {(replyLIOpenThread.name ?? "?").charAt(0).toUpperCase()}
                     </div>
-                  ) : chatMessages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full gap-2">
-                      <MessageCircle className="w-8 h-8 text-[#D1C9FF]" />
-                      <p className="text-sm text-[#9CA3AF]">No messages yet</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-[#1E1B4B] truncate">{replyLIOpenThread.name ?? "Unknown contact"}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-[#9CA3AF]">LinkedIn · via Reply.io</p>
+                        {replyLIOpenThread.status && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200 font-medium">
+                            {replyLIOpenThread.status}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  ) : (
-                    <>
-                      {chatMessages.map((msg) => (
-                        <div key={msg.id} className={`flex ${msg.is_sender ? "justify-end" : "justify-start"}`}>
-                          {!msg.is_sender && (
-                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 mr-2 mt-0.5" style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
-                              {(openChat.display_name ?? "?").charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                          <div className={`max-w-[72%] flex flex-col gap-0.5 ${msg.is_sender ? "items-end" : "items-start"}`}>
-                            <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${msg.is_sender ? "text-white rounded-br-sm" : "bg-white border border-[rgba(107,78,255,0.12)] text-[#1E1B4B] rounded-bl-sm shadow-sm"}`}
-                              style={msg.is_sender ? { background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" } : {}}
-                            >
-                              {msg.text ?? <span className="italic opacity-60">📎 Attachment</span>}
-                            </div>
-                            {msg.timestamp && <span className="text-[10px] text-[#9CA3AF] px-1">{formatMessageTime(msg.timestamp)}</span>}
-                          </div>
-                        </div>
-                      ))}
-                      <div ref={messagesEndRef} />
-                    </>
-                  )}
-                </div>
-                <div className="px-4 py-3 border-t border-[rgba(107,78,255,0.1)] bg-white shrink-0">
-                  <div className="flex items-end gap-2">
-                    <textarea
-                      ref={inputRef}
-                      value={messageInput}
-                      onChange={(e) => setMessageInput(e.target.value)}
-                      onKeyDown={handleInputKeyDown}
-                      placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
-                      rows={2}
-                      className="flex-1 px-3 py-2.5 text-sm bg-[#F5F3FF] border border-[rgba(107,78,255,0.2)] rounded-xl text-[#1E1B4B] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[rgba(107,78,255,0.15)] focus:border-[#6B4EFF] transition-colors resize-none"
-                    />
-                    <button
-                      onClick={handleSendMessage}
-                      disabled={!messageInput.trim() || sendingMessage}
-                      className="p-2.5 text-white rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-                      style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
-                    >
-                      {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizonal className="w-4 h-4" />}
+                    <button onClick={refreshReplyLIMessages} className="p-1.5 text-[#6B7280] hover:text-[#1E1B4B] hover:bg-white rounded-lg transition-colors">
+                      <RefreshCcw className={`w-3.5 h-3.5 ${replyLIMessagesLoading ? "animate-spin" : ""}`} />
                     </button>
                   </div>
-                  <p className="text-[10px] text-[#9CA3AF] mt-1.5 px-1">Sent via Unipile · Delivered to LinkedIn</p>
+
+                  <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[#FAFAF9]">
+                    {replyLIMessagesLoading ? (
+                      <div className="flex flex-col items-center justify-center h-full gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin text-[#6B4EFF]" />
+                        <p className="text-xs text-[#9CA3AF]">Loading messages…</p>
+                      </div>
+                    ) : replyLIMessages.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full gap-2">
+                        <MessageCircle className="w-8 h-8 text-[#D1C9FF]" />
+                        <p className="text-sm text-[#9CA3AF]">No messages yet</p>
+                      </div>
+                    ) : (
+                      <>
+                        {replyLIMessages.map((msg, i) => (
+                          <div key={msg.id ?? i} className={`flex ${msg.isOutgoing ? "justify-end" : "justify-start"}`}>
+                            {!msg.isOutgoing && (
+                              <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 mr-2 mt-0.5"
+                                style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
+                                {(replyLIOpenThread.name ?? "?").charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <div className={`max-w-[72%] flex flex-col gap-0.5 ${msg.isOutgoing ? "items-end" : "items-start"}`}>
+                              <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${msg.isOutgoing ? "text-white rounded-br-sm" : "bg-white border border-[rgba(107,78,255,0.12)] text-[#1E1B4B] rounded-bl-sm shadow-sm"}`}
+                                style={msg.isOutgoing ? { background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" } : {}}>
+                                {msg.text || <span className="italic opacity-60">📎 Attachment</span>}
+                              </div>
+                              <span className="text-[10px] text-[#9CA3AF] px-1">{formatReplyLITime(msg.sentAt)}</span>
+                            </div>
+                          </div>
+                        ))}
+                        <div ref={replyLIMessagesEndRef} />
+                      </>
+                    )}
+                  </div>
+
+                  <div className="px-4 py-3 border-t border-[rgba(107,78,255,0.1)] bg-white shrink-0">
+                    <div className="flex items-end gap-2">
+                      <textarea
+                        value={replyLIMessageInput}
+                        onChange={(e) => setReplyLIMessageInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleReplyLISendMessage(); } }}
+                        placeholder="Type a message… (Enter to send)"
+                        rows={2}
+                        className="flex-1 px-3 py-2.5 text-sm bg-[#F5F3FF] border border-[rgba(107,78,255,0.2)] rounded-xl text-[#1E1B4B] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[rgba(107,78,255,0.15)] focus:border-[#6B4EFF] transition-colors resize-none"
+                      />
+                      <button onClick={handleReplyLISendMessage} disabled={!replyLIMessageInput.trim() || replyLISending}
+                        className="p-2.5 text-white rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                        style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
+                        {replyLISending ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizonal className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-[#9CA3AF] mt-1.5 px-1">Sent via Reply.io · Delivered to LinkedIn</p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* Thread list */
+                replyLIInboxLoading ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <Loader2 className="w-6 h-6 animate-spin text-[#6B4EFF]" />
+                    <p className="text-xs text-[#6B7280]">Loading messages from Reply.io…</p>
+                  </div>
+                ) : replyLIInbox.length === 0 ? (
+                  <div className="bg-white border border-dashed border-[rgba(107,78,255,0.2)] rounded-xl p-10 text-center">
+                    <Mail className="w-8 h-8 text-[#D1C9FF] mx-auto mb-3" />
+                    <p className="text-sm font-medium text-[#1E1B4B]">No messages yet</p>
+                    <p className="text-xs text-[#6B7280] mt-1">LinkedIn replies will appear here once your connections start responding.</p>
+                    <button onClick={() => loadReplyLIInbox(replySelectedId ?? undefined)}
+                      className="mt-4 inline-flex items-center gap-1.5 text-xs text-[#6B4EFF] hover:text-[#8B5CF6] transition-colors">
+                      <RefreshCcw className="w-3 h-3" /> Refresh inbox
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs text-[#9CA3AF]">{replyLIInbox.length} conversation{replyLIInbox.length !== 1 ? "s" : ""}</p>
+                      <button onClick={() => loadReplyLIInbox(replySelectedId ?? undefined)}
+                        className="flex items-center gap-1.5 text-xs text-[#6B7280] hover:text-[#1E1B4B] transition-colors">
+                        <RefreshCcw className="w-3 h-3" /> Refresh
+                      </button>
+                    </div>
+                    {replyLIInbox.map((thread) => {
+                      const hasUnread = (thread.unreadCount ?? 0) > 0;
+                      return (
+                        // FIX: key on threadId (unique v3 thread ID), not personId (may be null)
+                        <button key={thread.threadId} onClick={() => openReplyLIThread(thread)}
+                          className={`w-full text-left bg-white border rounded-xl p-4 transition-all hover:shadow-md ${hasUnread ? "border-[#6B4EFF] bg-[#F5F3FF]" : "border-[rgba(107,78,255,0.15)]"}`}>
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
+                              style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
+                              {(thread.name ?? "?").charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className={`text-sm truncate ${hasUnread ? "font-semibold text-[#1E1B4B]" : "font-medium text-[#1E1B4B]"}`}>
+                                  {thread.name ?? <span className="text-[#9CA3AF] italic font-normal">Unknown contact</span>}
+                                </p>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {thread.lastMessageAt && (
+                                    <span className={`text-[10px] ${hasUnread ? "text-[#6B4EFF] font-medium" : "text-[#9CA3AF]"}`}>
+                                      {formatReplyLITime(thread.lastMessageAt)}
+                                    </span>
+                                  )}
+                                  {hasUnread && (
+                                    <span className="min-w-[18px] h-[18px] text-white text-[10px] rounded-full flex items-center justify-center font-bold px-1"
+                                      style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
+                                      {thread.unreadCount}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {thread.status && (
+                                  <span className="text-[10px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200 font-medium shrink-0">
+                                    {thread.status}
+                                  </span>
+                                )}
+                                <p className={`text-xs truncate ${hasUnread ? "text-[#1E1B4B]" : "text-[#6B7280]"}`}>
+                                  {thread.lastMessage ?? <span className="text-[#9CA3AF] italic">Tap to open</span>}
+                                </p>
+                              </div>
+                            </div>
+                            <MessageCircle className="w-4 h-4 text-[#D1C9FF] shrink-0" />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )
+              )
             ) : (
-              !account ? (
+              /* ── Native Unipile inbox ── */
+              openChat ? (
+                <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-2xl overflow-hidden flex flex-col shadow-sm" style={{ height: "560px" }}>
+                  <div className="flex items-center gap-3 px-4 py-3 border-b border-[rgba(107,78,255,0.1)] bg-[#F5F3FF] shrink-0">
+                    <button onClick={() => setOpenChat(null)} className="p-1.5 text-[#6B7280] hover:text-[#1E1B4B] hover:bg-white rounded-lg transition-colors">
+                      <ArrowLeft className="w-4 h-4" />
+                    </button>
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
+                      {(openChat.display_name ?? "?").charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-[#1E1B4B] truncate">{openChat.display_name ?? "Unknown contact"}</p>
+                      <p className="text-xs text-[#9CA3AF]">LinkedIn · via Unipile</p>
+                    </div>
+                    <button onClick={refreshMessages} className="p-1.5 text-[#6B7280] hover:text-[#1E1B4B] hover:bg-white rounded-lg transition-colors">
+                      <RefreshCcw className={`w-3.5 h-3.5 ${loadingMessages ? "animate-spin" : ""}`} />
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[#FAFAF9]">
+                    {loadingMessages ? (
+                      <div className="flex flex-col items-center justify-center h-full gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin text-[#6B4EFF]" />
+                        <p className="text-xs text-[#9CA3AF]">Loading messages…</p>
+                      </div>
+                    ) : chatMessages.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full gap-2">
+                        <MessageCircle className="w-8 h-8 text-[#D1C9FF]" />
+                        <p className="text-sm text-[#9CA3AF]">No messages yet</p>
+                      </div>
+                    ) : (
+                      <>
+                        {chatMessages.map((msg) => (
+                          <div key={msg.id} className={`flex ${msg.is_sender ? "justify-end" : "justify-start"}`}>
+                            {!msg.is_sender && (
+                              <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 mr-2 mt-0.5" style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
+                                {(openChat.display_name ?? "?").charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <div className={`max-w-[72%] flex flex-col gap-0.5 ${msg.is_sender ? "items-end" : "items-start"}`}>
+                              <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${msg.is_sender ? "text-white rounded-br-sm" : "bg-white border border-[rgba(107,78,255,0.12)] text-[#1E1B4B] rounded-bl-sm shadow-sm"}`}
+                                style={msg.is_sender ? { background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" } : {}}>
+                                {msg.text ?? <span className="italic opacity-60">📎 Attachment</span>}
+                              </div>
+                              {msg.timestamp && <span className="text-[10px] text-[#9CA3AF] px-1">{formatMessageTime(msg.timestamp)}</span>}
+                            </div>
+                          </div>
+                        ))}
+                        <div ref={messagesEndRef} />
+                      </>
+                    )}
+                  </div>
+                  <div className="px-4 py-3 border-t border-[rgba(107,78,255,0.1)] bg-white shrink-0">
+                    <div className="flex items-end gap-2">
+                      <textarea ref={inputRef} value={messageInput} onChange={(e) => setMessageInput(e.target.value)} onKeyDown={handleInputKeyDown}
+                        placeholder="Type a message… (Enter to send, Shift+Enter for newline)" rows={2}
+                        className="flex-1 px-3 py-2.5 text-sm bg-[#F5F3FF] border border-[rgba(107,78,255,0.2)] rounded-xl text-[#1E1B4B] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[rgba(107,78,255,0.15)] focus:border-[#6B4EFF] transition-colors resize-none" />
+                      <button onClick={handleSendMessage} disabled={!messageInput.trim() || sendingMessage}
+                        className="p-2.5 text-white rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                        style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
+                        {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizonal className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-[#9CA3AF] mt-1.5 px-1">Sent via Unipile · Delivered to LinkedIn</p>
+                  </div>
+                </div>
+              ) : !account ? (
                 <div className="bg-white border border-dashed border-[rgba(107,78,255,0.2)] rounded-xl p-10 text-center">
                   <Linkedin className="w-8 h-8 text-[#D1C9FF] mx-auto mb-3" />
                   <p className="text-sm font-medium text-[#1E1B4B]">LinkedIn not connected</p>
@@ -1110,28 +1340,15 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
                 <div className="space-y-2">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-xs text-[#9CA3AF]">{inbox.length} conversation{inbox.length !== 1 ? "s" : ""}</p>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => { setReplyLIWizard(true); resetLIWizard(); }}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-white text-[10px] font-semibold rounded-lg hover:opacity-90 transition-colors"
-                        style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
-                        title="Create a new Reply.io LinkedIn sequence"
-                      >
-                        <Plus className="w-3 h-3" /> New sequence
-                      </button>
-                      <button onClick={loadInbox} className="flex items-center gap-1.5 text-xs text-[#6B7280] hover:text-[#1E1B4B] transition-colors">
-                        <RefreshCcw className="w-3 h-3" /> Refresh
-                      </button>
-                    </div>
+                    <button onClick={loadInbox} className="flex items-center gap-1.5 text-xs text-[#6B7280] hover:text-[#1E1B4B] transition-colors">
+                      <RefreshCcw className="w-3 h-3" /> Refresh
+                    </button>
                   </div>
                   {inbox.map((chat) => {
                     const hasUnread = (chat.unread_count ?? 0) > 0;
                     return (
-                      <button
-                        key={chat.id}
-                        onClick={() => openChatPanel(chat)}
-                        className={`w-full text-left bg-white border rounded-xl p-4 transition-all hover:shadow-md ${hasUnread ? "border-[#6B4EFF] bg-[#F5F3FF]" : "border-[rgba(107,78,255,0.15)]"}`}
-                      >
+                      <button key={chat.id} onClick={() => openChatPanel(chat)}
+                        className={`w-full text-left bg-white border rounded-xl p-4 transition-all hover:shadow-md ${hasUnread ? "border-[#6B4EFF] bg-[#F5F3FF]" : "border-[rgba(107,78,255,0.15)]"}`}>
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
                             {(chat.display_name ?? "?").charAt(0).toUpperCase()}
@@ -1169,25 +1386,19 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
         {/* ── SEQUENCES TAB ── */}
         {activeTab === "sequences" && (
           <section>
-            {/* Mode toggle */}
             <div className="flex items-center justify-between pt-4 mb-4">
               <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-widest">Sequences</h2>
               <div className="flex items-center gap-1 p-1 bg-[#F5F3FF] border border-[rgba(107,78,255,0.15)] rounded-xl">
-                <button
-                  onClick={() => handleToggleReplyMode(false)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${!replyMode ? "bg-white text-[#6B4EFF] shadow-sm border border-[rgba(107,78,255,0.2)]" : "text-[#6B7280] hover:text-[#1E1B4B]"}`}
-                >
+                <button onClick={() => handleToggleReplyMode(false)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${!replyMode ? "bg-white text-[#6B4EFF] shadow-sm border border-[rgba(107,78,255,0.2)]" : "text-[#6B7280] hover:text-[#1E1B4B]"}`}>
                   Native (Unipile)
                 </button>
-                <button
-                  onClick={() => { if (replyConnected) handleToggleReplyMode(true); }}
-                  disabled={!replyConnected}
+                <button onClick={() => { if (replyConnected) handleToggleReplyMode(true); }} disabled={!replyConnected}
                   title={!replyConnected ? "Connect Reply.io in Settings → Integrations first" : undefined}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${replyMode ? "bg-white text-[#6B4EFF] shadow-sm border border-[rgba(107,78,255,0.2)]" : !replyConnected ? "text-[#C4C4C4] cursor-not-allowed" : "text-[#6B7280] hover:text-[#1E1B4B]"}`}
-                >
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${replyMode ? "bg-white text-[#6B4EFF] shadow-sm border border-[rgba(107,78,255,0.2)]" : !replyConnected ? "text-[#C4C4C4] cursor-not-allowed" : "text-[#6B7280] hover:text-[#1E1B4B]"}`}>
                   <svg width="12" height="12" viewBox="0 0 32 32" fill="none">
-                    <path d="M8 10h10a4 4 0 010 8H12v4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    <circle cx="22" cy="22" r="2.5" fill="currentColor"/>
+                    <path d="M8 10h10a4 4 0 010 8H12v4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <circle cx="22" cy="22" r="2.5" fill="currentColor" />
                   </svg>
                   Reply.io
                   {replyConnected && !replyMode && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
@@ -1205,11 +1416,9 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
                   </div>
                   <p className="text-sm font-semibold text-[#1E1B4B]">No sequences yet</p>
                   <p className="text-xs text-[#6B7280] max-w-xs">Create a sequence with a connection request template and optional follow-up message.</p>
-                  <button
-                    onClick={() => openBuilder()}
+                  <button onClick={() => openBuilder()}
                     className="mt-1 flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-xl transition-colors"
-                    style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
-                  >
+                    style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
                     <Plus className="w-4 h-4" /> Create first sequence
                   </button>
                 </div>
@@ -1246,18 +1455,16 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
                             <div className="flex items-center gap-2 shrink-0">
                               {!seq.is_active ? (
                                 <div className="flex flex-col items-end gap-1">
-                                  <button
-                                    onClick={() => handleLaunch(seq)}
-                                    disabled={launchingId === seq.id}
+                                  <button onClick={() => handleLaunch(seq)} disabled={launchingId === seq.id}
                                     className="flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50"
-                                    style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
-                                  >
+                                    style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
                                     {launchingId === seq.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />} Launch
                                   </button>
                                   <span className="text-[10px] text-[#9CA3AF] flex items-center gap-0.5"><Zap className="w-2.5 h-2.5 text-[#6B4EFF]" /> 1 cr/send</span>
                                 </div>
                               ) : (
-                                <button onClick={() => handlePause(seq)} disabled={pausingId === seq.id} className="flex items-center gap-1.5 px-3 py-1.5 border border-[rgba(107,78,255,0.2)] text-[#6B7280] text-xs font-medium rounded-lg hover:bg-[#F5F3FF] transition-colors disabled:opacity-50">
+                                <button onClick={() => handlePause(seq)} disabled={pausingId === seq.id}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 border border-[rgba(107,78,255,0.2)] text-[#6B7280] text-xs font-medium rounded-lg hover:bg-[#F5F3FF] transition-colors disabled:opacity-50">
                                   {pausingId === seq.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pause className="w-3.5 h-3.5" />} Pause
                                 </button>
                               )}
@@ -1270,10 +1477,8 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
                             </div>
                           </div>
                         </div>
-                        <button
-                          onClick={() => toggleAnalytics(seq.id)}
-                          className="w-full flex items-center justify-between px-5 py-2.5 bg-[#F5F3FF] border-t border-[rgba(107,78,255,0.1)] text-xs font-medium text-[#6B7280] hover:bg-[#EDE9FF] hover:text-[#6B4EFF] transition-colors"
-                        >
+                        <button onClick={() => toggleAnalytics(seq.id)}
+                          className="w-full flex items-center justify-between px-5 py-2.5 bg-[#F5F3FF] border-t border-[rgba(107,78,255,0.1)] text-xs font-medium text-[#6B7280] hover:bg-[#EDE9FF] hover:text-[#6B4EFF] transition-colors">
                           <span className="flex items-center gap-1.5"><BarChart2 className="w-3.5 h-3.5 text-[#6B4EFF]" /> Analytics</span>
                           {isLoadingA ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#6B4EFF]" /> : isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                         </button>
@@ -1320,7 +1525,8 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
                                 )}
                                 <div className="flex items-center gap-3 pt-1">
                                   <button onClick={() => loadAnalytics(seq.id)} className="text-xs text-[#6B4EFF] hover:text-[#8B5CF6] transition-colors">Refresh analytics</button>
-                                  <button onClick={() => refreshAnalyticsFromLinkedIn(seq.id)} disabled={refreshingAnalytics[seq.id]} className="flex items-center gap-1 text-xs text-[#6B4EFF] hover:text-[#8B5CF6] transition-colors disabled:opacity-50">
+                                  <button onClick={() => refreshAnalyticsFromLinkedIn(seq.id)} disabled={refreshingAnalytics[seq.id]}
+                                    className="flex items-center gap-1 text-xs text-[#6B4EFF] hover:text-[#8B5CF6] transition-colors disabled:opacity-50">
                                     {refreshingAnalytics[seq.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCcw className="w-3 h-3" />} Sync from LinkedIn
                                   </button>
                                 </div>
@@ -1349,18 +1555,13 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
                     <button onClick={loadReplySeqs} className="flex items-center gap-1 text-xs text-[#6B4EFF] hover:text-[#8B5CF6]">
                       <RefreshCw className="w-3 h-3" /> Refresh
                     </button>
-                    <button
-                      onClick={() => { setEnrollSeqId(replySelectedId); setEnrollOpen(true); }}
-                      disabled={!replySelectedId}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-[#6B4EFF] text-xs font-semibold rounded-lg border border-[rgba(107,78,255,0.3)] hover:bg-[#F5F3FF] disabled:opacity-40 transition-colors"
-                    >
+                    <button onClick={() => { setEnrollSeqId(replySelectedId); setEnrollOpen(true); }} disabled={!replySelectedId}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-[#6B4EFF] text-xs font-semibold rounded-lg border border-[rgba(107,78,255,0.3)] hover:bg-[#F5F3FF] disabled:opacity-40 transition-colors">
                       <Users className="w-3 h-3" /> Enroll Contact
                     </button>
-                    <button
-                      onClick={() => { setReplyLIWizard(true); resetLIWizard(); }}
+                    <button onClick={() => { setReplyLIWizard(true); resetLIWizard(); }}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-semibold rounded-lg hover:opacity-90 transition-colors"
-                      style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
-                    >
+                      style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
                       <Plus className="w-3.5 h-3.5" /> New Sequence
                     </button>
                   </div>
@@ -1372,28 +1573,24 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
                   <div className="bg-white border border-dashed border-[rgba(107,78,255,0.2)] rounded-xl p-10 text-center">
                     <div className="w-12 h-12 bg-[#F5F3FF] rounded-2xl flex items-center justify-center mx-auto mb-3">
                       <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-                        <path d="M8 10h10a4 4 0 010 8H12v4" stroke="#6B4EFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        <circle cx="22" cy="22" r="2.5" fill="#6B4EFF"/>
+                        <path d="M8 10h10a4 4 0 010 8H12v4" stroke="#6B4EFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <circle cx="22" cy="22" r="2.5" fill="#6B4EFF" />
                       </svg>
                     </div>
                     <p className="text-sm font-semibold text-[#1E1B4B]">No Reply.io sequences yet</p>
                     <p className="text-xs text-[#6B7280] mt-1">Create your first LinkedIn sequence directly from HubCredo.</p>
-                    <button
-                      onClick={() => { setReplyLIWizard(true); resetLIWizard(); }}
+                    <button onClick={() => { setReplyLIWizard(true); resetLIWizard(); }}
                       className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 text-white text-xs font-semibold rounded-lg hover:opacity-90 transition-colors"
-                      style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
-                    >
+                      style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
                       <Plus className="w-3.5 h-3.5" /> Create first sequence
                     </button>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    {/* Sequence list */}
                     <div className="space-y-2">
                       {replySeqs.map((seq) => (
                         <div key={seq.id}
-                          className={`rounded-xl border transition-all ${replySelectedId === seq.id ? "bg-[#F5F3FF] border-[rgba(107,78,255,0.4)]" : "bg-white border-[rgba(107,78,255,0.12)] hover:border-[rgba(107,78,255,0.3)] hover:bg-[#F5F3FF]/50"}`}
-                        >
+                          className={`rounded-xl border transition-all ${replySelectedId === seq.id ? "bg-[#F5F3FF] border-[rgba(107,78,255,0.4)]" : "bg-white border-[rgba(107,78,255,0.12)] hover:border-[rgba(107,78,255,0.3)] hover:bg-[#F5F3FF]/50"}`}>
                           <button className="w-full text-left px-4 pt-3 pb-2" onClick={() => loadReplyDetail(seq.id)}>
                             <div className="flex items-center gap-2">
                               <span className={`w-2 h-2 rounded-full flex-shrink-0 ${seq.status === "active" ? "bg-emerald-400" : seq.status === "paused" ? "bg-amber-400" : "bg-gray-300"}`} />
@@ -1404,29 +1601,26 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
                             </span>
                           </button>
                           <div className="flex items-center gap-1 px-4 pb-2">
-  {seq.status !== "active" ? (
-    <button onClick={() => handleActivateLIReply(seq.id)} disabled={replyLIActivatingId === seq.id}
-      className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:text-emerald-700 disabled:opacity-50">
-      {replyLIActivatingId === seq.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Play className="w-2.5 h-2.5" />} Launch
-    </button>
-  ) : (
-    <button onClick={() => handlePauseLIReply(seq.id)} disabled={replyLIPausingId === seq.id}
-      className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 hover:text-amber-700 disabled:opacity-50">
-      {replyLIPausingId === seq.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Pause className="w-2.5 h-2.5" />} Pause
-    </button>
-  )}
-  <button
-    onClick={(e) => { e.stopPropagation(); setReplyLIDeleteConfirmId(seq.id); }}
-    className="ml-auto flex items-center gap-1 text-[10px] font-semibold text-[#9CA3AF] hover:text-red-500 transition-colors"
-  >
-    <Trash2 className="w-2.5 h-2.5" /> Delete
-  </button>
-</div>
+                            {seq.status !== "active" ? (
+                              <button onClick={() => handleActivateLIReply(seq.id)} disabled={replyLIActivatingId === seq.id}
+                                className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:text-emerald-700 disabled:opacity-50">
+                                {replyLIActivatingId === seq.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Play className="w-2.5 h-2.5" />} Launch
+                              </button>
+                            ) : (
+                              <button onClick={() => handlePauseLIReply(seq.id)} disabled={replyLIPausingId === seq.id}
+                                className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 hover:text-amber-700 disabled:opacity-50">
+                                {replyLIPausingId === seq.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Pause className="w-2.5 h-2.5" />} Pause
+                              </button>
+                            )}
+                            <button onClick={(e) => { e.stopPropagation(); setReplyLIDeleteConfirmId(seq.id); }}
+                              className="ml-auto flex items-center gap-1 text-[10px] font-semibold text-[#9CA3AF] hover:text-red-500 transition-colors">
+                              <Trash2 className="w-2.5 h-2.5" /> Delete
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
 
-                    {/* Sequence detail */}
                     <div className="lg:col-span-2">
                       {!replySelectedSeq ? (
                         <div className="bg-white border border-dashed border-[rgba(107,78,255,0.15)] rounded-xl flex items-center justify-center h-48">
@@ -1436,24 +1630,24 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
                         <div className="flex justify-center py-16"><Loader2 className="w-5 h-5 animate-spin text-[#6B4EFF]" /></div>
                       ) : (
                         <div className="space-y-3">
-                          {replyStats && (
-                            <div className="grid grid-cols-5 gap-2">
+                          {replyLIStats && (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                               {[
-                                { label: "Total", value: replyStats.total, color: "text-[#1E1B4B]" },
-                                { label: "Active", value: replyStats.active, color: "text-[#6B4EFF]" },
-                                { label: "Replied", value: replyStats.replied, color: "text-blue-600" },
-                                { label: "Opened", value: replyStats.opened, color: "text-indigo-600" },
-                                { label: "Bounced", value: replyStats.bounced, color: "text-red-500" },
-                              ].map(({ label, value, color }) => (
+                                { label: "Total contacted",  value: replyLIStats.totalPeopleContacted, sub: null,                                   color: "text-[#1E1B4B]"   },
+                                { label: "Connections sent", value: replyLIStats.connectionsSent,       sub: null,                                   color: "text-[#6B4EFF]"   },
+                                { label: "Accepted / Rate", value: replyLIStats.acceptedAutomatedConnections, sub: `${replyLIStats.automatedConnectionsConversionRate}%`, color: "text-emerald-600" },
+                                { label: "Messages sent",    value: replyLIStats.messagesSent,          sub: null,                                   color: "text-blue-600"    },
+                                { label: "Replies / Rate",   value: replyLIStats.replies,               sub: `${replyLIStats.repliesConversionRate}%`, color: "text-indigo-600" },
+                              ].map(({ label, value, sub, color }) => (
                                 <div key={label} className="bg-white border border-[rgba(107,78,255,0.1)] rounded-xl p-3 text-center">
                                   <p className={`text-xl font-bold ${color}`}>{value}</p>
+                                  {sub && <p className="text-xs font-semibold text-[#6B4EFF]">{sub}</p>}
                                   <p className="text-[10px] text-[#9CA3AF] mt-0.5">{label}</p>
                                 </div>
                               ))}
                             </div>
                           )}
 
-                          {/* Bulk enroll from lead list */}
                           <div className="bg-white border border-[rgba(107,78,255,0.12)] rounded-xl p-4">
                             <p className="text-xs font-semibold text-[#1E1B4B] mb-2">Enroll from lead list</p>
                             <div className="flex gap-2">
@@ -1462,14 +1656,11 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
                                 <option value="">Select a lead list…</option>
                                 {lists.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
                               </select>
-                              <button
-                                onClick={() => handleEnrollListLI(replySelectedId!, replyLIEnrollListId)}
+                              <button onClick={() => handleEnrollListLI(replySelectedId!, replyLIEnrollListId)}
                                 disabled={!replyLIEnrollListId || replyLIEnrollingList}
                                 className="flex items-center gap-1.5 px-3 py-2 text-white text-xs font-semibold rounded-lg hover:opacity-90 disabled:opacity-40 transition-colors"
-                                style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
-                              >
-                                {replyLIEnrollingList ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                                Enroll list
+                                style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
+                                {replyLIEnrollingList ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Enroll list
                               </button>
                             </div>
                           </div>
@@ -1501,8 +1692,8 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
                                       </div>
                                     </div>
                                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium capitalize flex-shrink-0 ${c.status?.status === "active" ? "bg-emerald-50 text-emerald-700" : c.status?.status === "finished" ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-500"}`}>
-  {c.status?.status?.replace(/_/g, " ") ?? "unknown"}
-</span>
+                                      {c.status?.status?.replace(/_/g, " ") ?? "unknown"}
+                                    </span>
                                   </div>
                                 ))}
                               </div>
@@ -1557,7 +1748,8 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
                       {showTemplates && (
                         <div className="absolute right-0 top-6 z-20 bg-white border border-[rgba(107,78,255,0.15)] rounded-xl shadow-lg w-72 p-1.5">
                           {LINKEDIN_TEMPLATES.map((t, i) => (
-                            <button key={i} onClick={() => { setConnMsg(t.connection_message); if (t.followup_message) setFollowupMsg(t.followup_message); setShowTemplates(false); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#F5F3FF] transition-colors">
+                            <button key={i} onClick={() => { setConnMsg(t.connection_message); if (t.followup_message) setFollowupMsg(t.followup_message); setShowTemplates(false); }}
+                              className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#F5F3FF] transition-colors">
                               <p className="text-xs font-semibold text-[#1E1B4B]">{t.name}</p>
                               <p className="text-xs text-[#6B7280] truncate mt-0.5">{t.connection_message.slice(0, 65)}…</p>
                             </button>
@@ -1594,12 +1786,9 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
               </div>
             </div>
             <div className="sticky bottom-0 bg-white border-t border-[rgba(107,78,255,0.1)] px-6 py-4 flex gap-3 rounded-b-2xl">
-              <button
-                onClick={handleSaveSeq}
-                disabled={savingSeq}
+              <button onClick={handleSaveSeq} disabled={savingSeq}
                 className="flex-1 flex items-center justify-center gap-2 py-2.5 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
-                style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
-              >
+                style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
                 {savingSeq ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                 {savingSeq ? "Saving…" : editingSeq ? "Update sequence" : "Create sequence"}
               </button>
@@ -1626,8 +1815,6 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
                 <input autoFocus value={replyLIName} onChange={(e) => setReplyLIName(e.target.value)} placeholder="e.g. Q3 LinkedIn Outreach"
                   className="w-full px-3 py-2 border border-[rgba(107,78,255,0.2)] rounded-lg text-sm focus:outline-none focus:border-[#6B4EFF] focus:ring-2 focus:ring-[rgba(107,78,255,0.1)]" />
               </div>
-
-              {/* Templates */}
               <div>
                 <label className="block text-xs font-medium text-[#6B7280] mb-1.5">Apply template (optional)</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -1639,7 +1826,6 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
                   ))}
                 </div>
               </div>
-
               <div>
                 <label className="block text-xs font-medium text-[#6B7280] mb-1.5">
                   Step 1 — Connection request message <span className="text-red-400">*</span>
@@ -1650,7 +1836,6 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
                   className="w-full px-3 py-2 border border-[rgba(107,78,255,0.2)] rounded-lg text-sm focus:outline-none focus:border-[#6B4EFF] resize-none" />
                 <p className="text-[10px] text-[#9CA3AF] text-right mt-0.5">{replyLIConnMsg.length}/300</p>
               </div>
-
               <div>
                 <label className="block text-xs font-medium text-[#6B7280] mb-1.5">Step 2 — Follow-up message <span className="font-normal text-[#9CA3AF]">(optional)</span></label>
                 <textarea value={replyLIFollowup} onChange={(e) => setReplyLIFollowup(e.target.value)} rows={3}
@@ -1665,7 +1850,6 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
                   </div>
                 )}
               </div>
-
               <div>
                 <label className="block text-xs font-medium text-[#6B7280] mb-1.5">Enroll a lead list (optional)</label>
                 <select value={replyLIEnrollListId} onChange={(e) => setReplyLIEnrollListId(e.target.value)}
@@ -1694,9 +1878,7 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
           <div className="bg-white border border-[rgba(107,78,255,0.2)] rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(107,78,255,0.1)]">
               <h3 className="text-sm font-semibold text-[#1E1B4B]">Enroll Contact in Reply.io</h3>
-              <button onClick={() => setEnrollOpen(false)} className="text-[#9CA3AF] hover:text-[#1E1B4B]">
-                <X className="w-4 h-4" />
-              </button>
+              <button onClick={() => setEnrollOpen(false)} className="text-[#9CA3AF] hover:text-[#1E1B4B]"><X className="w-4 h-4" /></button>
             </div>
             <form onSubmit={handleEnroll} className="p-5 space-y-3">
               <div>
@@ -1726,8 +1908,7 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
                 <button type="button" onClick={() => setEnrollOpen(false)} className="flex-1 py-2 border border-[rgba(107,78,255,0.2)] text-[#6B7280] text-sm font-medium rounded-lg hover:bg-[#F5F3FF]">Cancel</button>
                 <button type="submit" disabled={enrolling || !enrollEmail || !enrollSeqId}
                   className="flex-1 py-2 text-white text-sm font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5"
-                  style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
-                >
+                  style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
                   {enrolling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
                   {enrolling ? "Enrolling…" : "Enroll"}
                 </button>
@@ -1737,42 +1918,36 @@ const [replyLIDeleteConfirmId, setReplyLIDeleteConfirmId] = useState<number | nu
         </div>
       )}
 
-      {/* Reply.io LinkedIn Delete Sequence confirm */}
-{replyLIDeleteConfirmId !== null && (
-  <>
-    <div className="fixed inset-0 bg-black/20 z-[60] backdrop-blur-[2px]" onClick={() => setReplyLIDeleteConfirmId(null)} />
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
-        <div className="flex items-start gap-4">
-          <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center shrink-0">
-            <ShieldAlert className="w-5 h-5 text-red-500" />
+      {/* ── Delete confirm ── */}
+      {replyLIDeleteConfirmId !== null && (
+        <>
+          <div className="fixed inset-0 bg-black/20 z-[60] backdrop-blur-[2px]" onClick={() => setReplyLIDeleteConfirmId(null)} />
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center shrink-0">
+                  <ShieldAlert className="w-5 h-5 text-red-500" />
+                </div>
+                <div>
+                  <p className="text-[#1E1B4B] font-semibold text-base">Delete sequence?</p>
+                  <p className="text-[#6B7280] text-sm mt-1">This will permanently delete the sequence and all its contacts from Reply.io.</p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setReplyLIDeleteConfirmId(null)} className="flex-1 py-2.5 border border-[rgba(107,78,255,0.2)] text-[#6B7280] text-sm font-semibold rounded-lg hover:bg-[#F5F3FF]">
+                  Cancel
+                </button>
+                <button onClick={() => handleDeleteLIReplySeq(replyLIDeleteConfirmId!)} disabled={replyLIDeletingId === replyLIDeleteConfirmId}
+                  className="flex-1 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {replyLIDeletingId === replyLIDeleteConfirmId
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Deleting…</>
+                    : <><Trash2 className="w-4 h-4" /> Yes, delete</>}
+                </button>
+              </div>
+            </div>
           </div>
-          <div>
-            <p className="text-[#1E1B4B] font-semibold text-base">Delete sequence?</p>
-            <p className="text-[#6B7280] text-sm mt-1">This will permanently delete the sequence and all its contacts from Reply.io.</p>
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setReplyLIDeleteConfirmId(null)}
-            className="flex-1 py-2.5 border border-[rgba(107,78,255,0.2)] text-[#6B7280] text-sm font-semibold rounded-lg hover:bg-[#F5F3FF]"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => handleDeleteLIReplySeq(replyLIDeleteConfirmId!)}
-            disabled={replyLIDeletingId === replyLIDeleteConfirmId}
-            className="flex-1 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {replyLIDeletingId === replyLIDeleteConfirmId
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Deleting…</>
-              : <><Trash2 className="w-4 h-4" /> Yes, delete</>}
-          </button>
-        </div>
-      </div>
-    </div>
-  </>
-)}
+        </>
+      )}
     </DashboardLayout>
   );
 }

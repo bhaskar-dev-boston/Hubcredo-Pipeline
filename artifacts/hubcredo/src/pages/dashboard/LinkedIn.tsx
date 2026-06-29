@@ -230,6 +230,14 @@ export default function LinkedIn() {
   const [replyLISending, setReplyLISending] = useState(false);
   const replyLIMessagesEndRef = useRef<HTMLDivElement>(null);
 
+
+
+const [liLaunchModalOpen, setLiLaunchModalOpen] = useState(false);
+const [liLaunchSeqId, setLiLaunchSeqId] = useState<number | null>(null);
+const [liLaunchEmailsPerDay, setLiLaunchEmailsPerDay] = useState<number>(30);
+const [liLaunchListId, setLiLaunchListId] = useState<string>("");
+const [liLaunching, setLiLaunching] = useState(false);
+
   const LINKEDIN_TEMPLATES = [
     { name: "Cold outreach", connection_message: "Hi {{firstName}}, I help B2B companies build reliable sales infrastructure. Thought we'd connect well — open to it?", followup_message: "Hey {{firstName}}, thanks for connecting! I work with founders to set up scalable outbound. Worth a quick 15-min chat?" },
     { name: "Value-first", connection_message: "Hi {{firstName}}, I noticed your profile and wanted to connect — I share insights on outbound strategy relevant to your space.", followup_message: "Hey {{firstName}}, great to connect! Are you exploring ways to scale your pipeline? Happy to share what's been working." },
@@ -405,20 +413,51 @@ export default function LinkedIn() {
     }
   }
 
-  async function handleActivateLIReply(id: number) {
-    setReplyLIActivatingId(id);
-    try {
-      const res = await fetch(apiUrl(`/replyio-linkedin/sequences/${id}/activate`), { method: "POST", headers: authHeaders() });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
-      setReplySeqs((prev) => prev.map((s) => s.id === id ? { ...s, status: "active" } : s));
-      toast({ title: "Sequence activated! 🚀" });
-    } catch (err) {
-      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
-    } finally {
-      setReplyLIActivatingId(null);
-    }
-  }
+  function openLiLaunchModal(id: number) {
+  setLiLaunchSeqId(id);
+  setLiLaunchEmailsPerDay(30);
+  setLiLaunchListId("");
+  setLiLaunchModalOpen(true);
+}
 
+async function handleConfirmLiLaunch() {
+  if (!liLaunchSeqId) return;
+  setLiLaunching(true);
+  try {
+    // Step 1: update connections/day limit via settings PATCH
+    const settingsRes = await fetch(apiUrl(`/replyio-linkedin/sequences/${liLaunchSeqId}/settings`), {
+      method: "PATCH",
+      headers: authHeaders(),
+      body: JSON.stringify({ emailsCountPerDay: liLaunchEmailsPerDay }),
+    });
+    if (!settingsRes.ok) {
+      const d = await settingsRes.json();
+      throw new Error(d.error ?? "Failed to update daily limit");
+    }
+
+    // Step 2: activate (enroll leads if selected + start sequence)
+    const res = await fetch(apiUrl(`/replyio-linkedin/sequences/${liLaunchSeqId}/activate`), {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        lead_list_id: liLaunchListId || undefined,
+      }),
+    });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+    setReplySeqs((prev) => prev.map((s) => s.id === liLaunchSeqId ? { ...s, status: "active" } : s));
+    toast({
+      title: "Sequence activated! 🚀",
+      description: liLaunchListId
+        ? `LinkedIn outreach started · ${liLaunchEmailsPerDay} actions/day`
+        : `Sequence is now active · ${liLaunchEmailsPerDay} actions/day`,
+    });
+    setLiLaunchModalOpen(false);
+  } catch (err) {
+    toast({ title: "Activation failed", description: err instanceof Error ? err.message : "Error", variant: "destructive" });
+  } finally {
+    setLiLaunching(false);
+  }
+}
   async function handlePauseLIReply(id: number) {
     setReplyLIPausingId(id);
     try {
@@ -1602,10 +1641,10 @@ export default function LinkedIn() {
                           </button>
                           <div className="flex items-center gap-1 px-4 pb-2">
                             {seq.status !== "active" ? (
-                              <button onClick={() => handleActivateLIReply(seq.id)} disabled={replyLIActivatingId === seq.id}
-                                className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:text-emerald-700 disabled:opacity-50">
-                                {replyLIActivatingId === seq.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Play className="w-2.5 h-2.5" />} Launch
-                              </button>
+  <button onClick={() => openLiLaunchModal(seq.id)}
+    className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:text-emerald-700">
+    <Play className="w-2.5 h-2.5" /> Launch
+  </button>
                             ) : (
                               <button onClick={() => handlePauseLIReply(seq.id)} disabled={replyLIPausingId === seq.id}
                                 className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 hover:text-amber-700 disabled:opacity-50">
@@ -1948,6 +1987,123 @@ export default function LinkedIn() {
           </div>
         </>
       )}
+
+
+
+      {/* ── LinkedIn Launch modal ── */}
+{liLaunchModalOpen && (
+  <>
+    <div
+      className="fixed inset-0 bg-black/20 z-[60] backdrop-blur-[2px]"
+      onClick={() => !liLaunching && setLiLaunchModalOpen(false)}
+    />
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="bg-white border border-[rgba(107,78,255,0.15)] rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
+
+        {/* Header */}
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 bg-[#F5F3FF] rounded-xl flex items-center justify-center shrink-0">
+            <Linkedin className="w-5 h-5 text-[#6B4EFF]" />
+          </div>
+          <div>
+            <p className="text-[#1E1B4B] font-semibold text-base">Launch LinkedIn Sequence</p>
+            <p className="text-[#6B7280] text-sm mt-0.5">Set your daily limit, then go live.</p>
+          </div>
+        </div>
+
+        {/* Lead list */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
+            Enroll lead list <span className="font-normal normal-case text-[#9CA3AF]">(if not already enrolled)</span>
+          </label>
+          <select
+            value={liLaunchListId}
+            onChange={(e) => setLiLaunchListId(e.target.value)}
+            className="w-full px-3 py-2.5 border border-[rgba(107,78,255,0.2)] rounded-lg text-sm text-[#1E1B4B] focus:outline-none focus:border-[#6B4EFF] bg-white"
+          >
+            <option value="">Skip — contacts already enrolled</option>
+            {lists.map((l) => (
+              <option key={l.id} value={l.id}>{l.label}</option>
+            ))}
+          </select>
+          {liLaunchListId && (
+            <p className="text-[11px] text-[#6B7280]">
+              Leads will be enrolled before the sequence starts.
+            </p>
+          )}
+        </div>
+
+        {/* Daily limit */}
+        <div className="space-y-2">
+          <label className="block text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
+            Max LinkedIn actions per day
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={liLaunchEmailsPerDay}
+              onChange={(e) =>
+                setLiLaunchEmailsPerDay(Math.max(1, Math.min(100, Number(e.target.value) || 1)))
+              }
+              className="w-24 px-3 py-2.5 border border-[rgba(107,78,255,0.2)] rounded-lg text-sm text-[#1E1B4B] focus:outline-none focus:border-[#6B4EFF] focus:ring-2 focus:ring-[rgba(107,78,255,0.1)] bg-white text-center font-mono"
+            />
+            <div className="flex gap-1.5 flex-wrap">
+              {[10, 20, 30, 50].map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setLiLaunchEmailsPerDay(v)}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-colors ${
+                    liLaunchEmailsPerDay === v
+                      ? "text-white border-[#6B4EFF]"
+                      : "bg-white text-[#6B7280] border-[rgba(107,78,255,0.2)] hover:border-[#6B4EFF] hover:text-[#6B4EFF]"
+                  }`}
+                  style={liLaunchEmailsPerDay === v ? { background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" } : {}}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="text-[11px] text-[#9CA3AF]">
+            Keep under 30/day to stay within LinkedIn's safe automation threshold.
+          </p>
+          {liLaunchEmailsPerDay > 50 && (
+            <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-amber-700">
+                High limit detected. Values above 50/day risk LinkedIn account restrictions.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Buttons */}
+        <div className="flex gap-3">
+          <button
+            onClick={() => setLiLaunchModalOpen(false)}
+            disabled={liLaunching}
+            className="flex-1 py-2.5 border border-[rgba(107,78,255,0.2)] text-[#6B7280] text-sm font-semibold rounded-lg hover:bg-[#F5F3FF] transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirmLiLaunch}
+            disabled={liLaunching}
+            className="flex-1 py-2.5 text-white text-sm font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
+            style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}
+          >
+            {liLaunching
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Launching…</>
+              : <><Play className="w-4 h-4" /> Go Live</>}
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </>
+)}
     </DashboardLayout>
   );
 }

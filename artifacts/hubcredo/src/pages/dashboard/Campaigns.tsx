@@ -243,6 +243,7 @@ export default function Campaigns() {
   const [leadsCursor, setLeadsCursor] = useState<string | undefined>(undefined);
   const [leadsHasMore, setLeadsHasMore] = useState(false);
   const [leadsCursorStack, setLeadsCursorStack] = useState<string[]>([]);
+  
 
 
   // ── Reply.io state ────────────────────────────────────────
@@ -289,6 +290,7 @@ const [replyDeleteConfirmId, setReplyDeleteConfirmId] = useState<number | null>(
   const [launchEmailAccountsLoading, setLaunchEmailAccountsLoading] = useState(false);
   const [launchSelectedEmailId, setLaunchSelectedEmailId] = useState<number | null>(null);
   const [launchConfirming, setLaunchConfirming] = useState(false);
+  const [launchEmailsPerDay, setLaunchEmailsPerDay] = useState<number>(200);
 
   // ── Sequence steps preview ────────────────────────────────
   const [replySeqSteps, setReplySeqSteps] = useState<Array<{ id: number; type: string; delayInMinutes?: number; variants?: Array<{ subject?: string; message?: string }> }>>([]);
@@ -564,12 +566,13 @@ const [replyDeleteConfirmId, setReplyDeleteConfirmId] = useState<number | null>(
   setLaunchSeqId(seqId);
   setLaunchSelectedEmailId(null);
   setLaunchListId("");
+  setLaunchEmailsPerDay(200);   // ← add this line
   setLaunchModalOpen(true);
   setLaunchEmailAccountsLoading(true);
   try {
     const res = await apiFetch("/api/replyio/email-accounts");
     const data = await res.json();
-    setLaunchEmailAccounts(data.accounts ?? []); // no filter — show all
+    setLaunchEmailAccounts(data.accounts ?? []);
   } catch {
     toast({ title: "Could not load email accounts", variant: "destructive" });
   } finally {
@@ -581,6 +584,17 @@ async function handleConfirmLaunch() {
   if (!launchSeqId) return;
   setLaunchConfirming(true);
   try {
+    // Step 1: update emailsCountPerDay before activating
+    const settingsRes = await apiFetch(`/api/replyio/sequences/${launchSeqId}/settings`, {
+      method: "PATCH",
+      body: JSON.stringify({ emailsCountPerDay: launchEmailsPerDay }),
+    });
+    if (!settingsRes.ok) {
+      const d = await settingsRes.json();
+      throw new Error(d.error ?? "Failed to update email limit");
+    }
+
+    // Step 2: activate (assign email account + enroll leads + start)
     const res = await apiFetch(`/api/replyio/sequences/${launchSeqId}/activate`, {
       method: "POST",
       body: JSON.stringify({
@@ -594,8 +608,8 @@ async function handleConfirmLaunch() {
     toast({
       title: "Sequence launched! 🚀",
       description: data.enrolled
-        ? `Sending via ${data.emailAccount} · ${data.enrolled}/${data.total} leads enrolled`
-        : `Sending via ${data.emailAccount}`,
+        ? `Sending via ${data.emailAccount} · ${data.enrolled}/${data.total} leads enrolled · ${launchEmailsPerDay} emails/day`
+        : `Sending via ${data.emailAccount} · ${launchEmailsPerDay} emails/day`,
     });
     setLaunchModalOpen(false);
   } catch (err) {
@@ -604,7 +618,6 @@ async function handleConfirmLaunch() {
     setLaunchConfirming(false);
   }
 }
-
   async function handlePauseReply(id: number) {
     setReplyPausingId(id);
     try {
@@ -1991,6 +2004,7 @@ async function handleConfirmLaunch() {
 
 
 {/* Launch modal — mailbox picker */}
+{/* Launch modal — mailbox picker */}
 {launchModalOpen && (
   <>
     <div className="fixed inset-0 bg-black/20 z-50 backdrop-blur-[2px]" onClick={() => !launchConfirming && setLaunchModalOpen(false)} />
@@ -2006,6 +2020,7 @@ async function handleConfirmLaunch() {
           </div>
         </div>
 
+        {/* Mailbox picker */}
         <div className="space-y-2">
           <label className="block text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
             Sending mailbox
@@ -2050,32 +2065,70 @@ async function handleConfirmLaunch() {
             </div>
           )}
         </div>
-        <div className="space-y-2">
-  <label className="block text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
-    Enroll lead list <span className="font-normal normal-case text-[#9CA3AF]">(required if no contacts yet)</span>
-  </label>
-  <select
-    value={launchListId}
-    onChange={(e) => setLaunchListId(e.target.value)}
-    className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-sm text-[#1a1a2e] focus:outline-none focus:border-[#5B4FE8] bg-white"
-  >
-    <option value="">Skip — contacts already enrolled</option>
-    {lists.map((l) => (
-      <option key={l.id} value={l.id}>{l.label}</option>
-    ))}
-  </select>
-  {launchListId && (
-    <p className="text-[11px] text-[#6B7280]">
-      Approved leads will be enrolled before the sequence starts.
-    </p>
-  )}
-</div>
 
+        {/* Lead list */}
+        <div className="space-y-2">
+          <label className="block text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
+            Enroll lead list <span className="font-normal normal-case text-[#9CA3AF]">(required if no contacts yet)</span>
+          </label>
+          <select
+            value={launchListId}
+            onChange={(e) => setLaunchListId(e.target.value)}
+            className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-sm text-[#1a1a2e] focus:outline-none focus:border-[#5B4FE8] bg-white"
+          >
+            <option value="">Skip — contacts already enrolled</option>
+            {lists.map((l) => (
+              <option key={l.id} value={l.id}>{l.label}</option>
+            ))}
+          </select>
+          {launchListId && (
+            <p className="text-[11px] text-[#6B7280]">
+              Approved leads will be enrolled before the sequence starts.
+            </p>
+          )}
+        </div>
+
+        {/* ── Max emails per day ── */}
+        <div className="space-y-2">
+          <label className="block text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
+            Max emails per day
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              min={1}
+              max={2000}
+              value={launchEmailsPerDay}
+              onChange={(e) => setLaunchEmailsPerDay(Math.max(1, Math.min(2000, Number(e.target.value) || 1)))}
+              className="w-28 px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-sm text-[#1a1a2e] focus:outline-none focus:border-[#5B4FE8] focus:ring-2 focus:ring-[#5B4FE8]/10 bg-white text-center font-mono"
+            />
+            <div className="flex gap-1.5 flex-wrap">
+              {[50, 100, 200, 400].map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setLaunchEmailsPerDay(v)}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-colors ${
+                    launchEmailsPerDay === v
+                      ? "bg-[#5B4FE8] text-white border-[#5B4FE8]"
+                      : "bg-white text-[#6B7280] border-[#E5E7EB] hover:border-[#5B4FE8]/40 hover:text-[#5B4FE8]"
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="text-[11px] text-[#9CA3AF]">
+            Controls how many emails this sequence sends across all mailboxes daily.
+          </p>
+        </div>
+
+        {/* Action buttons */}
         <div className="flex gap-3">
           <button
             onClick={() => setLaunchModalOpen(false)}
             disabled={launchConfirming}
-            className={`flex-1 py-2.5 border border-[#E5E7EB] text-[#6B7280] text-sm font-semibold rounded-lg hover:bg-[#F9FAFB]`}
+            className="flex-1 py-2.5 border border-[#E5E7EB] text-[#6B7280] text-sm font-semibold rounded-lg hover:bg-[#F9FAFB]"
           >
             Cancel
           </button>
@@ -2098,7 +2151,6 @@ async function handleConfirmLaunch() {
       </div>
     </div>
   </>
-)}
-    </DashboardLayout>
+)}    </DashboardLayout>
   );
 }

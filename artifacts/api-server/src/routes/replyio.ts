@@ -829,4 +829,59 @@ router.post("/replyio/inbox/threads/:threadId/reply", requireAuth, async (req: A
   }
 });
 
+
+router.patch("/replyio/sequences/:id/settings", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const apiKey = await getUserReplyApiKey(req.userId!);
+  if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
+
+  const seqId = Number(req.params.id);
+  const { emailsCountPerDay } = req.body as { emailsCountPerDay?: number };
+
+  if (!emailsCountPerDay || emailsCountPerDay < 1) {
+    res.status(400).json({ error: "emailsCountPerDay must be a positive integer" });
+    return;
+  }
+
+  try {
+    // First, GET the current sequence to read existing settings (all required fields must be sent back)
+    const current = await replyFetch<{
+      settings: {
+        emailsCountPerDay: number;
+        daysToFinishProspect: number;
+        emailSendingDelaySeconds: number;
+        dailyThrottling: number;
+        disableOpensTracking: boolean;
+        repliesHandlingType: string;
+        enableLinksTracking: boolean;
+      };
+    }>("GET", `/sequences/${seqId}`, undefined, apiKey);
+
+    const existing = current.settings ?? {};
+
+    // PATCH with merged settings — all 7 required fields must be present
+    const updated = await replyFetch<{ id: number; settings: { emailsCountPerDay: number } }>(
+      "PATCH",
+      `/sequences/${seqId}`,
+      {
+        settings: {
+          emailsCountPerDay:        emailsCountPerDay,
+          daysToFinishProspect:     existing.daysToFinishProspect     ?? 14,
+          emailSendingDelaySeconds: existing.emailSendingDelaySeconds ?? 60,
+          dailyThrottling:          existing.dailyThrottling          ?? 100,
+          disableOpensTracking:     existing.disableOpensTracking     ?? false,
+          repliesHandlingType:      existing.repliesHandlingType      ?? "markAsFinished",
+          enableLinksTracking:      existing.enableLinksTracking      ?? true,
+        },
+      },
+      apiKey
+    );
+
+    res.json({ success: true, emailsCountPerDay: updated.settings?.emailsCountPerDay });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error(`Reply.io update sequence settings error for ${seqId}: ${msg}`);
+    res.status(500).json({ error: msg });
+  }
+});
+
 export default router;

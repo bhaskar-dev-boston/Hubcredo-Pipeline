@@ -23,6 +23,14 @@ const REPLY_VAR_MAP: Record<string, string> = {
   "city":        "{{City}}",
 };
 
+// Reply.io's /contacts/import requires a syntactically valid email for every
+// item — one bad email fails the WHOLE batch (no per-item tolerance). So we
+// must validate here, not just check for presence, before ever calling it.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+function isValidEmail(email: string | null | undefined): email is string {
+  return !!email && EMAIL_RE.test(email.trim());
+}
+
 function toReplyHtml(text: string): string {
   if (!text) return text;
   let result = text.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_match, key: string) => {
@@ -378,8 +386,22 @@ router.post(
         return;
       }
 
+      // Reply.io's /contacts/import requires a syntactically valid email for
+      // every item — checking !!l.email isn't enough, it just checks presence.
+      const validLeads = leads.filter((l) => isValidEmail(l.email));
+      const skipped = leads.length - validLeads.length;
+
+      if (validLeads.length === 0) {
+        res.status(400).json({
+          error: "No leads with a valid email found in the selected list. Reply.io requires a valid email to enroll a contact, even for LinkedIn-only sequences.",
+          code: "NO_VALID_EMAILS",
+          skipped,
+        });
+        return;
+      }
+
       const result = await importAndEnrollLeads(
-        leads.filter((l) => !!l.email) as Array<{
+        validLeads as Array<{
           email: string;
           first_name?: string | null;
           last_name?: string | null;
@@ -400,7 +422,7 @@ router.post(
         return;
       }
 
-      res.json({ success: true, enrolled: result.enrolled, total: result.total });
+      res.json({ success: true, enrolled: result.enrolled, total: result.total, skippedInvalidEmail: skipped });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.error(`[LinkedIn] enroll-list error for seq ${seqId}: ${msg}`);
@@ -467,8 +489,17 @@ router.post(
           return;
         }
 
+        const validLeads = leads.filter((l) => isValidEmail(l.email));
+        if (validLeads.length === 0) {
+          res.status(400).json({
+            error: "No leads with a valid email found. Reply.io requires a valid email to enroll a contact.",
+            code: "NO_VALID_EMAILS",
+          });
+          return;
+        }
+
         enrollResult = await importAndEnrollLeads(
-          leads.filter((l) => !!l.email) as Array<{
+          validLeads as Array<{
             email: string;
             first_name?: string | null;
             last_name?: string | null;
@@ -650,19 +681,23 @@ router.post(
           .eq("lead_list_id", lead_list_id)
           .not("email", "is", null);
 
-        if (dbErr || !leads?.length) {
+        // Reply.io's /contacts/import requires a syntactically valid email for
+        // every item — one bad email fails the whole batch. Filter before sending.
+        const validLeads = (leads ?? []).filter((l) => isValidEmail(l.email));
+
+        if (dbErr || validLeads.length === 0) {
           res.status(207).json({
             id: sequence.id,
             name: sequence.name,
             enrolled: 0,
             total: 0,
-            enrollError: dbErr?.message ?? "No leads with valid emails found.",
+            enrollError: dbErr?.message ?? "No leads with a valid email found. Reply.io requires a valid email to enroll a contact.",
           });
           return;
         }
 
         const enrollResult = await importAndEnrollLeads(
-          leads.filter((l) => !!l.email) as Array<{
+          validLeads as Array<{
             email: string;
             first_name?: string | null;
             last_name?: string | null;

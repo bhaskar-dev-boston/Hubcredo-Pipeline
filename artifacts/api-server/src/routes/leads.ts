@@ -17,6 +17,12 @@ import {
 } from "@workspace/api-zod";
 import { upsertAttioPerson, DEFAULT_FIELD_MAPPING, type FieldMapping } from "../lib/attio";
 
+// Basic email validator — catches blanks, missing @, missing domain/TLD, stray spaces, etc.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+function isValidEmail(email: string | null | undefined): boolean {
+  return !!email && EMAIL_RE.test(email.trim());
+}
+
 async function syncLeadToCrmIfConnected(userId: string, leadId: string, lead: Record<string, any>): Promise<void> {
   try {
     const { data: connection } = await supabase
@@ -253,6 +259,7 @@ router.patch("/leads/:id/review", requireAuth, async (req: AuthenticatedRequest,
 });
 
 // POST /api/leads/upload-manual — bulk insert leads from CSV/Excel upload
+// Only rows with a valid email OR a LinkedIn URL are kept; everything else is dropped.
 router.post("/leads/upload-manual", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { list_name, leads: rawLeads } = req.body as {
     list_name?: string;
@@ -285,25 +292,58 @@ router.post("/leads/upload-manual", requireAuth, async (req: AuthenticatedReques
     return;
   }
 
-  // Map CSV rows to lead records
-  const leadsToInsert = rawLeads.map((row) => ({
-    user_id: req.userId!,
-    lead_list_id: list.id,
-    first_name: row.first_name || row.firstName || row["First Name"] || row["first name"] || null,
-    last_name: row.last_name || row.lastName || row["Last Name"] || row["last name"] || null,
-    email: row.email || row.Email || row["Email Address"] || null,
-    linkedin_url: row.linkedin_url || row.linkedin || row["LinkedIn URL"] || row["LinkedIn"] || null,
-    job_title: row.job_title || row.title || row["Job Title"] || row["Title"] || null,
-    company_name: row.company_name || row.company || row["Company"] || row["Company Name"] || null,
-    company_domain: row.company_domain || row["Company Domain"] || row["Website"] || null,
-    company_size: row.company_size || row["Company Size"] || null,
-    industry: row.industry || row["Industry"] || null,
-    hq_country: row.hq_country || row.country || row["Country"] || null,
-    hq_city: row.hq_city || row.city || row["City"] || null,
-    seniority: row.seniority || row["Seniority"] || null,
-    department: row.department || row["Department"] || null,
-    review_status: "pending",
-  }));
+  // Map CSV rows to lead records — only keep rows that have a valid email
+  // and/or a LinkedIn URL. Rows with neither are dropped entirely.
+  const leadsToInsert: Array<Record<string, unknown>> = [];
+  let skippedNoContact = 0;
+  let skippedInvalidEmail = 0;
+
+  for (const row of rawLeads) {
+    const rawEmail = (row.email || row.Email || row["Email Address"] || "").toString().trim();
+    const linkedinUrl =
+      (row.linkedin_url || row.linkedin || row["LinkedIn URL"] || row["LinkedIn"] || "").toString().trim() || null;
+
+    const emailValid = isValidEmail(rawEmail);
+    if (rawEmail && !emailValid) skippedInvalidEmail++;
+
+    const email = emailValid ? rawEmail : null;
+
+    // Require at least one usable contact channel
+    if (!email && !linkedinUrl) {
+      skippedNoContact++;
+      continue;
+    }
+
+    leadsToInsert.push({
+      user_id: req.userId!,
+      lead_list_id: list.id,
+      first_name: row.first_name || row.firstName || row["First Name"] || row["first name"] || null,
+      last_name: row.last_name || row.lastName || row["Last Name"] || row["last name"] || null,
+      email,
+      linkedin_url: linkedinUrl,
+      job_title: row.job_title || row.title || row["Job Title"] || row["Title"] || null,
+      company_name: row.company_name || row.company || row["Company"] || row["Company Name"] || null,
+      company_domain: row.company_domain || row["Company Domain"] || row["Website"] || null,
+      company_size: row.company_size || row["Company Size"] || null,
+      industry: row.industry || row["Industry"] || null,
+      hq_country: row.hq_country || row.country || row["Country"] || null,
+      hq_city: row.hq_city || row.city || row["City"] || null,
+      seniority: row.seniority || row["Seniority"] || null,
+      department: row.department || row["Department"] || null,
+      review_status: "pending",
+    });
+  }
+
+  if (leadsToInsert.length === 0) {
+    await supabase.from("lead_lists").delete().eq("id", list.id);
+    res.status(400).json({
+      error: "No leads with a valid email or LinkedIn URL were found in this upload.",
+      total: rawLeads.length,
+      skipped_no_contact: skippedNoContact,
+      skipped_invalid_email: skippedInvalidEmail,
+    });
+    return;
+  }
 
   const { data: insertedLeads, error: leadsErr } = await supabase
     .from("leads")
@@ -328,6 +368,8 @@ router.post("/leads/upload-manual", requireAuth, async (req: AuthenticatedReques
     list_label: label,
     inserted: insertedLeads?.length ?? 0,
     total: rawLeads.length,
+    skipped_no_contact: skippedNoContact,       // rows with neither a valid email nor a LinkedIn URL
+    skipped_invalid_email: skippedInvalidEmail, // rows where an email was present but malformed
   });
 });
 

@@ -18,6 +18,14 @@ import { supabase } from "../lib/supabase";
 const router = Router();
 const REPLY_BASE = "https://api.reply.io/v3";
 
+// Reply.io's /contacts/import requires a syntactically valid email for every
+// item — one bad email fails the WHOLE batch (no per-item tolerance). So we
+// must validate here, not just check for presence, before ever calling it.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+function isValidEmail(email: string | null | undefined): email is string {
+  return !!email && EMAIL_RE.test(email.trim());
+}
+
 async function getUserReplyApiKey(userId: string): Promise<string> {
   try {
     const { data } = await supabase
@@ -387,6 +395,7 @@ router.post("/replyio/enroll", requireAuth, async (req: AuthenticatedRequest, re
       sequenceId: number;
     };
     if (!contact?.email) { res.status(400).json({ error: "contact.email is required" }); return; }
+    if (!isValidEmail(contact.email)) { res.status(400).json({ error: "contact.email is not a valid email address" }); return; }
     if (!sequenceId)     { res.status(400).json({ error: "sequenceId is required" }); return; }
 
     const importResult = await replyFetch<{
@@ -580,8 +589,22 @@ router.post("/replyio/sequences/:id/activate", requireAuth, async (req: Authenti
         return;
       }
 
+      // Reply.io's /contacts/import requires a syntactically valid email for
+      // every item — !!l.email only checks presence, not format. One bad
+      // email (e.g. "john@company" with no TLD) fails the WHOLE batch.
+      const validLeads = leads.filter((l) => isValidEmail(l.email));
+      const skippedInvalidEmail = leads.length - validLeads.length;
+
+      if (validLeads.length === 0) {
+        res.status(400).json({
+          error: "No leads with a valid email found in the selected list.",
+          code: "NO_VALID_EMAILS",
+        });
+        return;
+      }
+
       enrollResult = await importAndEnrollLeads(
-        leads.filter((l) => !!l.email) as Array<{
+        validLeads as Array<{
           email: string;
           first_name?: string | null;
           last_name?: string | null;
@@ -598,6 +621,10 @@ router.post("/replyio/sequences/:id/activate", requireAuth, async (req: Authenti
           error: "No contacts could be enrolled. Check that leads have valid emails and are not already finished in this sequence.",
         });
         return;
+      }
+
+      if (skippedInvalidEmail > 0) {
+        logger.warn(`Reply.io activate seq ${seqId}: skipped ${skippedInvalidEmail} lead(s) with invalid email format`);
       }
     }
 
@@ -647,8 +674,19 @@ router.post("/replyio/sequences/:id/enroll-list", requireAuth, async (req: Authe
       return;
     }
 
+    // Same fix as activate — drop leads with malformed emails before
+    // sending to Reply.io's /contacts/import, which rejects the whole
+    // batch if even one item fails validation.
+    const validLeads = leads.filter((l) => isValidEmail(l.email));
+    const skippedInvalidEmail = leads.length - validLeads.length;
+
+    if (validLeads.length === 0) {
+      res.json({ enrolled: 0, total: leads.length, message: "No leads with a valid email found in this list", skippedInvalidEmail });
+      return;
+    }
+
     const result = await importAndEnrollLeads(
-      leads.filter((l) => !!l.email) as Array<{
+      validLeads as Array<{
         email: string;
         first_name?: string | null;
         last_name?: string | null;
@@ -660,7 +698,11 @@ router.post("/replyio/sequences/:id/enroll-list", requireAuth, async (req: Authe
       apiKey
     );
 
-    res.json({ enrolled: result.enrolled, total: result.total });
+    if (skippedInvalidEmail > 0) {
+      logger.warn(`Reply.io enroll-list seq ${seqId}: skipped ${skippedInvalidEmail} lead(s) with invalid email format`);
+    }
+
+    res.json({ enrolled: result.enrolled, total: result.total, skippedInvalidEmail });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.error(`Reply.io enroll-list error: ${msg}`);

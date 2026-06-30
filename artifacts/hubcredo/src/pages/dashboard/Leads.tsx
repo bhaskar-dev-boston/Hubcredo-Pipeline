@@ -54,6 +54,7 @@ export default function Leads() {
   const [syncingAll, setSyncingAll] = useState(false);
   const [syncingHubspot, setSyncingHubspot] = useState(false);
   const [enriching, setEnriching] = useState(false);
+  const [approvingAll, setApprovingAll] = useState(false);
 
   async function handleEnrichList() {
     if (!activeListId) return;
@@ -258,6 +259,23 @@ export default function Leads() {
       toast({ title: "Error", description: "Could not update lead.", variant: "destructive" });
     }
   }
+
+  async function handleApproveAll() {
+  if (!activeListId) return;
+  const pendingLeads = (leads as Lead[]).filter((l) => !l.review_status || l.review_status === "pending");
+  if (pendingLeads.length === 0) return;
+  setApprovingAll(true);
+  try {
+    await Promise.all(pendingLeads.map((l) => reviewLead.mutateAsync({ id: l.id, data: { review_status: "approved" } })));
+    await refetchLeads();
+    toast({ title: "All leads approved", description: `${pendingLeads.length} lead${pendingLeads.length !== 1 ? "s" : ""} marked as approved.` });
+  } catch {
+    toast({ title: "Error", description: "Some leads could not be approved. Please try again.", variant: "destructive" });
+    await refetchLeads();
+  } finally {
+    setApprovingAll(false);
+  }
+}
 
   const statusPill = (status?: string | null) => {
     if (status === "approved") return "bg-[rgba(13,148,136,0.1)] border-[rgba(13,148,136,0.25)] text-[#0D9488]";
@@ -486,6 +504,20 @@ export default function Leads() {
                   {leadsLoading ? "Loading…" : `${(leads as Lead[]).length} leads in "${selectedList.label}"`}
                 </p>
                 <div className="flex items-center gap-2">
+                  {activeListId && (leads as Lead[]).some((l) => !l.review_status || l.review_status === "pending") && (
+  <button
+    onClick={handleApproveAll}
+    disabled={approvingAll}
+    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50"
+    style={{ background: "rgba(13,148,136,.1)", borderColor: "rgba(13,148,136,.25)", color: "#0D9488" }}
+    title="Approve all pending leads in this list"
+  >
+    {approvingAll ? <Loader2 className="w-3 h-3 animate-spin" /> : <ThumbsUp className="w-3 h-3" />}
+    Approve all
+  </button>
+)}
+
+    
                   {activeListId && (
                     <button
                       onClick={handleEnrichList}

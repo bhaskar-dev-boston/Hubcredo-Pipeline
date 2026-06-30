@@ -371,11 +371,10 @@ const [liLaunching, setLiLaunching] = useState(false);
 
   async function handleCreateReplyLISeq() {
     if (!replyLIName.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
-    if (!replyLIConnMsg.trim()) { toast({ title: "Connection message required", variant: "destructive" }); return; }
     setReplyLICreating(true);
     try {
       const steps = [
-        { type: "linkedin", delay_days: 0, body: replyLIConnMsg.trim() },
+        { type: "linkedin", delay_days: 0, body: replyLIConnMsg.trim() }, // body can be "" — empty connect note is fine
         ...(replyLIFollowup.trim() ? [{ type: "linkedin", delay_days: replyLIFollowupDelay, body: replyLIFollowup.trim() }] : []),
       ];
       const res = await fetch(apiUrl("/replyio-linkedin/sequences/create"), {
@@ -412,7 +411,6 @@ const [liLaunching, setLiLaunching] = useState(false);
       setReplyLICreating(false);
     }
   }
-
   function openLiLaunchModal(id: number) {
   setLiLaunchSeqId(id);
   setLiLaunchEmailsPerDay(30);
@@ -1867,14 +1865,12 @@ async function handleConfirmLiLaunch() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-[#6B7280] mb-1.5">
-                  Step 1 — Connection request message <span className="text-red-400">*</span>
-                  <span className="ml-1 font-normal text-[#9CA3AF]">(max 300 chars)</span>
-                </label>
-                <textarea value={replyLIConnMsg} onChange={(e) => setReplyLIConnMsg(e.target.value)} rows={3}
-                  placeholder="Hi {{firstName}}, I help B2B teams build reliable sales infrastructure…"
-                  className="w-full px-3 py-2 border border-[rgba(107,78,255,0.2)] rounded-lg text-sm focus:outline-none focus:border-[#6B4EFF] resize-none" />
-                <p className="text-[10px] text-[#9CA3AF] text-right mt-0.5">{replyLIConnMsg.length}/300</p>
-              </div>
+  Step 1 — Connection request message <span className="font-normal text-[#9CA3AF]">(optional, max 300 chars)</span>
+</label>
+<textarea value={replyLIConnMsg} onChange={(e) => setReplyLIConnMsg(e.target.value)} rows={3}
+  placeholder="Leave blank to send a plain connection request with no note, or write something like: Hi {{firstName}}, I help B2B teams build reliable sales infrastructure…"
+  className="w-full px-3 py-2 border border-[rgba(107,78,255,0.2)] rounded-lg text-sm focus:outline-none focus:border-[#6B4EFF] resize-none" />
+<p className="text-[10px] text-[#9CA3AF] text-right mt-0.5">{replyLIConnMsg.length}/300</p>              </div>
               <div>
                 <label className="block text-xs font-medium text-[#6B7280] mb-1.5">Step 2 — Follow-up message <span className="font-normal text-[#9CA3AF]">(optional)</span></label>
                 <textarea value={replyLIFollowup} onChange={(e) => setReplyLIFollowup(e.target.value)} rows={3}
@@ -1901,11 +1897,11 @@ async function handleConfirmLiLaunch() {
             </div>
             <div className="flex gap-3 px-6 py-4 border-t border-[rgba(107,78,255,0.1)] flex-shrink-0">
               <button onClick={() => setReplyLIWizard(false)} className="flex-1 py-2 border border-[rgba(107,78,255,0.2)] text-sm font-semibold text-[#6B7280] rounded-xl hover:bg-[#F5F3FF]">Cancel</button>
-              <button onClick={handleCreateReplyLISeq} disabled={replyLICreating || !replyLIName.trim() || !replyLIConnMsg.trim()}
-                className="flex-1 py-2 text-white text-sm font-semibold rounded-xl hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
-                style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
-                {replyLICreating ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating…</> : <><CheckCircle2 className="w-4 h-4" /> Create sequence</>}
-              </button>
+             <button onClick={handleCreateReplyLISeq} disabled={replyLICreating || !replyLIName.trim()}
+  className="flex-1 py-2 text-white text-sm font-semibold rounded-xl hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
+  style={{ background: "linear-gradient(135deg, #6B4EFF, #8B5CF6)" }}>
+  {replyLICreating ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating…</> : <><CheckCircle2 className="w-4 h-4" /> Create sequence</>}
+</button>
             </div>
           </div>
         </div>

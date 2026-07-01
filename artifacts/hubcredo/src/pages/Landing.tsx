@@ -424,12 +424,18 @@ export default function Landing() {
       {/* ── FOOTER ── */}
       <footer style={{ background: "#040b14", padding: isMobile ? "48px 5% 28px" : "64px 5% 36px", color: "rgba(255,255,255,.4)" }}>
         <div style={{ maxWidth: 1140, margin: "0 auto" }}>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr 1fr", gap: isMobile ? 32 : 48, marginBottom: 52 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.8fr 1fr 1fr 1.6fr", gap: isMobile ? 32 : 40, marginBottom: 52 }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 800, fontSize: "1.1rem", color: "#fff", letterSpacing: "-.03em", marginBottom: 12 }}>
                 <img src="/favicon.svg" alt="HubCredo" style={{ width: 280, height: 120, objectFit: "contain" }} />
               </div>
-              <p style={{ fontSize: ".83rem", lineHeight: 1.7, maxWidth: 260 }}>The complete GTM stack for founders — guided, connected, and live in 30 minutes.</p>
+              <p style={{ fontSize: ".92rem", lineHeight: 1.75, color: "rgba(255,255,255,.42)", maxWidth: isMobile ? "100%" : 300 }}>The complete GTM stack for founders — guided, connected, and live in 30 minutes.</p>
+              <br></br><div style={{ border: "1px solid rgba(255,255,255,.12)", borderRadius: 4, padding: "12px 16px", maxWidth: isMobile ? "100%" : 300 }}>
+                <p style={{ fontFamily: "monospace", fontSize: ".72rem", lineHeight: 1.7, letterSpacing: ".03em", color: "rgba(255,255,255,.4)", textTransform: "uppercase", margin: 0 }}>
+                  The best product rarely wins.
+The best pipeline always does.
+                </p>
+              </div>
             </div>
             <div>
               <h4 style={{ fontSize: ".7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "rgba(255,255,255,.25)", marginBottom: 16 }}>Product</h4>
@@ -441,16 +447,36 @@ export default function Landing() {
               <h4 style={{ fontSize: ".7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "rgba(255,255,255,.25)", marginBottom: 16 }}>Account</h4>
               <Link href="/login" style={{ display: "block", fontSize: ".84rem", marginBottom: 10, color: "rgba(255,255,255,.4)", textDecoration: "none" }}>Sign in</Link>
               <Link href="/signup" style={{ display: "block", fontSize: ".84rem", marginBottom: 10, color: "rgba(255,255,255,.4)", textDecoration: "none" }}>Get started</Link>
+              <Link href="https://www.linkedin.com/company/hubcredo" style={{ display: "block", fontSize: ".84rem", marginBottom: 10, color: "rgba(255,255,255,.4)", textDecoration: "none" }}>Linkedin</Link>
               <a href="https://calendly.com/hubcredo/introductory-call" target="_blank" rel="noopener noreferrer" style={{ display: "block", fontSize: ".84rem", color: "rgba(255,255,255,.4)", textDecoration: "none" }}>Book a demo</a>
+             
+            </div>
+            <div>
+              <h4 style={{ fontSize: ".7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "rgba(255,255,255,.25)", marginBottom: 16 }}>Registered Office</h4>
+              <p style={{ fontSize: ".68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", color: "rgba(255,255,255,.25)", marginBottom: 6 }}>Address</p>
+              <p style={{ fontSize: ".83rem", lineHeight: 1.7, marginBottom: 16, maxWidth: isMobile ? "100%" : 280 }}>
+                Hubcredo Solutions Private Limited <br></br>3rd Floor, Rainmakers Workspace,<br></br> 7th Main Road, JP Nagar Phase 2,<br></br> Bengaluru, Karnataka – 560078
+              </p>
+              <p style={{ fontSize: ".68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", color: "rgba(255,255,255,.25)", marginBottom: 6 }}>CIN</p>
+              <p style={{ fontSize: ".83rem", marginBottom: 16 }}>U70200KA2024PTC185619</p>
+              <p style={{ fontSize: ".68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", color: "rgba(255,255,255,.25)", marginBottom: 6 }}>GST No.</p>
+              <p style={{ fontSize: ".83rem", marginBottom: 16 }}>29AAHCH2340G1ZP</p>
+              <p style={{ fontSize: ".68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", color: "rgba(255,255,255,.25)", marginBottom: 6 }}>EMAIL</p>
+              <p style={{ fontSize: ".83rem" }}>business@hubcredo.com</p>
             </div>
           </div>
+
           <div style={{ borderTop: "1px solid rgba(255,255,255,.06)", paddingTop: 24, display: "flex", justifyContent: isMobile ? "center" : "space-between", alignItems: "center", fontSize: ".78rem", flexWrap: "wrap", gap: 12, textAlign: isMobile ? "center" : "left" }}>
             <span>© {new Date().getFullYear()} HubCredo. All rights reserved.</span>
             {!isMobile && <span>Built for founders who close.</span>}
           </div>
+
+         <p style={{ fontSize: ".78rem", lineHeight: 2.2, color: "rgba(255,255,255,.28)", marginTop: 32, paddingBottom: 8, maxWidth: isMobile ? "100%" : 760, textAlign: isMobile ? "center" : "left" }}>
+            HubCredo is the brand name of Hubcredo Solutions Private Limited, built to give founders a complete, connected go-to-market stack — from ICP discovery to lead generation to outbound execution — without the cost and complexity of stitching together a dozen point tools or hiring an agency. HubCredo powers companies and startups to grow without unnecessary overhead, extending the same GTM infrastructure into managed outreach and sales training for growing teams.
+          </p>
+          
         </div>
       </footer>
-
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap');
         @keyframes drift1 { from { transform: translateX(-50%) translateY(0) scale(1); } to { transform: translateX(-47%) translateY(50px) scale(1.12); } }

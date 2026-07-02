@@ -8,6 +8,26 @@
 //           → returns items[].id for each contact
 //   Step 2: POST /v3/sequences/{id}/contact-links/bulk  { contactIds: [...] }
 //           → synchronously enrolls contacts; Reply.io indexes immediately
+//
+// STATS: sourced from the `replyio_events` Supabase table, populated by
+// /replyio/webhook-receiver. Requires webhooks subscribed once via
+// POST /replyio/setup-stats-webhooks for eventType: email_sent, email_opened,
+// email_link_clicked, email_replied, email_bounced (confirmed against
+// Reply's official event catalog at docs.reply.io/webhook-events).
+// Requires this table to exist:
+//
+//   create table replyio_events (
+//     id bigint generated always as identity primary key,
+//     reply_event_id uuid not null unique,
+//     event_type text not null,
+//     sequence_id bigint,
+//     contact_id bigint,
+//     contact_email text,
+//     occurred_at timestamptz not null,
+//     raw jsonb not null,
+//     created_at timestamptz default now()
+//   );
+//   create index idx_replyio_events_seq on replyio_events (sequence_id, event_type);
 // ============================================================
 
 import { Router, Request, Response } from "express";
@@ -355,22 +375,46 @@ router.get("/replyio/sequences/:id/contacts", requireAuth, async (req: Authentic
   }
 });
 
+// ── EMAIL STATS — sourced from replyio_events (populated by webhooks), ──
+// ── not Reply's contact-status API, which doesn't reliably expose these ──
 router.get("/replyio/sequences/:id/stats", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const apiKey = await getUserReplyApiKey(req.userId!);
+  const sequenceId = Number(req.params.id);
+  if (!sequenceId) { res.status(400).json({ error: "Invalid sequence id" }); return; }
+
   try {
-    const data = await replyFetch<any>("GET", `/sequences/${req.params.id}/contacts?top=1000`, undefined, apiKey);
-    const contacts: Array<{
-      status: { status: string; replied: boolean; delivered: boolean; opened: boolean; clicked: boolean; bounced: boolean };
-    }> = Array.isArray(data) ? data : data.items ?? [];
+    const { data, error } = await supabase
+      .from("replyio_events")
+      .select("event_type, contact_id")
+      .eq("sequence_id", sequenceId);
+
+    if (error) { res.status(500).json({ error: error.message }); return; }
+
+    const rows = data ?? [];
+    const distinctContacts = (type: string) =>
+      new Set(rows.filter((r) => r.event_type === type).map((r) => r.contact_id)).size;
+
+    const total     = distinctContacts("email_sent");
+    const delivered = total; // email_sent IS Reply's delivery confirmation event
+    const opened    = distinctContacts("email_opened");
+    const clicked   = distinctContacts("email_link_clicked");
+    const replied   = distinctContacts("email_replied");
+    const bounced   = distinctContacts("email_bounced");
+
+    const pct = (n: number) => (total > 0 ? Number(((n / total) * 100).toFixed(1)) : 0);
 
     res.json({
-      sequenceId: Number(req.params.id),
-      total:   contacts.length,
-      active:  contacts.filter((c) => c.status?.status === "Active").length,
-      replied: contacts.filter((c) => c.status?.replied).length,
-      opened:  contacts.filter((c) => c.status?.opened).length,
-      clicked: contacts.filter((c) => c.status?.clicked).length,
-      bounced: contacts.filter((c) => c.status?.bounced).length,
+      sequenceId,
+      total,
+      active: 0,
+      delivered,
+      opened,
+      clicked,
+      replied,
+      bounced,
+      deliveredPercentage: pct(delivered),
+      openedPercentage:    pct(opened),
+      repliedPercentage:   pct(replied),
+      bouncedPercentage:   pct(bounced),
     });
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
@@ -463,6 +507,40 @@ router.post("/replyio/webhooks", requireAuth, async (req: AuthenticatedRequest, 
   }
 });
 
+// ── ONE-TIME SETUP — subscribes to the 5 events /stats depends on ──
+// Call this once (e.g. from the browser console while logged in, or a
+// Settings → Integrations button) after connecting a Reply.io API key.
+// Safe to re-run — Reply.io returns an error for events already
+// subscribed, which is logged per-event and doesn't fail the whole call.
+router.post("/replyio/setup-stats-webhooks", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const apiKey = await getUserReplyApiKey(req.userId!);
+  if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
+
+  const webhookUrl = `${req.protocol}://${req.get("host")}/api/replyio/webhook-receiver`;
+  const events = ["email_sent", "email_opened", "email_link_clicked", "email_replied", "email_bounced"];
+
+  const results: Array<{ event: string; ok: boolean; detail: string }> = [];
+
+  for (const eventType of events) {
+    try {
+      const webhook = await replyFetch<{ id: number }>("POST", "/webhooks", {
+        eventType,
+        url: webhookUrl,
+        scope: "personal",
+        enabled: true,
+        payloadConfig: { includeEmailUrl: false, includeEmailText: false, includeProspectCustomFields: false },
+      }, apiKey);
+      results.push({ event: eventType, ok: true, detail: `subscribed, id=${webhook.id}` });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn(`Reply.io setup-stats-webhooks: ${eventType} failed — ${msg}`);
+      results.push({ event: eventType, ok: false, detail: msg });
+    }
+  }
+
+  res.json({ results });
+});
+
 router.get("/replyio/linkedin-accounts", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const apiKey = await getUserReplyApiKey(req.userId!);
   if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
@@ -474,9 +552,46 @@ router.get("/replyio/linkedin-accounts", requireAuth, async (req: AuthenticatedR
   }
 });
 
-router.post("/replyio/webhook-receiver", (req: Request, res: Response) => {
-  const event = req.body?.eventType ?? req.body?.type ?? "unknown";
-  logger.info(`Reply.io webhook received: ${event}`);
+// ── WEBHOOK RECEIVER — real handler: persists events to Supabase ──
+// Payload shape confirmed against docs.reply.io/webhook-event-payloads:
+// { event: { id, type, date }, sequence_fields: { id }, contact_fields: { id, email } }
+router.post("/replyio/webhook-receiver", async (req: Request, res: Response) => {
+  const body = req.body as {
+    event?: { id?: string; type?: string; date?: string };
+    sequence_fields?: { id?: number };
+    contact_fields?: { id?: number; email?: string };
+  };
+
+  const eventId = body.event?.id;
+  const eventType = body.event?.type;
+
+  if (!eventId || !eventType) {
+    // Ack anyway — malformed payload isn't worth a retry storm from Reply's side
+    logger.warn(`Reply.io webhook received with missing event id/type: ${JSON.stringify(body).slice(0, 300)}`);
+    res.status(200).json({ received: true });
+    return;
+  }
+
+  try {
+    const { error } = await supabase.from("replyio_events").insert({
+      reply_event_id: eventId,
+      event_type: eventType,
+      sequence_id: body.sequence_fields?.id ?? null,
+      contact_id: body.contact_fields?.id ?? null,
+      contact_email: body.contact_fields?.email ?? null,
+      occurred_at: body.event?.date ?? new Date().toISOString(),
+      raw: body,
+    });
+    if (error) {
+      // Unique constraint violation on reply_event_id = duplicate delivery, not an error
+      logger.info(`Reply.io webhook ${eventId} (${eventType}) not inserted (likely duplicate): ${error.message}`);
+    } else {
+      logger.info(`Reply.io webhook stored: ${eventType} (seq ${body.sequence_fields?.id ?? "?"})`);
+    }
+  } catch (err: unknown) {
+    logger.error(`Reply.io webhook-receiver error: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
   res.status(200).json({ received: true });
 });
 

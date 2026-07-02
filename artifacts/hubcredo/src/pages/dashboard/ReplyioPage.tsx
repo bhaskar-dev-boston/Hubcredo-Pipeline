@@ -13,6 +13,27 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { replyioApi, ReplySequence, ReplySequenceContact, ReplyStats } from "../../lib/replyioApi";
+import { getToken } from "@/lib/auth";
+
+const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+async function liApiFetch<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+  });
+  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  return res.json();
+}
+
+interface LiStats {
+  totalPeopleContacted: number;
+  connectionsSent: number;
+  acceptedAutomatedConnections: number;
+  automatedConnectionsConversionRate: number;
+  messagesSent: number;
+  replies: number;
+  repliesConversionRate: number;
+}
 
 // ── useReplyio hook (inlined) ─────────────────────────────────
 
@@ -28,6 +49,7 @@ interface UseReplyioReturn {
   setSelectedSequenceId: (id: number | null) => void;
   sequenceContacts: ReplySequenceContact[];
   sequenceStats: ReplyStats | null;
+  liStats: LiStats | null;
   contactsLoading: boolean;
   fetchSequenceData: (id: number) => Promise<void>;
   enrolling: boolean;
@@ -62,6 +84,7 @@ function useReplyio(): UseReplyioReturn {
   const [selectedSequenceId, setSelectedSequenceId] = useState<number | null>(null);
   const [sequenceContacts, setSequenceContacts] = useState<ReplySequenceContact[]>([]);
   const [sequenceStats, setSequenceStats] = useState<ReplyStats | null>(null);
+  const [liStats, setLiStats] = useState<LiStats | null>(null);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
   const [pausingContactId, setPausingContactId] = useState<number | null>(null);
@@ -112,12 +135,14 @@ function useReplyio(): UseReplyioReturn {
   const fetchSequenceData = useCallback(async (id: number) => {
     setContactsLoading(true);
     try {
-      const [{ contacts }, stats] = await Promise.all([
+      const [{ contacts }, stats, liStatsData] = await Promise.all([
         replyioApi.listContacts(id),
         replyioApi.getStats(id).catch(() => null),
+        liApiFetch<LiStats>(`/api/replyio-linkedin/sequences/${id}/li-stats`).catch(() => null),
       ]);
       setSequenceContacts(contacts);
       setSequenceStats(stats);
+      setLiStats(liStatsData);
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : "Failed to load sequence data", "error");
     } finally {
@@ -189,7 +214,7 @@ function useReplyio(): UseReplyioReturn {
     isConnected, connectionLoading, connectedUser, checkConnection,
     sequences, sequencesLoading, fetchSequences,
     selectedSequenceId, setSelectedSequenceId,
-    sequenceContacts, sequenceStats, contactsLoading, fetchSequenceData,
+    sequenceContacts, sequenceStats, liStats, contactsLoading, fetchSequenceData,
     enrolling, enrollContact,
     pausingContactId, pauseContact,
     webhooks, webhooksLoading, fetchWebhooks, registeringWebhook, registerWebhook,
@@ -381,12 +406,13 @@ function ContactRow({ contact, sequenceId, onPause, pausing }: {
   contact: ReplySequenceContact; sequenceId: number;
   onPause: (seqId: number, contactId: number) => void; pausing: boolean;
 }) {
+  const s = contact.status ?? {};
   const flags = [
-    contact.status.replied   && { label: "Replied",   cls: "text-blue-600" },
-    contact.status.opened    && { label: "Opened",    cls: "text-violet-600" },
-    contact.status.clicked   && { label: "Clicked",   cls: "text-indigo-600" },
-    contact.status.bounced   && { label: "Bounced",   cls: "text-red-500" },
-    contact.status.delivered && !contact.status.opened && { label: "Delivered", cls: "text-gray-500" },
+    s.replied   && { label: "Replied",   cls: "text-blue-600" },
+    s.opened    && { label: "Opened",    cls: "text-violet-600" },
+    s.clicked   && { label: "Clicked",   cls: "text-indigo-600" },
+    s.bounced   && { label: "Bounced",   cls: "text-red-500" },
+    s.delivered && !s.opened && { label: "Delivered", cls: "text-gray-500" },
   ].filter(Boolean) as { label: string; cls: string }[];
 
   return (
@@ -404,8 +430,8 @@ function ContactRow({ contact, sequenceId, onPause, pausing }: {
         {flags.map((f) => (
           <span key={f.label} className={`text-xs font-medium hidden sm:inline ${f.cls}`}>{f.label}</span>
         ))}
-        <StatusBadge status={contact.status.status} />
-        {contact.id && contact.status.status !== "paused" && (
+        <StatusBadge status={s.status ?? "unknown"} />
+        {contact.id && s.status !== "paused" && (
           <button onClick={() => onPause(sequenceId, contact.id!)} disabled={pausing}
             title="Pause this contact"
             className="ml-1 text-gray-300 hover:text-amber-500 transition-colors disabled:opacity-50">
@@ -474,7 +500,7 @@ export default function ReplyioPage() {
     isConnected, connectionLoading, connectedUser,
     sequences, sequencesLoading, fetchSequences,
     selectedSequenceId, setSelectedSequenceId,
-    sequenceContacts, sequenceStats, contactsLoading,
+    sequenceContacts, sequenceStats, liStats, contactsLoading,
     enrolling, enrollContact,
     pausingContactId, pauseContact,
     webhooks, webhooksLoading, fetchWebhooks,
@@ -617,13 +643,30 @@ export default function ReplyioPage() {
             </div>
           ) : (
             <>
-              {sequenceStats && (
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                  <StatCard label="Total"   value={sequenceStats.total}   accent="text-gray-500" />
-                  <StatCard label="Active"  value={sequenceStats.active}  accent="text-violet-600" />
-                  <StatCard label="Replied" value={sequenceStats.replied} accent="text-blue-600" />
-                  <StatCard label="Opened"  value={sequenceStats.opened}  accent="text-indigo-600" />
-                  <StatCard label="Bounced" value={sequenceStats.bounced} accent="text-red-500" />
+              {liStats && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+                    <p className="text-2xl font-bold text-gray-800">{liStats.totalPeopleContacted}</p>
+                    <p className="text-xs text-gray-400 mt-1">Total contacted</p>
+                  </div>
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+                    <p className="text-2xl font-bold text-violet-600">{liStats.connectionsSent}</p>
+                    <p className="text-xs text-gray-400 mt-1">Connections sent</p>
+                  </div>
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+                    <p className="text-2xl font-bold text-violet-600">{liStats.acceptedAutomatedConnections}</p>
+                    <p className="text-xs text-violet-500 font-medium mt-0.5">{liStats.automatedConnectionsConversionRate.toFixed(2)}%</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Accepted / Rate</p>
+                  </div>
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+                    <p className="text-2xl font-bold text-gray-800">{liStats.messagesSent}</p>
+                    <p className="text-xs text-gray-400 mt-1">Messages sent</p>
+                  </div>
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center col-span-2 sm:col-span-1">
+                    <p className="text-2xl font-bold text-violet-600">{liStats.replies}</p>
+                    <p className="text-xs text-violet-500 font-medium mt-0.5">{liStats.repliesConversionRate.toFixed(2)}%</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Replies / Rate</p>
+                  </div>
                 </div>
               )}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">

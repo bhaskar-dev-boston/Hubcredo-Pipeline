@@ -1,5 +1,6 @@
 import { useLocation } from "wouter";
-import { ArrowRight, Users, Layers, Target, TrendingUp, Zap, Loader2, Globe } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowRight, Users, Layers, Target, TrendingUp, Zap, Loader2, Globe, Mail, Linkedin } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   useGetDashboardSummary,
@@ -14,6 +15,30 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import type { Icp, OutreachSettings } from "@workspace/api-client-react";
 import { CreditCostBadge } from "@/components/ui/CreditCostBadge";
+import { getToken } from "@/lib/auth";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function authFetch(path: string) {
+  return fetch(`${BASE}${path}`, {
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+  });
+}
+
+interface ReplyioSeq {
+  id: number;
+  name: string;
+  status: string;
+  isArchived: boolean;
+  type?: string;
+}
+
+interface ReplyioStats {
+  total: number;
+  opened: number;
+  replied: number;
+  bounced: number;
+}
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -26,6 +51,57 @@ export default function Dashboard() {
   const { data: me } = useGetMe();
   const createStack = useCreateStack();
   const triggerAnalysis = useTriggerAnalysis();
+
+  const [emailStats, setEmailStats] = useState<{ active: number; total: number; opened: number; replied: number } | null>(null);
+  const [liStats, setLiStats] = useState<{ active: number; total: number } | null>(null);
+  const [replyStatsLoading, setReplyStatsLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadReplyStats() {
+      setReplyStatsLoading(true);
+      try {
+        const [emailRes, liRes] = await Promise.all([
+          authFetch("/api/replyio/sequences"),
+          authFetch("/api/replyio-linkedin/sequences"),
+        ]);
+        if (!cancelled) {
+          if (emailRes.ok) {
+            const emailData = await emailRes.json();
+            const seqs: ReplyioSeq[] = emailData.sequences ?? [];
+            const emailSeqs = seqs.filter((s) => !s.isArchived && s.type !== "linkedin" && !/linkedin/i.test(s.name));
+            const active = emailSeqs.filter((s) => s.status === "active").length;
+            let totalContacted = 0;
+            let totalOpened = 0;
+            let totalReplied = 0;
+            await Promise.all(
+              emailSeqs.slice(0, 5).map(async (seq) => {
+                try {
+                  const sRes = await authFetch(`/api/replyio/sequences/${seq.id}/stats`);
+                  if (sRes.ok) {
+                    const s: ReplyioStats = await sRes.json();
+                    totalContacted += s.total ?? 0;
+                    totalOpened += s.opened ?? 0;
+                    totalReplied += s.replied ?? 0;
+                  }
+                } catch { /* ignore */ }
+              })
+            );
+            setEmailStats({ active, total: emailSeqs.length, opened: totalOpened, replied: totalReplied });
+          }
+          if (liRes.ok) {
+            const liData = await liRes.json();
+            const liSeqs: ReplyioSeq[] = liData.sequences ?? [];
+            const active = liSeqs.filter((s) => s.status === "active").length;
+            setLiStats({ active, total: liSeqs.length });
+          }
+        }
+      } catch { /* ignore — Reply.io may not be connected */ }
+      finally { if (!cancelled) setReplyStatsLoading(false); }
+    }
+    loadReplyStats();
+    return () => { cancelled = true; };
+  }, []);
 
   const currentIcp = (icps as Icp[])[0];
   const currentOutreach = outreachSettings as OutreachSettings | undefined;
@@ -57,6 +133,8 @@ export default function Dashboard() {
     { label: "Stack Tools", value: summary?.stack_tools_count ?? "—", icon: Layers, href: "/dashboard/stack", color: "text-[#6B4EFF]", bg: "bg-[#F5F3FF]" },
   ];
 
+  const replyioStatsLoading = replyStatsLoading;
+
   async function handleBuildStack() {
     if (!currentIcp || !currentOutreach) {
       toast({ title: "Setup required", description: "Complete your ICP and outreach settings first.", variant: "destructive" });
@@ -86,7 +164,7 @@ export default function Dashboard() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {stats.map(({ label, value, icon: Icon, href, color, bg }) => (
             <button
               key={label}
@@ -106,6 +184,101 @@ export default function Dashboard() {
             </button>
           ))}
         </div>
+
+        {/* Reply.io Stats Row */}
+        {(emailStats || liStats) && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+            {/* Email outreach stats */}
+            {emailStats && (
+              <button
+                onClick={() => setLocation("/dashboard/campaigns")}
+                className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-5 text-left hover:border-[#6B4EFF] hover:shadow-[0_4px_16px_rgba(107,78,255,0.12)] transition-all group shadow-sm"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-[#F0F9FF] rounded-lg flex items-center justify-center">
+                      <Mail className="w-4 h-4 text-[#0EA5E9]" />
+                    </div>
+                    <span className="text-xs font-semibold text-[#1E1B4B]">Email Outreach</span>
+                    <span className="text-[10px] text-[#9CA3AF]">via Reply.io</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {emailStats.active > 0 && (
+                      <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                        {emailStats.active} active
+                      </span>
+                    )}
+                    <ArrowRight className="w-4 h-4 text-[#6B7280] group-hover:text-[#6B4EFF] transition-colors" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <p className="text-xl font-bold text-[#1E1B4B]">{emailStats.total}</p>
+                    <p className="text-[10px] text-[#9CA3AF] mt-0.5">Sequences</p>
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-[#0EA5E9]">{emailStats.opened}</p>
+                    <p className="text-[10px] text-[#9CA3AF] mt-0.5">Opened</p>
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-emerald-600">{emailStats.replied}</p>
+                    <p className="text-[10px] text-[#9CA3AF] mt-0.5">Replied</p>
+                  </div>
+                </div>
+              </button>
+            )}
+
+            {/* LinkedIn outreach stats */}
+            {liStats && (
+              <button
+                onClick={() => setLocation("/dashboard/linkedin?tab=replyio")}
+                className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-5 text-left hover:border-[#6B4EFF] hover:shadow-[0_4px_16px_rgba(107,78,255,0.12)] transition-all group shadow-sm"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-[#EFF6FF] rounded-lg flex items-center justify-center">
+                      <Linkedin className="w-4 h-4 text-[#2563EB]" />
+                    </div>
+                    <span className="text-xs font-semibold text-[#1E1B4B]">LinkedIn Outreach</span>
+                    <span className="text-[10px] text-[#9CA3AF]">via Reply.io</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {liStats.active > 0 && (
+                      <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                        {liStats.active} active
+                      </span>
+                    )}
+                    <ArrowRight className="w-4 h-4 text-[#6B7280] group-hover:text-[#6B4EFF] transition-colors" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xl font-bold text-[#1E1B4B]">{liStats.total}</p>
+                    <p className="text-[10px] text-[#9CA3AF] mt-0.5">Sequences</p>
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-[#2563EB]">{liStats.active}</p>
+                    <p className="text-[10px] text-[#9CA3AF] mt-0.5">Active</p>
+                  </div>
+                </div>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Loading placeholder for Reply.io stats */}
+        {replyioStatsLoading && !emailStats && !liStats && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+            {[0, 1].map((i) => (
+              <div key={i} className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-5 shadow-sm animate-pulse">
+                <div className="h-4 bg-gray-100 rounded w-32 mb-4" />
+                <div className="grid grid-cols-3 gap-3">
+                  {[0, 1, 2].map((j) => <div key={j} className="h-6 bg-gray-100 rounded" />)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Analysis card */}

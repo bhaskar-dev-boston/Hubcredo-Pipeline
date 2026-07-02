@@ -4,12 +4,17 @@
 //   (drop it in src/lib/ alongside auth.ts)
 // ============================================================
 
-const BASE = "/api/replyio";
+import { getToken } from "@/lib/auth";
+
+const BASE = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/replyio`;
 
 async function apiFetch<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getToken()}`,
+    },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   const data = await res.json();

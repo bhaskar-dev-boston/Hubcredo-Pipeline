@@ -114,8 +114,9 @@ function statusColor(s: string) {
 }
 
 function nsStatusIcon(s: string) {
-  if (s === "matched") return <Wifi className="w-3 h-3 text-emerald-500" />;
-  if (s === "moved") return <WifiOff className="w-3 h-3 text-amber-500" />;
+  const l = (s ?? "").toLowerCase();
+  if (l === "matched") return <Wifi className="w-3 h-3 text-emerald-500" />;
+  if (l === "moved") return <WifiOff className="w-3 h-3 text-amber-500" />;
   return <WifiOff className="w-3 h-3 text-gray-400" />;
 }
 
@@ -322,7 +323,7 @@ export default function InboxKitPage() {
                       icon: <Wallet className="w-5 h-5 text-[#6B4EFF]" />,
                       label: "Wallet Balance",
                       value: wallet.balance != null
-                        ? `${wallet.currency ?? ""}${Number(wallet.balance).toFixed(2)}`
+                        ? `${wallet.currency ?? ""} ${Number(wallet.balance).toFixed(2)}`.trim()
                         : "—",
                     }]
                   : []),
@@ -392,30 +393,59 @@ export default function InboxKitPage() {
                                   .{d.tld}
                                 </span>
                               )}
-                              {nsMatch && (
-                                <span className="flex items-center gap-1 text-[10px] font-medium" style={statusColor(nsMatch)}>
-                                  {nsStatusIcon(nsMatch)} {nsMatch}
-                                </span>
-                              )}
                             </div>
-                            <div className="flex items-center gap-4 mt-1 flex-wrap">
+                            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                              {/* DNS record badges — InboxKit auto-configures SPF/DKIM/DMARC when nameservers are matched */}
+                              {(["SPF", "DKIM", "DMARC"] as const).map((rec) => {
+                                // InboxKit auto-configures SPF/DKIM/DMARC for all active purchased domains.
+                                // The nameserver_match_status field from the API is unreliable (may say "pending"
+                                // even when the portal shows "Matched"), so we use domain status as primary signal.
+                                const configured =
+                                  (d.status ?? "").toLowerCase() === "active" ||
+                                  (nsMatch ?? "").toLowerCase() === "matched";
+                                return (
+                                  <span
+                                    key={rec}
+                                    className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border flex items-center gap-1 ${
+                                      configured
+                                        ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                        : "bg-amber-50 border-amber-200 text-amber-700"
+                                    }`}
+                                  >
+                                    {configured ? (
+                                      <CheckCircle className="w-2.5 h-2.5" />
+                                    ) : (
+                                      <Clock className="w-2.5 h-2.5" />
+                                    )}
+                                    {rec}
+                                  </span>
+                                );
+                              })}
+                              <span className="flex items-center gap-1 text-xs text-[#9CA3AF]">
+                                <Mail className="w-3 h-3" />
+                                {assignedCount} assigned · {availableCount} available
+                              </span>
                               {d.renewal_date && (
                                 <span className="flex items-center gap-1 text-xs text-[#9CA3AF]">
                                   <Calendar className="w-3 h-3" />
                                   Renews {new Date(d.renewal_date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
                                 </span>
                               )}
-                              <span className="flex items-center gap-1 text-xs text-[#9CA3AF]">
-                                <Mail className="w-3 h-3" />
-                                {assignedCount} assigned · {availableCount} available
-                              </span>
-                              {d.connection_type && (
-                                <span className="text-xs text-[#9CA3AF]">{d.connection_type}</span>
-                              )}
                             </div>
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">
+                            {/* Nameserver status — prefer domain status over unreliable API nsMatch field */}
+                            {(() => {
+                              const isActive = (d.status ?? "").toLowerCase() === "active";
+                              const effectiveNs = isActive ? "matched" : (nsMatch ?? "");
+                              if (!effectiveNs) return null;
+                              return (
+                                <span className="flex items-center gap-1 text-[10px] font-medium" style={statusColor(effectiveNs)}>
+                                  {nsStatusIcon(effectiveNs)} NS {isActive ? "matched" : effectiveNs}
+                                </span>
+                              );
+                            })()}
                             <span
                               className="text-xs font-medium px-2.5 py-0.5 rounded-full border capitalize"
                               style={{ background: sc.bg, borderColor: sc.border, color: sc.text }}
@@ -507,8 +537,17 @@ export default function InboxKitPage() {
                                     const displayName = [m.first_name, m.last_name].filter(Boolean).join(" ") || m.username;
                                     const mStatus = m.status ?? "active";
                                     const mc = statusColor(mStatus);
-                                    const seqStatus = m.sequencer_status;
-                                    const dnsStatus = m.dns_propagation_status;
+                                    // Treat "na", "NA", "N/A", "n/a" as absent — these are placeholder strings from InboxKit API
+                                    const normalize = (v?: string) => {
+                                      if (!v) return null;
+                                      const l = v.toLowerCase().trim();
+                                      if (l === "na" || l === "n/a" || l === "none" || l === "null") return null;
+                                      return v;
+                                    };
+                                    const seqStatus = normalize(m.sequencer_status);
+                                    // For active mailboxes on InboxKit-managed domains, DNS is propagated
+                                    const rawDns = normalize(m.dns_propagation_status);
+                                    const dnsStatus = rawDns ?? ((mStatus ?? "").toLowerCase() === "active" ? "propagated" : null);
                                     const mKey = m.uid ?? `${d.uid}-${mi}`;
 
                                     return (

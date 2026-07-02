@@ -261,6 +261,20 @@ export default function Campaigns() {
   const [enrollFirst, setEnrollFirst] = useState("");
   const [enrollLast, setEnrollLast] = useState("");
   const [enrolling, setEnrolling] = useState(false);
+
+  // ── Reply.io campaign sub-tab: "email" | "linkedin" ──────
+  const [replyTab, setReplyTab] = useState<"email" | "linkedin">("email");
+
+  // ── LinkedIn sequences (from replyio-linkedin.ts) ─────────
+  const [liSeqs, setLiSeqs] = useState<ReplySeq[]>([]);
+  const [liSeqsLoading, setLiSeqsLoading] = useState(false);
+  const [liSelectedId, setLiSelectedId] = useState<number | null>(null);
+  const [liContacts, setLiContacts] = useState<ReplyContact[]>([]);
+  const [liDetailLoading, setLiDetailLoading] = useState(false);
+
+  // ── Connected email accounts (mailboxes) ─────────────────
+  const [emailAccounts, setEmailAccounts] = useState<Array<{ id: number; email: string; connectionStatus: string; alias?: string }>>([]);
+  const [emailAccountsLoading, setEmailAccountsLoading] = useState(false);
   
 
   // ── Reply.io wizard state ──────────────────────────────────
@@ -337,7 +351,6 @@ const [replyDeleteConfirmId, setReplyDeleteConfirmId] = useState<number | null>(
     try {
       const res = await apiFetch("/api/replyio/sequences");
       const data = await res.json();
-      // Filter out archived sequences, LinkedIn sequences (by type), and sequences with "linkedin" in the name
       setReplySeqs(
         (data.sequences || []).filter(
           (s: ReplySeq) =>
@@ -350,6 +363,40 @@ const [replyDeleteConfirmId, setReplyDeleteConfirmId] = useState<number | null>(
       toast({ title: "Failed to load Reply.io sequences", variant: "destructive" });
     } finally {
       setReplySeqsLoading(false);
+    }
+  }
+
+  async function loadLinkedInSeqs() {
+    setLiSeqsLoading(true);
+    try {
+      const res = await apiFetch("/api/replyio-linkedin/sequences");
+      const data = await res.json();
+      setLiSeqs(data.sequences ?? []);
+    } catch {
+      toast({ title: "Failed to load LinkedIn sequences", variant: "destructive" });
+    } finally {
+      setLiSeqsLoading(false);
+    }
+  }
+
+  async function loadEmailAccounts() {
+    setEmailAccountsLoading(true);
+    try {
+      const res = await apiFetch("/api/replyio/email-accounts");
+      const data = await res.json();
+      setEmailAccounts(data.accounts ?? []);
+    } catch { /* ignore */ }
+    finally { setEmailAccountsLoading(false); }
+  }
+
+  async function loadLinkedInDetail(id: number) {
+    setLiSelectedId(id);
+    setLiDetailLoading(true);
+    try {
+      const cRes = await apiFetch(`/api/replyio/sequences/${id}/contacts`);
+      if (cRes.ok) setLiContacts((await cRes.json()).contacts ?? []);
+    } finally {
+      setLiDetailLoading(false);
     }
   }
 
@@ -395,7 +442,11 @@ const [replyDeleteConfirmId, setReplyDeleteConfirmId] = useState<number | null>(
 
   function handleToggleReplyMode(on: boolean) {
     setReplyMode(on);
-    if (on && replySeqs.length === 0) loadReplySeqs();
+    if (on) {
+      if (replySeqs.length === 0) loadReplySeqs();
+      if (liSeqs.length === 0) loadLinkedInSeqs();
+      if (emailAccounts.length === 0) loadEmailAccounts();
+    }
   }
 
   function resetReplyWizard() { setReplyWizStep(1); setReplyWizName(""); setReplyWizSteps([]); setReplyWizListId(""); }
@@ -852,6 +903,48 @@ async function handleConfirmLaunch() {
         {/* ── Reply.io Mode ── */}
         {replyMode && (
           <div className="space-y-4">
+            {/* Connected mailboxes */}
+            {(emailAccounts.length > 0 || emailAccountsLoading) && (
+              <div className="bg-white border border-[#E5E7EB] rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Mail className="w-4 h-4 text-[#5B4FE8]" />
+                  <p className="text-xs font-semibold text-[#1a1a2e]">Connected Mailboxes</p>
+                  {emailAccountsLoading && <Loader2 className="w-3 h-3 animate-spin text-[#9CA3AF]" />}
+                </div>
+                {emailAccounts.length === 0 && !emailAccountsLoading ? null : (
+                  <div className="flex flex-wrap gap-2">
+                    {emailAccounts.map((acc) => (
+                      <div key={acc.id} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${acc.connectionStatus === "connected" ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-gray-50 border-gray-200 text-gray-500"}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${acc.connectionStatus === "connected" ? "bg-emerald-500" : "bg-gray-400"}`} />
+                        {acc.alias || acc.email}
+                        {acc.connectionStatus !== "connected" && <span className="text-[10px] text-gray-400 ml-0.5">({acc.connectionStatus})</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Sub-tabs: Email / LinkedIn */}
+            <div className="flex items-center gap-1 p-1 bg-white border border-[#E5E7EB] rounded-xl shadow-sm w-fit">
+              <button
+                onClick={() => setReplyTab("email")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${replyTab === "email" ? "bg-[#5B4FE8] text-white shadow-sm" : "text-[#6B7280] hover:text-[#1a1a2e]"}`}
+              >
+                <Mail className="w-3 h-3" /> Email ({replySeqs.length})
+              </button>
+              <button
+                onClick={() => { setReplyTab("linkedin"); if (liSeqs.length === 0) loadLinkedInSeqs(); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${replyTab === "linkedin" ? "bg-[#5B4FE8] text-white shadow-sm" : "text-[#6B7280] hover:text-[#1a1a2e]"}`}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"/><circle cx="4" cy="4" r="2"/></svg>
+                LinkedIn ({liSeqs.length})
+              </button>
+            </div>
+
+            {/* Email tab */}
+            {replyTab === "email" && (
+            <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-[#9CA3AF] uppercase tracking-widest font-medium">Reply.io Email Sequences</p>
@@ -1024,6 +1117,97 @@ async function handleConfirmLaunch() {
               </div>
             )}
           </div>
+          )}
+          {/* ── LinkedIn tab ── */}
+          {replyTab === "linkedin" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-[#9CA3AF] uppercase tracking-widest font-medium">Reply.io LinkedIn Sequences</p>
+                  <p className="text-xs text-[#6B7280] mt-0.5">Manage LinkedIn outreach sequences running in Reply.io</p>
+                </div>
+                <button onClick={loadLinkedInSeqs} className="flex items-center gap-1 text-xs text-[#5B4FE8] hover:text-[#4A3FD6]">
+                  <RefreshCw className="w-3 h-3" /> Refresh
+                </button>
+              </div>
+
+              {liSeqsLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="w-5 h-5 animate-spin text-[#5B4FE8]" />
+                </div>
+              ) : liSeqs.length === 0 ? (
+                <div className="bg-white border border-[#E5E7EB] rounded-xl p-8 text-center">
+                  <p className="text-sm text-[#9CA3AF]">No LinkedIn sequences found</p>
+                  <p className="text-xs text-[#9CA3AF] mt-1">Connect a LinkedIn account in Reply.io to get started</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Sequence list */}
+                  <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden">
+                    <div className="divide-y divide-[#F3F4F6]">
+                      {liSeqs.map((seq) => (
+                        <button
+                          key={seq.id}
+                          onClick={() => loadLinkedInDetail(seq.id)}
+                          className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[#FAFAFE] ${liSelectedId === seq.id ? "bg-[#F5F3FF] border-l-2 border-[#5B4FE8]" : ""}`}
+                        >
+                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${seq.status === "active" ? "bg-emerald-400" : "bg-gray-300"}`} />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-[#1a1a2e] truncate">{seq.name}</p>
+                            <p className="text-[10px] text-[#9CA3AF] capitalize mt-0.5">{seq.status ?? "unknown"}</p>
+                          </div>
+                          <ChevronRight className="w-3 h-3 text-[#9CA3AF] flex-shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* LinkedIn sequence detail */}
+                  {liSelectedId && (
+                    <div className="space-y-3">
+                      {liDetailLoading ? (
+                        <div className="flex items-center justify-center py-10 bg-white border border-[#E5E7EB] rounded-xl">
+                          <Loader2 className="w-5 h-5 animate-spin text-[#5B4FE8]" />
+                        </div>
+                      ) : (
+                        <div className="bg-white border border-[#E5E7EB] rounded-xl p-4">
+                          <p className="text-sm font-semibold text-[#1a1a2e] mb-3">
+                            {liSeqs.find((s) => s.id === liSelectedId)?.name}
+                            <span className="ml-2 text-xs text-[#9CA3AF] font-normal">{liContacts.length} contacts</span>
+                          </p>
+                          {liContacts.length === 0 ? (
+                            <div className="text-center py-6">
+                              <p className="text-sm text-[#9CA3AF]">No contacts in this sequence</p>
+                            </div>
+                          ) : (
+                            <div className="divide-y divide-[#F3F4F6]">
+                              {liContacts.map((c) => (
+                                <div key={c.email} className="flex items-center justify-between py-2.5 gap-3">
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="w-7 h-7 rounded-full bg-[#EFF6FF] flex items-center justify-center text-xs font-semibold text-[#2563EB] flex-shrink-0">
+                                      {(c.firstName?.[0] ?? c.email?.[0] ?? "?").toUpperCase()}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-medium text-[#1a1a2e] truncate">{c.firstName} {c.lastName}</p>
+                                      <p className="text-[11px] text-[#9CA3AF] truncate">{c.email}</p>
+                                    </div>
+                                  </div>
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium capitalize flex-shrink-0 ${c.status?.status === "active" ? "bg-emerald-50 text-emerald-700" : c.status?.status === "finished" ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-500"}`}>
+                                    {c.status?.status?.replace(/_/g, " ") ?? "unknown"}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         )}
 
         {/* ── Native Mode ── */}

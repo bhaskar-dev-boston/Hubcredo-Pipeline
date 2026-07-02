@@ -72,13 +72,13 @@ interface InstantlyLead {
   timestamp_created?: string;
 }
 
-// ── Reply.io types ────────────────────────────────────────────
+// ── Reply.io types (email only) ───────────────────────────────
 interface ReplySeq {
   id: number;
   name: string;
   status: "active" | "paused" | "stopped";
   isArchived: boolean;
-  type?: string; // "email" | "linkedin" etc.
+  channel?: "email" | "linkedin";
 }
 
 interface ReplyContact {
@@ -243,10 +243,8 @@ export default function Campaigns() {
   const [leadsCursor, setLeadsCursor] = useState<string | undefined>(undefined);
   const [leadsHasMore, setLeadsHasMore] = useState(false);
   const [leadsCursorStack, setLeadsCursorStack] = useState<string[]>([]);
-  
 
-
-  // ── Reply.io state ────────────────────────────────────────
+  // ── Reply.io state (email only) ───────────────────────────
   const [replyMode, setReplyMode] = useState(false);
   const [replyConnected, setReplyConnected] = useState(false);
   const [replySeqs, setReplySeqs] = useState<ReplySeq[]>([]);
@@ -262,20 +260,9 @@ export default function Campaigns() {
   const [enrollLast, setEnrollLast] = useState("");
   const [enrolling, setEnrolling] = useState(false);
 
-  // ── Reply.io campaign sub-tab: "email" | "linkedin" ──────
-  const [replyTab, setReplyTab] = useState<"email" | "linkedin">("email");
-
-  // ── LinkedIn sequences (from replyio-linkedin.ts) ─────────
-  const [liSeqs, setLiSeqs] = useState<ReplySeq[]>([]);
-  const [liSeqsLoading, setLiSeqsLoading] = useState(false);
-  const [liSelectedId, setLiSelectedId] = useState<number | null>(null);
-  const [liContacts, setLiContacts] = useState<ReplyContact[]>([]);
-  const [liDetailLoading, setLiDetailLoading] = useState(false);
-
   // ── Connected email accounts (mailboxes) ─────────────────
   const [emailAccounts, setEmailAccounts] = useState<Array<{ id: number; email: string; connectionStatus: string; alias?: string }>>([]);
   const [emailAccountsLoading, setEmailAccountsLoading] = useState(false);
-  
 
   // ── Reply.io wizard state ──────────────────────────────────
   const [replyWizard, setReplyWizard] = useState(false);
@@ -287,7 +274,7 @@ export default function Campaigns() {
   const [replyActivatingId, setReplyActivatingId] = useState<number | null>(null);
   const [replyPausingId, setReplyPausingId] = useState<number | null>(null);
   const [replyDeletingId, setReplyDeletingId] = useState<number | null>(null);
-const [replyDeleteConfirmId, setReplyDeleteConfirmId] = useState<number | null>(null);
+  const [replyDeleteConfirmId, setReplyDeleteConfirmId] = useState<number | null>(null);
   const [replyEnrollListId, setReplyEnrollListId] = useState("");
   const [replyEnrollingList, setReplyEnrollingList] = useState(false);
 
@@ -305,9 +292,6 @@ const [replyDeleteConfirmId, setReplyDeleteConfirmId] = useState<number | null>(
   const [launchSelectedEmailId, setLaunchSelectedEmailId] = useState<number | null>(null);
   const [launchConfirming, setLaunchConfirming] = useState(false);
   const [launchEmailsPerDay, setLaunchEmailsPerDay] = useState<number>(200);
-
-  // ── Sequence steps preview ────────────────────────────────
-  const [replySeqSteps, setReplySeqSteps] = useState<Array<{ id: number; type: string; delayInMinutes?: number; variants?: Array<{ subject?: string; message?: string }> }>>([]);
 
   // ── Saved templates ────────────────────────────────────────
   interface SavedTemplate { id: string; name: string; steps: CampaignSequence[]; created_at: string; }
@@ -345,7 +329,7 @@ const [replyDeleteConfirmId, setReplyDeleteConfirmId] = useState<number | null>(
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // ── Reply.io functions ────────────────────────────────────
+  // ── Reply.io functions (email only) ───────────────────────
   async function loadReplySeqs() {
     setReplySeqsLoading(true);
     try {
@@ -353,10 +337,7 @@ const [replyDeleteConfirmId, setReplyDeleteConfirmId] = useState<number | null>(
       const data = await res.json();
       setReplySeqs(
         (data.sequences || []).filter(
-          (s: ReplySeq) =>
-            !s.isArchived &&
-            s.type !== "linkedin" &&
-            !/linkedin/i.test(s.name)
+          (s: ReplySeq) => !s.isArchived && s.channel !== "linkedin"
         )
       );
     } catch {
@@ -365,20 +346,6 @@ const [replyDeleteConfirmId, setReplyDeleteConfirmId] = useState<number | null>(
       setReplySeqsLoading(false);
     }
   }
-
-  async function loadLinkedInSeqs() {
-    setLiSeqsLoading(true);
-    try {
-      const res = await apiFetch("/api/replyio-linkedin/sequences");
-      const data = await res.json();
-      setLiSeqs(data.sequences ?? []);
-    } catch {
-      toast({ title: "Failed to load LinkedIn sequences", variant: "destructive" });
-    } finally {
-      setLiSeqsLoading(false);
-    }
-  }
-
   async function loadEmailAccounts() {
     setEmailAccountsLoading(true);
     try {
@@ -389,21 +356,10 @@ const [replyDeleteConfirmId, setReplyDeleteConfirmId] = useState<number | null>(
     finally { setEmailAccountsLoading(false); }
   }
 
-  async function loadLinkedInDetail(id: number) {
-    setLiSelectedId(id);
-    setLiDetailLoading(true);
-    try {
-      const cRes = await apiFetch(`/api/replyio/sequences/${id}/contacts`);
-      if (cRes.ok) setLiContacts((await cRes.json()).contacts ?? []);
-    } finally {
-      setLiDetailLoading(false);
-    }
-  }
-
   async function loadReplyDetail(id: number) {
     setReplySelectedId(id);
     setReplyDetailLoading(true);
-    
+
     try {
       const [cRes, sRes] = await Promise.all([
         apiFetch(`/api/replyio/sequences/${id}/contacts`),
@@ -444,7 +400,6 @@ const [replyDeleteConfirmId, setReplyDeleteConfirmId] = useState<number | null>(
     setReplyMode(on);
     if (on) {
       if (replySeqs.length === 0) loadReplySeqs();
-      if (liSeqs.length === 0) loadLinkedInSeqs();
       if (emailAccounts.length === 0) loadEmailAccounts();
     }
   }
@@ -540,8 +495,8 @@ const [replyDeleteConfirmId, setReplyDeleteConfirmId] = useState<number | null>(
     try {
       const res = await apiFetch(`/api/leads?lead_list_id=${lid}&limit=1`);
       const data = await res.json();
-      const leads = Array.isArray(data) ? data : data.leads ?? data.items ?? data;
-      const lead = leads[0] ?? null;
+      const leadsArr = Array.isArray(data) ? data : data.leads ?? data.items ?? data;
+      const lead = leadsArr[0] ?? null;
       if (!lead) {
         toast({ title: "No leads in list", description: "Upload or generate leads first.", variant: "destructive" });
         return;
@@ -614,61 +569,62 @@ const [replyDeleteConfirmId, setReplyDeleteConfirmId] = useState<number | null>(
   }
 
   async function openLaunchModal(seqId: number) {
-  setLaunchSeqId(seqId);
-  setLaunchSelectedEmailId(null);
-  setLaunchListId("");
-  setLaunchEmailsPerDay(200);   // ← add this line
-  setLaunchModalOpen(true);
-  setLaunchEmailAccountsLoading(true);
-  try {
-    const res = await apiFetch("/api/replyio/email-accounts");
-    const data = await res.json();
-    setLaunchEmailAccounts(data.accounts ?? []);
-  } catch {
-    toast({ title: "Could not load email accounts", variant: "destructive" });
-  } finally {
-    setLaunchEmailAccountsLoading(false);
-  }
-}
-
-async function handleConfirmLaunch() {
-  if (!launchSeqId) return;
-  setLaunchConfirming(true);
-  try {
-    // Step 1: update emailsCountPerDay before activating
-    const settingsRes = await apiFetch(`/api/replyio/sequences/${launchSeqId}/settings`, {
-      method: "PATCH",
-      body: JSON.stringify({ emailsCountPerDay: launchEmailsPerDay }),
-    });
-    if (!settingsRes.ok) {
-      const d = await settingsRes.json();
-      throw new Error(d.error ?? "Failed to update email limit");
+    setLaunchSeqId(seqId);
+    setLaunchSelectedEmailId(null);
+    setLaunchListId("");
+    setLaunchEmailsPerDay(200);
+    setLaunchModalOpen(true);
+    setLaunchEmailAccountsLoading(true);
+    try {
+      const res = await apiFetch("/api/replyio/email-accounts");
+      const data = await res.json();
+      setLaunchEmailAccounts(data.accounts ?? []);
+    } catch {
+      toast({ title: "Could not load email accounts", variant: "destructive" });
+    } finally {
+      setLaunchEmailAccountsLoading(false);
     }
-
-    // Step 2: activate (assign email account + enroll leads + start)
-    const res = await apiFetch(`/api/replyio/sequences/${launchSeqId}/activate`, {
-      method: "POST",
-      body: JSON.stringify({
-        emailAccountId: launchSelectedEmailId ?? undefined,
-        lead_list_id: launchListId || undefined,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-    setReplySeqs((prev) => prev.map((s) => s.id === launchSeqId ? { ...s, status: "active" } : s));
-    toast({
-      title: "Sequence launched! 🚀",
-      description: data.enrolled
-        ? `Sending via ${data.emailAccount} · ${data.enrolled}/${data.total} leads enrolled · ${launchEmailsPerDay} emails/day`
-        : `Sending via ${data.emailAccount} · ${launchEmailsPerDay} emails/day`,
-    });
-    setLaunchModalOpen(false);
-  } catch (err) {
-    toast({ title: "Launch failed", description: err instanceof Error ? err.message : "Error", variant: "destructive" });
-  } finally {
-    setLaunchConfirming(false);
   }
-}
+
+  async function handleConfirmLaunch() {
+    if (!launchSeqId) return;
+    setLaunchConfirming(true);
+    try {
+      // Step 1: update emailsCountPerDay before activating
+      const settingsRes = await apiFetch(`/api/replyio/sequences/${launchSeqId}/settings`, {
+        method: "PATCH",
+        body: JSON.stringify({ emailsCountPerDay: launchEmailsPerDay }),
+      });
+      if (!settingsRes.ok) {
+        const d = await settingsRes.json();
+        throw new Error(d.error ?? "Failed to update email limit");
+      }
+
+      // Step 2: activate (assign email account + enroll leads + start)
+      const res = await apiFetch(`/api/replyio/sequences/${launchSeqId}/activate`, {
+        method: "POST",
+        body: JSON.stringify({
+          emailAccountId: launchSelectedEmailId ?? undefined,
+          lead_list_id: launchListId || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setReplySeqs((prev) => prev.map((s) => s.id === launchSeqId ? { ...s, status: "active" } : s));
+      toast({
+        title: "Sequence launched! 🚀",
+        description: data.enrolled
+          ? `Sending via ${data.emailAccount} · ${data.enrolled}/${data.total} leads enrolled · ${launchEmailsPerDay} emails/day`
+          : `Sending via ${data.emailAccount} · ${launchEmailsPerDay} emails/day`,
+      });
+      setLaunchModalOpen(false);
+    } catch (err) {
+      toast({ title: "Launch failed", description: err instanceof Error ? err.message : "Error", variant: "destructive" });
+    } finally {
+      setLaunchConfirming(false);
+    }
+  }
+
   async function handlePauseReply(id: number) {
     setReplyPausingId(id);
     try {
@@ -681,17 +637,17 @@ async function handleConfirmLaunch() {
   }
 
   async function handleDeleteReplySeq(id: number) {
-  setReplyDeletingId(id);
-  try {
-    const res = await apiFetch(`/api/replyio/sequences/${id}`, { method: "DELETE" });
-    if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
-    setReplySeqs((prev) => prev.filter((s) => s.id !== id));
-    if (replySelectedId === id) { setReplySelectedId(null); setReplyContacts([]); setReplyStats(null); }
-    setReplyDeleteConfirmId(null);
-    toast({ title: "Sequence deleted." });
-  } catch (err) { toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" }); }
-  finally { setReplyDeletingId(null); }
-}
+    setReplyDeletingId(id);
+    try {
+      const res = await apiFetch(`/api/replyio/sequences/${id}`, { method: "DELETE" });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+      setReplySeqs((prev) => prev.filter((s) => s.id !== id));
+      if (replySelectedId === id) { setReplySelectedId(null); setReplyContacts([]); setReplyStats(null); }
+      setReplyDeleteConfirmId(null);
+      toast({ title: "Sequence deleted." });
+    } catch (err) { toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" }); }
+    finally { setReplyDeletingId(null); }
+  }
 
   async function handleEnrollListToSeq(seqId: number, listId: string) {
     if (!listId) { toast({ title: "Select a lead list first", variant: "destructive" }); return; }
@@ -900,7 +856,7 @@ async function handleConfirmLaunch() {
           </div>
         </div>
 
-        {/* ── Reply.io Mode ── */}
+        {/* ── Reply.io Mode (Email only) ── */}
         {replyMode && (
           <div className="space-y-4">
             {/* Connected mailboxes */}
@@ -925,26 +881,6 @@ async function handleConfirmLaunch() {
               </div>
             )}
 
-            {/* Sub-tabs: Email / LinkedIn */}
-            <div className="flex items-center gap-1 p-1 bg-white border border-[#E5E7EB] rounded-xl shadow-sm w-fit">
-              <button
-                onClick={() => setReplyTab("email")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${replyTab === "email" ? "bg-[#5B4FE8] text-white shadow-sm" : "text-[#6B7280] hover:text-[#1a1a2e]"}`}
-              >
-                <Mail className="w-3 h-3" /> Email ({replySeqs.length})
-              </button>
-              <button
-                onClick={() => { setReplyTab("linkedin"); if (liSeqs.length === 0) loadLinkedInSeqs(); }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${replyTab === "linkedin" ? "bg-[#5B4FE8] text-white shadow-sm" : "text-[#6B7280] hover:text-[#1a1a2e]"}`}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"/><circle cx="4" cy="4" r="2"/></svg>
-                LinkedIn ({liSeqs.length})
-              </button>
-            </div>
-
-            {/* Email tab */}
-            {replyTab === "email" && (
-            <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-[#9CA3AF] uppercase tracking-widest font-medium">Reply.io Email Sequences</p>
@@ -1004,24 +940,24 @@ async function handleConfirmLaunch() {
                         </span>
                       </button>
                       <div className="flex items-center gap-1 px-4 pb-2">
-  {seq.status !== "active" ? (
-    <button onClick={(e) => { e.stopPropagation(); openLaunchModal(seq.id); }} disabled={replyActivatingId === seq.id}
-  className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:text-emerald-700 disabled:opacity-50">
-  <Play className="w-2.5 h-2.5" /> Launch
-</button>
-  ) : (
-    <button onClick={() => handlePauseReply(seq.id)} disabled={replyPausingId === seq.id}
-      className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 hover:text-amber-700 disabled:opacity-50">
-      {replyPausingId === seq.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Pause className="w-2.5 h-2.5" />} Pause
-    </button>
-  )}
-  <button
-    onClick={(e) => { e.stopPropagation(); setReplyDeleteConfirmId(seq.id); }}
-    className="ml-auto flex items-center gap-1 text-[10px] font-semibold text-[#9CA3AF] hover:text-red-500 transition-colors"
-  >
-    <Trash2 className="w-2.5 h-2.5" /> Delete
-  </button>
-</div>
+                        {seq.status !== "active" ? (
+                          <button onClick={(e) => { e.stopPropagation(); openLaunchModal(seq.id); }} disabled={replyActivatingId === seq.id}
+                            className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:text-emerald-700 disabled:opacity-50">
+                            <Play className="w-2.5 h-2.5" /> Launch
+                          </button>
+                        ) : (
+                          <button onClick={() => handlePauseReply(seq.id)} disabled={replyPausingId === seq.id}
+                            className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 hover:text-amber-700 disabled:opacity-50">
+                            {replyPausingId === seq.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Pause className="w-2.5 h-2.5" />} Pause
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setReplyDeleteConfirmId(seq.id); }}
+                          className="ml-auto flex items-center gap-1 text-[10px] font-semibold text-[#9CA3AF] hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 className="w-2.5 h-2.5" /> Delete
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1036,24 +972,24 @@ async function handleConfirmLaunch() {
                     <div className="flex justify-center py-16"><Loader2 className="w-5 h-5 animate-spin text-[#5B4FE8]" /></div>
                   ) : (
                     <div className="space-y-3">
-                     
-{replyStats && (
-  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-    {[
-      { label: "Contacted",  value: replyStats.total,     sub: null,                                                        color: "text-[#1a1a2e]" },
-{ label: "Delivered",  value: replyStats.delivered, sub: `${(replyStats.deliveredPercentage ?? 0).toFixed(0)}%`, color: "text-[#5B4FE8]" },
-{ label: "Opened",     value: replyStats.opened,    sub: `${(replyStats.openedPercentage    ?? 0).toFixed(0)}%`, color: "text-indigo-600" },
-{ label: "Replied",    value: replyStats.replied,   sub: `${(replyStats.repliedPercentage   ?? 0).toFixed(0)}%`, color: "text-blue-600" },
-{ label: "Bounced",    value: replyStats.bounced,   sub: `${(replyStats.bouncedPercentage   ?? 0).toFixed(0)}%`, color: "text-red-500" },
-    ].map(({ label, value, sub, color }) => (
-      <div key={label} className="bg-white border border-[#E5E7EB] rounded-xl p-3 text-center">
-        <p className={`text-xl font-bold ${color}`}>{value}</p>
-        {sub && <p className="text-xs font-semibold text-[#5B4FE8]">{sub}</p>}
-        <p className="text-[10px] text-[#9CA3AF] mt-0.5">{label}</p>
-      </div>
-    ))}
-  </div>
-)}
+
+                      {replyStats && (
+                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                          {[
+                            { label: "Contacted",  value: replyStats.total,     sub: null,                                                        color: "text-[#1a1a2e]" },
+                            { label: "Delivered",  value: replyStats.delivered, sub: `${(replyStats.deliveredPercentage ?? 0).toFixed(0)}%`, color: "text-[#5B4FE8]" },
+                            { label: "Opened",     value: replyStats.opened,    sub: `${(replyStats.openedPercentage    ?? 0).toFixed(0)}%`, color: "text-indigo-600" },
+                            { label: "Replied",    value: replyStats.replied,   sub: `${(replyStats.repliedPercentage   ?? 0).toFixed(0)}%`, color: "text-blue-600" },
+                            { label: "Bounced",    value: replyStats.bounced,   sub: `${(replyStats.bouncedPercentage   ?? 0).toFixed(0)}%`, color: "text-red-500" },
+                          ].map(({ label, value, sub, color }) => (
+                            <div key={label} className="bg-white border border-[#E5E7EB] rounded-xl p-3 text-center">
+                              <p className={`text-xl font-bold ${color}`}>{value}</p>
+                              {sub && <p className="text-xs font-semibold text-[#5B4FE8]">{sub}</p>}
+                              <p className="text-[10px] text-[#9CA3AF] mt-0.5">{label}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       {/* Bulk enroll from lead list */}
                       <div className="bg-white border border-[#E5E7EB] rounded-xl p-4">
                         <p className="text-xs font-semibold text-[#1a1a2e] mb-2">Enroll from lead list</p>
@@ -1117,97 +1053,6 @@ async function handleConfirmLaunch() {
               </div>
             )}
           </div>
-          )}
-          {/* ── LinkedIn tab ── */}
-          {replyTab === "linkedin" && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-[#9CA3AF] uppercase tracking-widest font-medium">Reply.io LinkedIn Sequences</p>
-                  <p className="text-xs text-[#6B7280] mt-0.5">Manage LinkedIn outreach sequences running in Reply.io</p>
-                </div>
-                <button onClick={loadLinkedInSeqs} className="flex items-center gap-1 text-xs text-[#5B4FE8] hover:text-[#4A3FD6]">
-                  <RefreshCw className="w-3 h-3" /> Refresh
-                </button>
-              </div>
-
-              {liSeqsLoading ? (
-                <div className="flex items-center justify-center py-10">
-                  <Loader2 className="w-5 h-5 animate-spin text-[#5B4FE8]" />
-                </div>
-              ) : liSeqs.length === 0 ? (
-                <div className="bg-white border border-[#E5E7EB] rounded-xl p-8 text-center">
-                  <p className="text-sm text-[#9CA3AF]">No LinkedIn sequences found</p>
-                  <p className="text-xs text-[#9CA3AF] mt-1">Connect a LinkedIn account in Reply.io to get started</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* Sequence list */}
-                  <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden">
-                    <div className="divide-y divide-[#F3F4F6]">
-                      {liSeqs.map((seq) => (
-                        <button
-                          key={seq.id}
-                          onClick={() => loadLinkedInDetail(seq.id)}
-                          className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[#FAFAFE] ${liSelectedId === seq.id ? "bg-[#F5F3FF] border-l-2 border-[#5B4FE8]" : ""}`}
-                        >
-                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${seq.status === "active" ? "bg-emerald-400" : "bg-gray-300"}`} />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-semibold text-[#1a1a2e] truncate">{seq.name}</p>
-                            <p className="text-[10px] text-[#9CA3AF] capitalize mt-0.5">{seq.status ?? "unknown"}</p>
-                          </div>
-                          <ChevronRight className="w-3 h-3 text-[#9CA3AF] flex-shrink-0" />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* LinkedIn sequence detail */}
-                  {liSelectedId && (
-                    <div className="space-y-3">
-                      {liDetailLoading ? (
-                        <div className="flex items-center justify-center py-10 bg-white border border-[#E5E7EB] rounded-xl">
-                          <Loader2 className="w-5 h-5 animate-spin text-[#5B4FE8]" />
-                        </div>
-                      ) : (
-                        <div className="bg-white border border-[#E5E7EB] rounded-xl p-4">
-                          <p className="text-sm font-semibold text-[#1a1a2e] mb-3">
-                            {liSeqs.find((s) => s.id === liSelectedId)?.name}
-                            <span className="ml-2 text-xs text-[#9CA3AF] font-normal">{liContacts.length} contacts</span>
-                          </p>
-                          {liContacts.length === 0 ? (
-                            <div className="text-center py-6">
-                              <p className="text-sm text-[#9CA3AF]">No contacts in this sequence</p>
-                            </div>
-                          ) : (
-                            <div className="divide-y divide-[#F3F4F6]">
-                              {liContacts.map((c) => (
-                                <div key={c.email} className="flex items-center justify-between py-2.5 gap-3">
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className="w-7 h-7 rounded-full bg-[#EFF6FF] flex items-center justify-center text-xs font-semibold text-[#2563EB] flex-shrink-0">
-                                      {(c.firstName?.[0] ?? c.email?.[0] ?? "?").toUpperCase()}
-                                    </div>
-                                    <div className="min-w-0">
-                                      <p className="text-xs font-medium text-[#1a1a2e] truncate">{c.firstName} {c.lastName}</p>
-                                      <p className="text-[11px] text-[#9CA3AF] truncate">{c.email}</p>
-                                    </div>
-                                  </div>
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium capitalize flex-shrink-0 ${c.status?.status === "active" ? "bg-emerald-50 text-emerald-700" : c.status?.status === "finished" ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-500"}`}>
-                                    {c.status?.status?.replace(/_/g, " ") ?? "unknown"}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
         )}
 
         {/* ── Native Mode ── */}
@@ -2153,188 +1998,187 @@ async function handleConfirmLaunch() {
       )}
 
       {/* Reply.io Delete Sequence confirm */}
-{replyDeleteConfirmId !== null && (
-  <>
-    <div className="fixed inset-0 bg-black/20 z-50 backdrop-blur-[2px]" onClick={() => setReplyDeleteConfirmId(null)} />
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-[#E5E7EB] rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
-        <div className="flex items-start gap-4">
-          <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center shrink-0">
-            <AlertCircle className="w-5 h-5 text-red-500" />
-          </div>
-          <div>
-            <p className="text-[#1a1a2e] font-semibold text-base">Delete sequence?</p>
-            <p className="text-[#6B7280] text-sm mt-1">
-              This will permanently delete the sequence and all its contacts from Reply.io.
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <button onClick={() => setReplyDeleteConfirmId(null)} className={`flex-1 py-2.5 ${btnBack}`}>Cancel</button>
-          <button
-            onClick={() => handleDeleteReplySeq(replyDeleteConfirmId!)}
-            disabled={replyDeletingId === replyDeleteConfirmId}
-            className="flex-1 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {replyDeletingId === replyDeleteConfirmId
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Deleting…</>
-              : <><Trash2 className="w-4 h-4" /> Yes, delete</>}
-          </button>
-        </div>
-      </div>
-    </div>
-  </>
-)}
-
-
-{/* Launch modal — mailbox picker */}
-{/* Launch modal — mailbox picker */}
-{launchModalOpen && (
-  <>
-    <div className="fixed inset-0 bg-black/20 z-50 backdrop-blur-[2px]" onClick={() => !launchConfirming && setLaunchModalOpen(false)} />
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-[#E5E7EB] rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 bg-[#F5F3FF] rounded-xl flex items-center justify-center shrink-0">
-            <Send className="w-5 h-5 text-[#5B4FE8]" />
-          </div>
-          <div>
-            <p className="text-[#1a1a2e] font-semibold text-base">Launch Sequence</p>
-            <p className="text-[#6B7280] text-sm mt-1">Choose the mailbox to send from, then go live.</p>
-          </div>
-        </div>
-
-        {/* Mailbox picker */}
-        <div className="space-y-2">
-          <label className="block text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
-            Sending mailbox
-          </label>
-          {launchEmailAccountsLoading ? (
-            <div className="flex items-center gap-2 py-3">
-              <Loader2 className="w-4 h-4 animate-spin text-[#5B4FE8]" />
-              <span className="text-sm text-[#6B7280]">Loading connected mailboxes…</span>
-            </div>
-          ) : launchEmailAccounts.length === 0 ? (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-              <p className="text-xs text-amber-700 font-medium">No connected email accounts found in Reply.io.</p>
-              <a href="https://app.reply.io/settings/email-accounts" target="_blank" rel="noopener noreferrer"
-                className="text-xs text-[#5B4FE8] underline mt-1 block">
-                Connect a mailbox in Reply.io →
-              </a>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {launchEmailAccounts.map((acc) => (
+      {replyDeleteConfirmId !== null && (
+        <>
+          <div className="fixed inset-0 bg-black/20 z-50 backdrop-blur-[2px]" onClick={() => setReplyDeleteConfirmId(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white border border-[#E5E7EB] rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center shrink-0">
+                  <AlertCircle className="w-5 h-5 text-red-500" />
+                </div>
+                <div>
+                  <p className="text-[#1a1a2e] font-semibold text-base">Delete sequence?</p>
+                  <p className="text-[#6B7280] text-sm mt-1">
+                    This will permanently delete the sequence and all its contacts from Reply.io.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setReplyDeleteConfirmId(null)} className={`flex-1 py-2.5 ${btnBack}`}>Cancel</button>
                 <button
-                  key={acc.id}
-                  onClick={() => setLaunchSelectedEmailId(acc.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${
-                    launchSelectedEmailId === acc.id
-                      ? "border-[#5B4FE8] bg-[#F5F3FF] shadow-[0_0_0_3px_rgba(91,79,232,0.1)]"
-                      : "border-[#E5E7EB] hover:border-[#5B4FE8]/40"
-                  }`}
+                  onClick={() => handleDeleteReplySeq(replyDeleteConfirmId!)}
+                  disabled={replyDeletingId === replyDeleteConfirmId}
+                  className="flex-1 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  <div className="w-7 h-7 rounded-full bg-[#5B4FE8]/10 flex items-center justify-center text-xs font-bold text-[#5B4FE8] shrink-0">
-                    {acc.email[0].toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[#1a1a2e] truncate">{acc.alias || acc.email}</p>
-                    {acc.alias && <p className="text-xs text-[#9CA3AF] truncate">{acc.email}</p>}
-                  </div>
-                  {launchSelectedEmailId === acc.id && (
-                    <CheckCircle2 className="w-4 h-4 text-[#5B4FE8] shrink-0" />
-                  )}
+                  {replyDeletingId === replyDeleteConfirmId
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Deleting…</>
+                    : <><Trash2 className="w-4 h-4" /> Yes, delete</>}
                 </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Lead list */}
-        <div className="space-y-2">
-          <label className="block text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
-            Enroll lead list <span className="font-normal normal-case text-[#9CA3AF]">(required if no contacts yet)</span>
-          </label>
-          <select
-            value={launchListId}
-            onChange={(e) => setLaunchListId(e.target.value)}
-            className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-sm text-[#1a1a2e] focus:outline-none focus:border-[#5B4FE8] bg-white"
-          >
-            <option value="">Skip — contacts already enrolled</option>
-            {lists.map((l) => (
-              <option key={l.id} value={l.id}>{l.label}</option>
-            ))}
-          </select>
-          {launchListId && (
-            <p className="text-[11px] text-[#6B7280]">
-              Approved leads will be enrolled before the sequence starts.
-            </p>
-          )}
-        </div>
-
-        {/* ── Max emails per day ── */}
-        <div className="space-y-2">
-          <label className="block text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
-            Max emails per day
-          </label>
-          <div className="flex items-center gap-3">
-            <input
-              type="number"
-              min={1}
-              max={2000}
-              value={launchEmailsPerDay}
-              onChange={(e) => setLaunchEmailsPerDay(Math.max(1, Math.min(2000, Number(e.target.value) || 1)))}
-              className="w-28 px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-sm text-[#1a1a2e] focus:outline-none focus:border-[#5B4FE8] focus:ring-2 focus:ring-[#5B4FE8]/10 bg-white text-center font-mono"
-            />
-            <div className="flex gap-1.5 flex-wrap">
-              {[50, 100, 200, 400].map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setLaunchEmailsPerDay(v)}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-colors ${
-                    launchEmailsPerDay === v
-                      ? "bg-[#5B4FE8] text-white border-[#5B4FE8]"
-                      : "bg-white text-[#6B7280] border-[#E5E7EB] hover:border-[#5B4FE8]/40 hover:text-[#5B4FE8]"
-                  }`}
-                >
-                  {v}
-                </button>
-              ))}
+              </div>
             </div>
           </div>
-          <p className="text-[11px] text-[#9CA3AF]">
-            Controls how many emails this sequence sends across all mailboxes daily.
-          </p>
-        </div>
+        </>
+      )}
 
-        {/* Action buttons */}
-        <div className="flex gap-3">
-          <button
-            onClick={() => setLaunchModalOpen(false)}
-            disabled={launchConfirming}
-            className="flex-1 py-2.5 border border-[#E5E7EB] text-[#6B7280] text-sm font-semibold rounded-lg hover:bg-[#F9FAFB]"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleConfirmLaunch}
-            disabled={launchConfirming || launchEmailAccountsLoading || launchEmailAccounts.length === 0}
-            className="flex-1 py-2.5 bg-[#5B4FE8] text-white text-sm font-semibold rounded-lg hover:bg-[#4A3FD6] disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
-          >
-            {launchConfirming
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Launching…</>
-              : <><Play className="w-4 h-4" /> Go Live</>}
-          </button>
-        </div>
+      {/* Launch modal — mailbox picker */}
+      {launchModalOpen && (
+        <>
+          <div className="fixed inset-0 bg-black/20 z-50 backdrop-blur-[2px]" onClick={() => !launchConfirming && setLaunchModalOpen(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white border border-[#E5E7EB] rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-[#F5F3FF] rounded-xl flex items-center justify-center shrink-0">
+                  <Send className="w-5 h-5 text-[#5B4FE8]" />
+                </div>
+                <div>
+                  <p className="text-[#1a1a2e] font-semibold text-base">Launch Sequence</p>
+                  <p className="text-[#6B7280] text-sm mt-1">Choose the mailbox to send from, then go live.</p>
+                </div>
+              </div>
 
-        {launchEmailAccounts.length > 0 && !launchSelectedEmailId && (
-          <p className="text-xs text-[#9CA3AF] text-center -mt-2">
-            No mailbox selected — will auto-pick first connected account.
-          </p>
-        )}
-      </div>
-    </div>
-  </>
-)}    </DashboardLayout>
+              {/* Mailbox picker */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
+                  Sending mailbox
+                </label>
+                {launchEmailAccountsLoading ? (
+                  <div className="flex items-center gap-2 py-3">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#5B4FE8]" />
+                    <span className="text-sm text-[#6B7280]">Loading connected mailboxes…</span>
+                  </div>
+                ) : launchEmailAccounts.length === 0 ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                    <p className="text-xs text-amber-700 font-medium">No connected email accounts found in Reply.io.</p>
+                    <a href="https://app.reply.io/settings/email-accounts" target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-[#5B4FE8] underline mt-1 block">
+                      Connect a mailbox in Reply.io →
+                    </a>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {launchEmailAccounts.map((acc) => (
+                      <button
+                        key={acc.id}
+                        onClick={() => setLaunchSelectedEmailId(acc.id)}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${
+                          launchSelectedEmailId === acc.id
+                            ? "border-[#5B4FE8] bg-[#F5F3FF] shadow-[0_0_0_3px_rgba(91,79,232,0.1)]"
+                            : "border-[#E5E7EB] hover:border-[#5B4FE8]/40"
+                        }`}
+                      >
+                        <div className="w-7 h-7 rounded-full bg-[#5B4FE8]/10 flex items-center justify-center text-xs font-bold text-[#5B4FE8] shrink-0">
+                          {acc.email[0].toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-[#1a1a2e] truncate">{acc.alias || acc.email}</p>
+                          {acc.alias && <p className="text-xs text-[#9CA3AF] truncate">{acc.email}</p>}
+                        </div>
+                        {launchSelectedEmailId === acc.id && (
+                          <CheckCircle2 className="w-4 h-4 text-[#5B4FE8] shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Lead list */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
+                  Enroll lead list <span className="font-normal normal-case text-[#9CA3AF]">(required if no contacts yet)</span>
+                </label>
+                <select
+                  value={launchListId}
+                  onChange={(e) => setLaunchListId(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-sm text-[#1a1a2e] focus:outline-none focus:border-[#5B4FE8] bg-white"
+                >
+                  <option value="">Skip — contacts already enrolled</option>
+                  {lists.map((l) => (
+                    <option key={l.id} value={l.id}>{l.label}</option>
+                  ))}
+                </select>
+                {launchListId && (
+                  <p className="text-[11px] text-[#6B7280]">
+                    Approved leads will be enrolled before the sequence starts.
+                  </p>
+                )}
+              </div>
+
+              {/* Max emails per day */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
+                  Max emails per day
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min={1}
+                    max={2000}
+                    value={launchEmailsPerDay}
+                    onChange={(e) => setLaunchEmailsPerDay(Math.max(1, Math.min(2000, Number(e.target.value) || 1)))}
+                    className="w-28 px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-sm text-[#1a1a2e] focus:outline-none focus:border-[#5B4FE8] focus:ring-2 focus:ring-[#5B4FE8]/10 bg-white text-center font-mono"
+                  />
+                  <div className="flex gap-1.5 flex-wrap">
+                    {[50, 100, 200, 400].map((v) => (
+                      <button
+                        key={v}
+                        onClick={() => setLaunchEmailsPerDay(v)}
+                        className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-colors ${
+                          launchEmailsPerDay === v
+                            ? "bg-[#5B4FE8] text-white border-[#5B4FE8]"
+                            : "bg-white text-[#6B7280] border-[#E5E7EB] hover:border-[#5B4FE8]/40 hover:text-[#5B4FE8]"
+                        }`}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-[11px] text-[#9CA3AF]">
+                  Controls how many emails this sequence sends across all mailboxes daily.
+                </p>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setLaunchModalOpen(false)}
+                  disabled={launchConfirming}
+                  className="flex-1 py-2.5 border border-[#E5E7EB] text-[#6B7280] text-sm font-semibold rounded-lg hover:bg-[#F9FAFB]"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmLaunch}
+                  disabled={launchConfirming || launchEmailAccountsLoading || launchEmailAccounts.length === 0}
+                  className="flex-1 py-2.5 bg-[#5B4FE8] text-white text-sm font-semibold rounded-lg hover:bg-[#4A3FD6] disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
+                >
+                  {launchConfirming
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Launching…</>
+                    : <><Play className="w-4 h-4" /> Go Live</>}
+                </button>
+              </div>
+
+              {launchEmailAccounts.length > 0 && !launchSelectedEmailId && (
+                <p className="text-xs text-[#9CA3AF] text-center -mt-2">
+                  No mailbox selected — will auto-pick first connected account.
+                </p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </DashboardLayout>
   );
 }

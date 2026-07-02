@@ -78,6 +78,7 @@ interface ReplySeq {
   name: string;
   status: "active" | "paused" | "stopped";
   isArchived: boolean;
+  channel?: "email" | "linkedin";
 }
 
 interface ReplyContact {
@@ -301,12 +302,16 @@ const [liLaunching, setLiLaunching] = useState(false);
     if (replyLIMessages.length > 0) replyLIMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [replyLIMessages]);
 
-  async function loadReplySeqs() {
+async function loadReplySeqs() {
     setReplySeqsLoading(true);
     try {
       const res = await fetch(apiUrl("/replyio/sequences"), { headers: authHeaders() });
       const data = await res.json();
-      setReplySeqs((data.sequences || []).filter((s: ReplySeq) => !s.isArchived));
+      setReplySeqs(
+        (data.sequences || []).filter(
+          (s: ReplySeq) => !s.isArchived && s.channel === "linkedin"
+        )
+      );
     } catch {
       toast({ title: "Failed to load Reply.io sequences", variant: "destructive" });
     } finally {

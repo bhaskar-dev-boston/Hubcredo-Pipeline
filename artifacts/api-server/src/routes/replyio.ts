@@ -346,7 +346,26 @@ router.get("/replyio/sequences", requireAuth, async (req: AuthenticatedRequest, 
   try {
     const data = await replyFetch<any>("GET", "/sequences", undefined, apiKey);
     const sequences = Array.isArray(data) ? data : data.items ?? [];
-    res.json({ sequences });
+
+    // Classify each sequence as "email" or "linkedin" once, server-side, so the
+    // Campaigns and LinkedIn pages don't each maintain their own (and
+    // potentially inconsistent) filtering logic.
+    //
+    // Primary signal: Reply.io populates `linkedInAccounts` on a sequence once
+    // a LinkedIn account is linked via POST /sequences/{id}/linkedin-account-links
+    // (see replyio-linkedin.ts → sequences/create). A non-empty array means the
+    // sequence is LinkedIn-based.
+    //
+    // Fallback: name-matching, for any older sequence created before this field
+    // was consistently populated, or if the list endpoint omits the field.
+    const classified = sequences.map((s: any) => {
+      const hasLinkedInAccount = Array.isArray(s.linkedInAccounts) && s.linkedInAccounts.length > 0;
+      const nameLooksLinkedIn = /linkedin/i.test(s.name ?? "");
+      const channel: "email" | "linkedin" = hasLinkedInAccount || nameLooksLinkedIn ? "linkedin" : "email";
+      return { ...s, channel };
+    });
+
+    res.json({ sequences: classified });
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }

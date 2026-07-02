@@ -334,12 +334,23 @@ router.get("/replyio-linkedin/sequences", requireAuth, async (req: Authenticated
       "GET", "/sequences?top=1000", undefined, apiKey
     );
     const sequences = data.items ?? [];
-    res.json({ sequences: sequences.filter((s) => !s.isArchived) });
+
+    // Only return sequences that are actually LinkedIn-based. Previously this
+    // route returned every non-archived sequence (email included), which
+    // inflated LinkedIn counts anywhere this endpoint was consumed (e.g. the
+    // Dashboard's "LinkedIn Outreach" card).
+    const linkedInOnly = sequences.filter((s) => {
+      if (s.isArchived) return false;
+      const hasLinkedInAccount = Array.isArray(s.linkedInAccounts) && s.linkedInAccounts.length > 0;
+      const nameLooksLinkedIn = /linkedin/i.test(s.name ?? "");
+      return hasLinkedInAccount || nameLooksLinkedIn;
+    });
+
+    res.json({ sequences: linkedInOnly });
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
-
 router.get("/replyio-linkedin/account-status", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const apiKey = await getUserReplyApiKey(req.userId!);
   if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }

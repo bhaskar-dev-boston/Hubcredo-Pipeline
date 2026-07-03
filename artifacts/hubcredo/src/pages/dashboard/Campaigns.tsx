@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearch } from "wouter";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   Mail, Plus, Loader2, Send, Play, Pause, CheckCircle2, AlertCircle,
@@ -246,6 +247,8 @@ export default function Campaigns() {
 
   // ── Reply.io state (email only) ───────────────────────────
   const [replyMode, setReplyMode] = useState(false);
+  const search = useSearch();
+  const replyioDeepLinked = useRef(false);
   const [replyConnected, setReplyConnected] = useState(false);
   const [replySeqs, setReplySeqs] = useState<ReplySeq[]>([]);
   const [replySeqsLoading, setReplySeqsLoading] = useState(false);
@@ -317,6 +320,23 @@ export default function Campaigns() {
       .then((d) => setReplyConnected(d.valid))
       .catch(() => setReplyConnected(false));
   }, []);
+
+  // Activate Reply.io mode when deep-linked with ?replyio=1
+  useEffect(() => {
+    if (new URLSearchParams(search).get("replyio") === "1" && !replyioDeepLinked.current) {
+      replyioDeepLinked.current = true;
+      setReplyMode(true);
+    }
+  }, [search]);
+
+  // Auto-load Reply.io data once connected and mode is active
+  useEffect(() => {
+    if (replyMode && replyConnected) {
+      if (replySeqs.length === 0) loadReplySeqs();
+      if (emailAccounts.length === 0) loadEmailAccounts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replyMode, replyConnected]);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);

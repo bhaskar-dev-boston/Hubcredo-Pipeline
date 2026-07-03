@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useSearch } from "wouter";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
 import { useGetMe, useListLeadLists } from "@workspace/api-client-react";
@@ -194,6 +195,8 @@ export default function LinkedIn() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const [replyMode, setReplyMode] = useState(false);
+  const search = useSearch();
+  const replyioDeepLinked = useRef(false);
   const [replyConnected, setReplyConnected] = useState(false);
   const [replySeqs, setReplySeqs] = useState<ReplySeq[]>([]);
   const [replySeqsLoading, setReplySeqsLoading] = useState(false);
@@ -363,6 +366,20 @@ async function loadReplySeqs() {
       setEnrolling(false);
     }
   }
+
+  // Activate Reply.io mode when deep-linked with ?replyio=1
+  useEffect(() => {
+    if (new URLSearchParams(search).get("replyio") === "1" && !replyioDeepLinked.current) {
+      replyioDeepLinked.current = true;
+      setReplyMode(true);
+    }
+  }, [search]);
+
+  // Auto-load Reply.io sequences once connected and mode is active
+  useEffect(() => {
+    if (replyMode && replyConnected && replySeqs.length === 0) loadReplySeqs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replyMode, replyConnected]);
 
   function handleToggleReplyMode(on: boolean) {
     setReplyMode(on);

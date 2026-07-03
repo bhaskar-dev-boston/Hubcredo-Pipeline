@@ -52,8 +52,8 @@ export default function Dashboard() {
   const createStack = useCreateStack();
   const triggerAnalysis = useTriggerAnalysis();
 
-  const [emailStats, setEmailStats] = useState<{ active: number; total: number; opened: number; replied: number } | null>(null);
-  const [liStats, setLiStats] = useState<{ active: number; total: number } | null>(null);
+  const [emailStats, setEmailStats] = useState<{ active: number; total: number; sent: number; opened: number; replied: number; bounced: number } | null>(null);
+  const [liStats, setLiStats] = useState<{ active: number; total: number; connectionsSent: number; acceptedConnections: number; messagesSent: number; replies: number } | null>(null);
   const [replyStatsLoading, setReplyStatsLoading] = useState(false);
 
   useEffect(() => {
@@ -71,29 +71,49 @@ export default function Dashboard() {
             const seqs: ReplyioSeq[] = emailData.sequences ?? [];
             const emailSeqs = seqs.filter((s) => !s.isArchived && s.type !== "linkedin" && !/linkedin/i.test(s.name));
             const active = emailSeqs.filter((s) => s.status === "active").length;
-            let totalContacted = 0;
+            let totalSent = 0;
             let totalOpened = 0;
             let totalReplied = 0;
+            let totalBounced = 0;
             await Promise.all(
               emailSeqs.slice(0, 5).map(async (seq) => {
                 try {
                   const sRes = await authFetch(`/api/replyio/sequences/${seq.id}/stats`);
                   if (sRes.ok) {
                     const s: ReplyioStats = await sRes.json();
-                    totalContacted += s.total ?? 0;
+                    totalSent += s.total ?? 0;
                     totalOpened += s.opened ?? 0;
                     totalReplied += s.replied ?? 0;
+                    totalBounced += s.bounced ?? 0;
                   }
                 } catch { /* ignore */ }
               })
             );
-            setEmailStats({ active, total: emailSeqs.length, opened: totalOpened, replied: totalReplied });
+            setEmailStats({ active, total: emailSeqs.length, sent: totalSent, opened: totalOpened, replied: totalReplied, bounced: totalBounced });
           }
           if (liRes.ok) {
             const liData = await liRes.json();
             const liSeqs: ReplyioSeq[] = liData.sequences ?? [];
             const active = liSeqs.filter((s) => s.status === "active").length;
-            setLiStats({ active, total: liSeqs.length });
+            let totalConnectionsSent = 0;
+            let totalAccepted = 0;
+            let totalMessagesSent = 0;
+            let totalReplies = 0;
+            await Promise.all(
+              liSeqs.slice(0, 5).map(async (seq) => {
+                try {
+                  const sRes = await authFetch(`/api/replyio-linkedin/sequences/${seq.id}/li-stats`);
+                  if (sRes.ok) {
+                    const s = await sRes.json();
+                    totalConnectionsSent += s.connectionsSent ?? 0;
+                    totalAccepted += s.acceptedAutomatedConnections ?? 0;
+                    totalMessagesSent += s.messagesSent ?? 0;
+                    totalReplies += s.replies ?? 0;
+                  }
+                } catch { /* ignore */ }
+              })
+            );
+            setLiStats({ active, total: liSeqs.length, connectionsSent: totalConnectionsSent, acceptedConnections: totalAccepted, messagesSent: totalMessagesSent, replies: totalReplies });
           }
         }
       } catch { /* ignore — Reply.io may not be connected */ }
@@ -191,7 +211,7 @@ export default function Dashboard() {
             {/* Email outreach stats */}
             {emailStats && (
               <button
-                onClick={() => setLocation("/dashboard/campaigns")}
+                onClick={() => setLocation("/dashboard/campaigns?replyio=1")}
                 className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-5 text-left hover:border-[#6B4EFF] hover:shadow-[0_4px_16px_rgba(107,78,255,0.12)] transition-all group shadow-sm"
               >
                 <div className="flex items-center justify-between mb-3">
@@ -211,10 +231,14 @@ export default function Dashboard() {
                     <ArrowRight className="w-4 h-4 text-[#6B7280] group-hover:text-[#6B4EFF] transition-colors" />
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-5 gap-2">
                   <div>
                     <p className="text-xl font-bold text-[#1E1B4B]">{emailStats.total}</p>
                     <p className="text-[10px] text-[#9CA3AF] mt-0.5">Sequences</p>
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-[#6B7280]">{emailStats.sent}</p>
+                    <p className="text-[10px] text-[#9CA3AF] mt-0.5">Sent</p>
                   </div>
                   <div>
                     <p className="text-xl font-bold text-[#0EA5E9]">{emailStats.opened}</p>
@@ -224,6 +248,10 @@ export default function Dashboard() {
                     <p className="text-xl font-bold text-emerald-600">{emailStats.replied}</p>
                     <p className="text-[10px] text-[#9CA3AF] mt-0.5">Replied</p>
                   </div>
+                  <div>
+                    <p className="text-xl font-bold text-red-500">{emailStats.bounced}</p>
+                    <p className="text-[10px] text-[#9CA3AF] mt-0.5">Bounced</p>
+                  </div>
                 </div>
               </button>
             )}
@@ -231,7 +259,7 @@ export default function Dashboard() {
             {/* LinkedIn outreach stats */}
             {liStats && (
               <button
-                onClick={() => setLocation("/dashboard/linkedin?tab=replyio")}
+                onClick={() => setLocation("/dashboard/linkedin?replyio=1")}
                 className="bg-white border border-[rgba(107,78,255,0.15)] rounded-xl p-5 text-left hover:border-[#6B4EFF] hover:shadow-[0_4px_16px_rgba(107,78,255,0.12)] transition-all group shadow-sm"
               >
                 <div className="flex items-center justify-between mb-3">
@@ -251,14 +279,26 @@ export default function Dashboard() {
                     <ArrowRight className="w-4 h-4 text-[#6B7280] group-hover:text-[#6B4EFF] transition-colors" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
+                <div className="grid grid-cols-5 gap-3">
+                  <div className="border-r border-[#E2E8F0] pr-2">
                     <p className="text-xl font-bold text-[#1E1B4B]">{liStats.total}</p>
                     <p className="text-[10px] text-[#9CA3AF] mt-0.5">Sequences</p>
                   </div>
                   <div>
-                    <p className="text-xl font-bold text-[#2563EB]">{liStats.active}</p>
-                    <p className="text-[10px] text-[#9CA3AF] mt-0.5">Active</p>
+                    <p className="text-xl font-bold text-[#1E1B4B]">{liStats.connectionsSent}</p>
+                    <p className="text-[10px] text-[#9CA3AF] mt-0.5">Conn. Sent</p>
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-emerald-600">{liStats.acceptedConnections}</p>
+                    <p className="text-[10px] text-[#9CA3AF] mt-0.5">Conn. Accepted</p>
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-[#2563EB]">{liStats.messagesSent}</p>
+                    <p className="text-[10px] text-[#9CA3AF] mt-0.5">Msg. Sent</p>
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-[#6B4EFF]">{liStats.replies}</p>
+                    <p className="text-[10px] text-[#9CA3AF] mt-0.5">Msg. Replied</p>
                   </div>
                 </div>
               </button>

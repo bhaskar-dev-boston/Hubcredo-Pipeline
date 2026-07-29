@@ -11,7 +11,8 @@ import { supabase } from "../lib/supabase";
 
 const N8N_ANALYSIS_WEBHOOK = "https://shreyahubcredo.app.n8n.cloud/webhook/lead-scrapping";
 const N8N_LEAD_SCRAPING_WEBHOOK = "https://shreyahubcredo.app.n8n.cloud/webhook/lead-scrapping-list";
-const N8N_ENRICHMENT_WEBHOOK = "https://shreyahubcredo.app.n8n.cloud/webhook-test/hubcredo-lead";
+const N8N_ENRICHMENT_WEBHOOK = "https://shreyahubcredo.app.n8n.cloud/webhook/hubcredo-lead";
+const N8N_GET_ICP_WEBHOOK = "https://shreyahubcredo.app.n8n.cloud/webhook/icp";
 
 // 1 credit = $1. Costs set to ensure no loss vs tool subscriptions:
 // - Groq (analysis): ~$0.01/call → charge 2 credits = ~200x margin
@@ -170,6 +171,34 @@ router.post("/webhooks/enrich-list/:listId", requireAuth, async (req: Authentica
   }
 
   res.json({ success: true, sent: enrichable.length });
+});
+
+router.post("/webhooks/get-icp", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { website_url } = req.body as { website_url?: unknown };
+  if (!website_url || typeof website_url !== "string") {
+    res.status(400).json({ error: "website_url is required" });
+    return;
+  }
+
+  try {
+    const response = await fetch(N8N_GET_ICP_WEBHOOK, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ website_url, user_id: req.userId }),
+    });
+
+    if (!response.ok) {
+      req.log.warn({ status: response.status }, "n8n ICP webhook returned non-OK");
+      res.status(502).json({ error: "ICP webhook returned an error. Make sure the workflow is active." });
+      return;
+    }
+
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    req.log.error({ err }, "Failed to call ICP webhook");
+    res.status(500).json({ error: "Failed to retrieve ICP data. Please try again." });
+  }
 });
 
 export default router;

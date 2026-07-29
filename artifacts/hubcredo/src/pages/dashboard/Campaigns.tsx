@@ -73,6 +73,89 @@ interface InstantlyLead {
   timestamp_created?: string;
 }
 
+// ── Reply.io variable mapping ─────────────────────────────────
+const REPLY_STANDARD_FIELDS = [
+  { value: "firstName",     label: "First Name" },
+  { value: "lastName",      label: "Last Name" },
+  { value: "fullName",      label: "Full Name" },
+  { value: "email",         label: "Email" },
+  { value: "companyName",   label: "Company Name" },
+  { value: "title",         label: "Job Title" },
+  { value: "industry",      label: "Industry" },
+  { value: "hqCountry",     label: "Country" },
+  { value: "hqCity",        label: "City" },
+  { value: "department",    label: "Department" },
+  { value: "seniority",     label: "Seniority" },
+  { value: "companySize",   label: "Company Size" },
+  { value: "companyDomain", label: "Company Domain" },
+  { value: "researchBlurb", label: "Research Blurb" },
+  { value: "linkedInUrl",   label: "LinkedIn URL" },
+];
+
+/** Mirrors the backend's toCamelCaseVar(): strip everything from the first ":"
+ *  onward (that's AI-fill instructions, not part of the key), then camelCase
+ *  the remaining words. Without this, a var like
+ *  "{{whatDroveTheValue: community, recurring revenue...}}" never resolves to
+ *  the "whatDroveTheValue" custom field key the backend actually generated. */
+function toCamelCaseVar(raw: string): string {
+  const base = raw.split(":")[0].trim();
+  const hasSeparators = /[^a-zA-Z0-9]/.test(base);
+  const isAllUpper = base === base.toUpperCase();
+  const isAllLower = base === base.toLowerCase();
+
+  if (!hasSeparators && !isAllUpper && !isAllLower) {
+    return base.charAt(0).toLowerCase() + base.slice(1);
+  }
+
+  const words = base.split(/[^a-zA-Z0-9]+/).filter(Boolean);
+  if (words.length === 0) return "";
+  return words
+    .map((w, i) => {
+      const lower = w.toLowerCase();
+      return i === 0 ? lower : lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join("");
+}
+/** Extract all unique {{var}} tokens from a set of email steps */
+function extractTemplateVars(steps: { subject: string; body: string }[]): string[] {
+  const vars = new Set<string>();
+  for (const s of steps) {
+    for (const text of [s.subject, s.body]) {
+      const matches = text.matchAll(/\{\{([^}]+)\}\}/g);
+      for (const m of matches) vars.add(m[1].trim());
+    }
+  }
+  return [...vars].sort((a, b) => a.localeCompare(b));
+}
+
+// Common aliases seen in AI-generated templates that don't literally match a
+// standard field name but clearly mean one. Extend this list as new patterns
+// show up in your templates.
+const FIELD_SYNONYMS: Record<string, string> = {
+  sector: "industry",
+  vertical: "industry",
+  niche: "industry",
+  space: "industry",
+  role: "title",
+  jobtitle: "title",
+  position: "title",
+  business: "companyName",
+  company: "companyName",
+  org: "companyName",
+  organization: "companyName",
+  location: "hqCity",
+  region: "hqCountry",
+};
+
+/** True if a raw template var already resolves to a standard field via normalized match, or via a known synonym */
+function varResolvesStandard(rawVar: string): string | null {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const nv = norm(toCamelCaseVar(rawVar));
+  const direct = REPLY_STANDARD_FIELDS.find((f) => norm(f.value) === nv || norm(f.label) === nv)?.value;
+  if (direct) return direct;
+  return FIELD_SYNONYMS[nv] ?? null;
+}
+
 // ── Reply.io types (email only) ───────────────────────────────
 interface ReplySeq {
   id: number;
@@ -269,10 +352,14 @@ export default function Campaigns() {
 
   // ── Reply.io wizard state ──────────────────────────────────
   const [replyWizard, setReplyWizard] = useState(false);
-  const [replyWizStep, setReplyWizStep] = useState<1 | 2>(1);
+  const [replyWizStep, setReplyWizStep] = useState<1 | 2 | 3 | 4>(1);
+  const [replyWizCustomKeys, setReplyWizCustomKeys] = useState<string[]>([]);
+  const [customKeysLoading, setCustomKeysLoading] = useState(false);
   const [replyWizName, setReplyWizName] = useState("");
   const [replyWizSteps, setReplyWizSteps] = useState<CampaignSequence[]>([]);
   const [replyWizListId, setReplyWizListId] = useState("");
+  /** Maps raw template variable (e.g. "CLIENT") → lead field key (e.g. "companyName"), or "" to leave as custom */
+  const [replyWizVarMap, setReplyWizVarMap] = useState<Record<string, string>>({});
   const [replyCreating, setReplyCreating] = useState(false);
   const [replyActivatingId, setReplyActivatingId] = useState<number | null>(null);
   const [replyPausingId, setReplyPausingId] = useState<number | null>(null);
@@ -424,7 +511,35 @@ export default function Campaigns() {
     }
   }
 
-  function resetReplyWizard() { setReplyWizStep(1); setReplyWizName(""); setReplyWizSteps([]); setReplyWizListId(""); }
+  function resetReplyWizard() { setReplyWizStep(1); setReplyWizName(""); setReplyWizSteps([]); setReplyWizListId(""); setReplyWizVarMap({}); setReplyWizCustomKeys([]); setCustomKeysLoading(false); }
+
+  /** Fetch custom field keys from the first lead of a list, for use in the variable mapper.
+   *  Returns when the fetch is settled — callers can await to gate navigation. */
+  async function loadCustomFieldKeys(listId: string) {
+    if (!listId) { setReplyWizCustomKeys([]); return; }
+    setCustomKeysLoading(true);
+    try {
+      const res = await apiFetch(`/api/leads?lead_list_id=${listId}&limit=1`);
+      if (!res.ok) {
+        toast({ title: "Could not load custom field keys", description: `Server returned ${res.status}`, variant: "destructive" });
+        setReplyWizCustomKeys([]);
+        return;
+      }
+      const data = await res.json();
+      const leadsArr = Array.isArray(data) ? data : data.leads ?? data.items ?? data;
+      const lead = leadsArr?.[0];
+      if (lead?.custom_fields && typeof lead.custom_fields === "object") {
+        setReplyWizCustomKeys(Object.keys(lead.custom_fields as Record<string, string>));
+      } else {
+        setReplyWizCustomKeys([]);
+      }
+    } catch {
+      toast({ title: "Could not load custom field keys", description: "Network error — mapping will still work for standard fields.", variant: "destructive" });
+      setReplyWizCustomKeys([]);
+    } finally {
+      setCustomKeysLoading(false);
+    }
+  }
 
   function addReplyWizStep() {
     setReplyWizSteps((p) => [...p, { step_number: p.length + 1, subject: "", body: "", delay_days: p.length === 0 ? 0 : 3, type: "email" }]);
@@ -504,7 +619,7 @@ export default function Campaigns() {
   async function handleGeneratePreview(listId?: string) {
     const lid = listId || replyWizListId;
     if (!lid) {
-      toast({ title: "Select a lead list first", description: "Choose a lead list in Step 2 to preview with real lead data.", variant: "destructive" });
+      toast({ title: "Select a lead list first", description: "Choose a lead list in Step 3 to preview with real lead data.", variant: "destructive" });
       return;
     }
     if (replyWizSteps.length === 0) {
@@ -521,7 +636,11 @@ export default function Campaigns() {
         toast({ title: "No leads in list", description: "Upload or generate leads first.", variant: "destructive" });
         return;
       }
-      setPreviewLead({
+      // Spread custom fields so {{varName}} works in templates
+      const customFields = (lead.custom_fields && typeof lead.custom_fields === "object")
+        ? (lead.custom_fields as Record<string, string>)
+        : {};
+      const baseLead: Record<string, string> = {
         firstName: (lead.first_name || "Jane").split(" ")[0],
         lastName: lead.last_name || "Smith",
         fullName: [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Jane Smith",
@@ -532,7 +651,29 @@ export default function Campaigns() {
         industry: lead.industry || "",
         country: lead.hq_country || "",
         city: lead.hq_city || "",
-      });
+        seniority: lead.seniority || "",
+        department: lead.department || "",
+        companySize: lead.company_size || "",
+        hqCity: lead.hq_city || "",
+        hqCountry: lead.hq_country || "",
+        companyDomain: lead.company_domain || "",
+        researchBlurb: lead.research_blurb || "",
+        // Custom fields — all keys become available as {{key}} in templates
+        ...customFields,
+      };
+      // Apply variable mappings from the wizard's Step 3 var map.
+      // fieldKey is either a standard lead field ("companyName"), a "__csv__<key>" ref,
+      // or "" meaning resolve automatically from custom_fields.
+      for (const [templateVar, fieldKey] of Object.entries(replyWizVarMap)) {
+        if (!fieldKey) continue;
+        if (fieldKey.startsWith("__csv__")) {
+          const csvKey = fieldKey.slice("__csv__".length);
+          if (baseLead[csvKey] !== undefined) baseLead[templateVar] = baseLead[csvKey];
+        } else if (baseLead[fieldKey] !== undefined) {
+          baseLead[templateVar] = baseLead[fieldKey];
+        }
+      }
+      setPreviewLead(baseLead);
       setPreviewStepIdx(0);
       setPreviewOpen(true);
     } catch {
@@ -543,22 +684,49 @@ export default function Campaigns() {
   }
 
   function fillTemplate(text: string, lead: Record<string, string>): string {
+    // Build a normalised lookup: strip every non-alphanumeric char and lowercase.
+    // This makes {{FOUNDER NAMES}}, {{founderNames}}, and {{founder_names}} all resolve
+    // to the same stored key regardless of how the template was written.
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const normMap = new Map<string, string>();
+    for (const [k, v] of Object.entries(lead)) {
+      const nk = norm(k);
+      if (!normMap.has(nk)) normMap.set(nk, v ?? ""); // first key wins on collision
+    }
+
+    const resolve = (key: string): string | null => {
+      if (lead[key] !== undefined) return lead[key] ?? "";
+      const nk = norm(key);
+      if (normMap.has(nk)) return normMap.get(nk)!;
+
+      // Fall back to the backend-style canonical key: strip everything from
+      // the first ":" onward (AI-fill instructions) and camelCase the rest.
+      // This is what lets "{{whatDroveTheValue: community, recurring revenue...}}"
+      // resolve against a stored "whatDroveTheValue" custom field.
+      const canonical = toCamelCaseVar(key);
+      if (canonical) {
+        if (lead[canonical] !== undefined) return lead[canonical] ?? "";
+        const nc = norm(canonical);
+        if (normMap.has(nc)) return normMap.get(nc)!;
+      }
+      return null;
+    };
+
     return text
-      .replace(/\{\{firstName\}\}/gi, lead.firstName || "")
-      .replace(/\{\{lastName\}\}/gi, lead.lastName || "")
-      .replace(/\{\{fullName\}\}/gi, lead.fullName || "")
-      .replace(/\{\{companyName\}\}/gi, lead.companyName || "")
-      .replace(/\{\{title\}\}/gi, lead.title || "")
-      .replace(/\{\{email\}\}/gi, lead.email || "")
-      .replace(/\{\{industry\}\}/gi, lead.industry || "")
-      .replace(/\{\{country\}\}/gi, lead.country || "")
-      .replace(/\{\{city\}\}/gi, lead.city || "")
+      // [Bracket] style aliases
       .replace(/\[First Name\]/gi, lead.firstName || "")
       .replace(/\[Last Name\]/gi, lead.lastName || "")
+      .replace(/\[Full Name\]/gi, lead.fullName || "")
       .replace(/\[Company\]/gi, lead.companyName || "")
       .replace(/\[Job Title\]/gi, lead.title || "")
       .replace(/\[Industry\]/gi, lead.industry || "")
-      .replace(/\[Country\]/gi, lead.country || "");
+      .replace(/\[Country\]/gi, lead.country || "")
+      // {{key}} — key may contain spaces, dots, hyphens, colons (AI-fill instructions), or any printable char except }}
+      .replace(/\{\{([^}]+)\}\}/g, (match, raw: string) => {
+        const key = raw.trim();
+        const val = resolve(key);
+        return val !== null ? val : match; // leave unresolved vars as-is
+      });
   }
 
   async function handleCreateReplySeq() {
@@ -576,7 +744,7 @@ export default function Campaigns() {
       if (!res.ok) throw new Error(seq.error ?? "Failed to create campaign");
       const stepWarning = seq.stepErrors?.length ? ` (${seq.stepErrors.length} step(s) failed — check Reply.io)` : "";
       if (replyWizListId) {
-        const eRes = await apiFetch(`/api/replyio/sequences/${seq.id}/enroll-list`, { method: "POST", body: JSON.stringify({ lead_list_id: replyWizListId }) });
+        const eRes = await apiFetch(`/api/replyio/sequences/${seq.id}/enroll-list`, { method: "POST", body: JSON.stringify({ lead_list_id: replyWizListId, var_map: replyWizVarMap }) });
         const eData = await eRes.json();
         toast({ title: "Campaign created!" + stepWarning, description: eRes.ok ? `Enrolled ${eData.enrolled} of ${eData.total} leads.` : `Created — enroll failed: ${eData.error}` });
       } else {
@@ -1528,20 +1696,22 @@ export default function Campaigns() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB] flex-shrink-0">
               <div>
                 <h3 className="text-sm font-bold text-[#1a1a2e]">New Reply.io Email Campaign</h3>
-                <p className="text-xs text-[#6B7280] mt-0.5">Step {replyWizStep} of 2</p>
+                <p className="text-xs text-[#6B7280] mt-0.5">Step {replyWizStep} of 4</p>
               </div>
               <button onClick={() => setReplyWizard(false)} className="text-[#9CA3AF] hover:text-[#1a1a2e]"><X className="w-4 h-4" /></button>
             </div>
 
             {/* Step indicator */}
             <div className="flex items-center gap-0 px-6 pt-3 flex-shrink-0">
-              {[1, 2].map((s) => (
+              {[1, 2, 3, 4].map((s) => (
                 <div key={s} className="flex items-center">
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${replyWizStep >= s ? "bg-[#5B4FE8] text-white" : "bg-[#F3F4F6] text-[#9CA3AF]"}`}>{s}</div>
-                  {s < 2 && <div className={`w-16 h-0.5 mx-1 ${replyWizStep >= s + 1 ? "bg-[#5B4FE8]" : "bg-[#E5E7EB]"}`} />}
+                  {s < 4 && <div className={`w-10 h-0.5 mx-1 ${replyWizStep >= s + 1 ? "bg-[#5B4FE8]" : "bg-[#E5E7EB]"}`} />}
                 </div>
               ))}
-              <div className="ml-3 text-xs text-[#9CA3AF]">{replyWizStep === 1 ? "Name & email steps" : "Lead list & launch"}</div>
+              <div className="ml-3 text-xs text-[#9CA3AF]">
+                {replyWizStep === 1 ? "Name & email steps" : replyWizStep === 2 ? "Select lead list" : replyWizStep === 3 ? "Map variables" : "Create campaign"}
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -1666,25 +1836,131 @@ export default function Campaigns() {
                 </>
               )}
 
+              {/* ── Step 2: Select lead list ── */}
               {replyWizStep === 2 && (
+                <div className="space-y-4">
+                  <div className="bg-[#F5F3FF] border border-[#5B4FE8]/20 rounded-xl p-3">
+                    <p className="text-xs font-semibold text-[#5B4FE8] mb-0.5">Choose your lead list</p>
+                    <p className="text-[11px] text-[#6B7280]">Select the list you'll be sending to. HubCredo will read its custom field keys so you can map them to your template variables in the next step.</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-[#6B7280] mb-1.5">Lead list <span className="text-[#9CA3AF] font-normal">(optional — can enroll later)</span></label>
+                    <select
+                      value={replyWizListId}
+                      onChange={(e) => setReplyWizListId(e.target.value)}
+                      className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-[#5B4FE8]"
+                    >
+                      <option value="">Skip — enroll manually later</option>
+                      {lists.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+                    </select>
+                    {replyWizListId && (
+                      <p className="text-[11px] text-[#9CA3AF] mt-1">All approved leads from this list will be enrolled once the campaign is created.</p>
+                    )}
+                  </div>
+                  {!replyWizListId && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                      <p className="text-xs text-amber-700">Without a list, custom field keys won't be available to map — you can still map to standard lead fields and add the list after creation.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Step 3: Map Variables ── */}
+              {replyWizStep === 3 && (() => {
+                const detectedVars = extractTemplateVars(replyWizSteps);
+                if (detectedVars.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <div className="w-12 h-12 bg-[#F5F3FF] rounded-xl flex items-center justify-center mb-3">
+                        <CheckCircle2 className="w-6 h-6 text-[#5B4FE8]" />
+                      </div>
+                      <p className="text-sm font-semibold text-[#1a1a2e]">No template variables found</p>
+                      <p className="text-xs text-[#9CA3AF] mt-1 max-w-xs">Your email steps don't contain any <code className="bg-[#F3F4F6] px-1 rounded">{"{{variables}}"}</code>. Continue to create the campaign.</p>
+                    </div>
+                  );
+                }
+                const selectedListName = lists.find((l) => l.id === replyWizListId)?.label;
+                return (
+                  <div className="space-y-3">
+                    <div className="bg-[#F5F3FF] border border-[#5B4FE8]/20 rounded-xl p-3">
+                      <p className="text-xs font-semibold text-[#5B4FE8] mb-0.5">Map your template variables</p>
+                      <p className="text-[11px] text-[#6B7280]">
+                        Tell HubCredo which lead field each <code className="bg-[#EDE9FF] px-0.5 rounded">{"{{variable}}"}</code> should pull from.
+                        {selectedListName && <> Custom field keys are loaded from <strong>{selectedListName}</strong>.</>}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      {detectedVars.map((v) => {
+                        const canonical = toCamelCaseVar(v);
+                        const current = replyWizVarMap[v] ?? (varResolvesStandard(v) || "");
+                        const isCustomKey =
+                          replyWizCustomKeys.includes(v) ||
+                          replyWizCustomKeys.some((k) => k.toLowerCase() === v.toLowerCase()) ||
+                          replyWizCustomKeys.includes(canonical) ||
+                          replyWizCustomKeys.some((k) => k.toLowerCase() === canonical.toLowerCase());
+                        return (
+                          <div key={v} className="flex items-center gap-3 bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl px-4 py-3">
+                            <code className="text-[11px] font-mono text-[#5B4FE8] bg-[#EDE9FF] px-2 py-1 rounded-lg shrink-0 whitespace-nowrap">{`{{${v}}}`}</code>
+                            <span className="text-[#9CA3AF] text-xs shrink-0">→</span>
+                            <select
+                              value={current}
+                              onChange={(e) => setReplyWizVarMap((prev) => ({ ...prev, [v]: e.target.value }))}
+                              className="flex-1 px-2.5 py-1.5 border border-[#E5E7EB] rounded-lg text-xs focus:outline-none focus:border-[#5B4FE8] bg-white text-[#1a1a2e]"
+                            >
+                              <option value="">— Custom field (from CSV) —</option>
+                              <optgroup label="Standard lead fields">
+                                {REPLY_STANDARD_FIELDS.map((f) => (
+                                  <option key={f.value} value={f.value}>{f.label}</option>
+                                ))}
+                              </optgroup>
+                              {replyWizCustomKeys.length > 0 && (
+                                <optgroup label={`CSV custom fields${selectedListName ? ` · ${selectedListName}` : ""}`}>
+                                  {replyWizCustomKeys.map((k) => (
+                                    <option key={`csv:${k}`} value={`__csv__${k}`}>{k}</option>
+                                  ))}
+                                </optgroup>
+                              )}
+                            </select>
+                            {current ? (
+                              current.startsWith("__csv__") ? (
+                                <span className="text-[10px] text-[#0891B2] font-medium shrink-0 whitespace-nowrap">CSV: {current.replace("__csv__", "")}</span>
+                              ) : (
+                                <span className="text-[10px] text-[#059669] font-medium shrink-0 whitespace-nowrap">
+                                  {REPLY_STANDARD_FIELDS.find((f) => f.value === current)?.label}
+                                </span>
+                              )
+                            ) : (
+                              <span className={`text-[10px] font-medium shrink-0 whitespace-nowrap ${isCustomKey ? "text-[#0891B2]" : "text-[#9CA3AF]"}`}>
+                                {isCustomKey ? "CSV key ✓" : "CSV key"}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[11px] text-[#9CA3AF] px-1">
+                      Variables left as "Custom field" resolve automatically if the lead has a matching key in their CSV data.
+                    </p>
+                  </div>
+                );
+              })()}
+
+              {/* ── Step 4: Create campaign ── */}
+              {replyWizStep === 4 && (
                 <div className="space-y-4">
                   <div className="bg-[#F5F3FF] border border-[#5B4FE8]/20 rounded-xl p-4">
                     <p className="text-xs font-semibold text-[#5B4FE8] mb-0.5">Campaign ready to create</p>
                     <p className="text-sm font-bold text-[#1a1a2e]">{replyWizName}</p>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className="flex items-center gap-0.5 text-[10px] bg-[#5B4FE8]/10 text-[#5B4FE8] px-1.5 py-0.5 rounded-full font-medium">
                         <Mail className="w-2.5 h-2.5" /> {replyWizSteps.length} email step{replyWizSteps.length !== 1 ? "s" : ""}
                       </span>
+                      {replyWizListId && (
+                        <span className="text-[10px] bg-[#F0FDF4] text-[#059669] border border-[#059669]/20 px-1.5 py-0.5 rounded-full font-medium">
+                          {lists.find((l) => l.id === replyWizListId)?.label ?? "List selected"}
+                        </span>
+                      )}
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-[#6B7280] mb-1.5">Enroll a lead list (optional)</label>
-                    <select value={replyWizListId} onChange={(e) => setReplyWizListId(e.target.value)} className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-[#5B4FE8]">
-                      <option value="">Skip — enroll manually later</option>
-                      {lists.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
-                    </select>
-                    {replyWizListId && <p className="text-[11px] text-[#9CA3AF] mt-1">All approved leads from this list will be enrolled once the campaign is created.</p>}
                   </div>
 
                   {/* Generate Preview */}
@@ -1693,7 +1969,7 @@ export default function Campaigns() {
                       <p className="text-xs font-medium text-[#6B7280]">Preview with real lead data</p>
                       <button
                         onClick={() => handleGeneratePreview()}
-                        disabled={previewLoading}
+                        disabled={previewLoading || !replyWizListId}
                         className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#5B4FE8] hover:bg-[#4A3FD6] px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
                       >
                         {previewLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
@@ -1701,10 +1977,10 @@ export default function Campaigns() {
                       </button>
                     </div>
                     <p className="text-[11px] text-[#9CA3AF]">
-                      Fills in {`{{firstName}}`}, {`{{companyName}}`} etc. using the first lead from your selected list.
+                      Fills template variables using the first lead from your selected list, applying all your mappings.
                     </p>
                     {!replyWizListId && (
-                      <p className="text-[11px] text-amber-600">Select a lead list above to enable preview.</p>
+                      <p className="text-[11px] text-amber-600">No list selected — go back to Step 2 to choose one.</p>
                     )}
                   </div>
 
@@ -1716,19 +1992,56 @@ export default function Campaigns() {
             </div>
 
             <div className="flex gap-3 px-6 py-4 border-t border-[#E5E7EB] flex-shrink-0">
-              {replyWizStep === 1 ? (
+              {replyWizStep === 1 && (
                 <>
                   <button onClick={() => setReplyWizard(false)} className="flex-1 py-2 border border-[#E5E7EB] text-sm font-semibold text-[#6B7280] rounded-xl hover:bg-[#F9FAFB]">Cancel</button>
                   <button
-                    onClick={() => { if (!replyWizName.trim()) { toast({ title: "Name required", variant: "destructive" }); return; } setReplyWizStep(2); }}
+                    onClick={() => {
+                      if (!replyWizName.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
+                      if (replyWizSteps.length === 0) { toast({ title: "Add at least one email step", variant: "destructive" }); return; }
+                      // Auto-initialise var map with detected standard field matches
+                      const vars = extractTemplateVars(replyWizSteps);
+                      setReplyWizVarMap((prev) => {
+                        const next = { ...prev };
+                        for (const v of vars) {
+                          if (!(v in next)) next[v] = varResolvesStandard(v) ?? "";
+                        }
+                        return next;
+                      });
+                      setReplyWizStep(2);
+                    }}
                     className={`flex-1 py-2 ${btnPrimary}`}
                   >
-                    Next → Lead list
+                    Next → Select lead list
                   </button>
                 </>
-              ) : (
+              )}
+              {replyWizStep === 2 && (
                 <>
                   <button onClick={() => setReplyWizStep(1)} className="flex-1 py-2 border border-[#E5E7EB] text-sm font-semibold text-[#6B7280] rounded-xl hover:bg-[#F9FAFB]">← Back</button>
+                  <button
+                    onClick={async () => {
+                      await loadCustomFieldKeys(replyWizListId);
+                      setReplyWizStep(3);
+                    }}
+                    disabled={customKeysLoading}
+                    className={`flex-1 py-2 ${btnPrimary} disabled:opacity-50 flex items-center justify-center gap-2`}
+                  >
+                    {customKeysLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Loading fields…</> : "Next → Map variables"}
+                  </button>
+                </>
+              )}
+              {replyWizStep === 3 && (
+                <>
+                  <button onClick={() => setReplyWizStep(2)} className="flex-1 py-2 border border-[#E5E7EB] text-sm font-semibold text-[#6B7280] rounded-xl hover:bg-[#F9FAFB]">← Back</button>
+                  <button onClick={() => setReplyWizStep(4)} className={`flex-1 py-2 ${btnPrimary}`}>
+                    Next → Review &amp; create
+                  </button>
+                </>
+              )}
+              {replyWizStep === 4 && (
+                <>
+                  <button onClick={() => setReplyWizStep(3)} className="flex-1 py-2 border border-[#E5E7EB] text-sm font-semibold text-[#6B7280] rounded-xl hover:bg-[#F9FAFB]">← Back</button>
                   <button onClick={handleCreateReplySeq} disabled={replyCreating} className={`flex-1 py-2 ${btnPrimary} disabled:opacity-50 flex items-center justify-center gap-2`}>
                     {replyCreating ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating…</> : <><CheckCircle2 className="w-4 h-4" /> Create campaign</>}
                   </button>

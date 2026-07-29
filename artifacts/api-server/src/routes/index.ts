@@ -21,6 +21,7 @@ import replyioRouter from "./replyio";
 import hubspotRouter from "./crm-hubspot";
 import templatesRouter from "./templates";
 import replyioLinkedinRouter from "./replyio-linkedin";
+import elevenLabsRouter from "./elevenlabs";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use(replyioRouter);
 router.use(hubspotRouter);
 router.use(templatesRouter);
 router.use(replyioLinkedinRouter);
+router.use(elevenLabsRouter);
 
 export default router;

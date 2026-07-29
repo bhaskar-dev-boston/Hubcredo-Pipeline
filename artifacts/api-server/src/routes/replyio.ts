@@ -63,12 +63,13 @@ async function replyFetch<T>(
   method: string,
   path: string,
   body?: unknown,
-  apiKey?: string
+  apiKey?: string,
+  baseUrl: string = REPLY_BASE
 ): Promise<T> {
   const key = apiKey ?? process.env.REPLY_IO_API_KEY;
   if (!key) throw new Error("No Reply.io API key configured");
 
-  const res = await fetch(`${REPLY_BASE}${path}`, {
+  const res = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
       "Authorization": `Bearer ${key}`,
@@ -116,24 +117,56 @@ async function assignEmailAccountToSequence(
   );
 }
 
+// ── Normalise a raw template var name to a camelCase Reply.io custom variable name ──
+// Strips the description after the first ':' so "THE TRIGGER: examples..." → "theTrigger"
+// Also strips trailing non-alphanumeric chars (e.g. trailing "." from long names).
+function toCamelCaseVar(raw: string): string {
+  const base = raw.split(":")[0].trim();
+  const hasSeparators = /[^a-zA-Z0-9]/.test(base);
+  const isAllUpper = base === base.toUpperCase();
+  const isAllLower = base === base.toLowerCase();
+
+  // Already mixed-case with no separators (e.g. "whatDroveTheValue") — this is
+  // almost certainly a CSV custom-field key used verbatim in the template.
+  // Preserve it exactly, only ensure the first char is lowercase, so the
+  // registered Reply.io field name matches the CSV key exactly.
+  if (!hasSeparators && !isAllUpper && !isAllLower) {
+    return base.charAt(0).toLowerCase() + base.slice(1);
+  }
+
+  return base
+    .toLowerCase()
+    .replace(/[^a-z0-9]+([a-z0-9])/g, (_: string, c: string) => c.toUpperCase())
+    .replace(/[^a-zA-Z0-9]+$/, "");
+}
+
 // ── Convert plain text body to Reply.io HTML + fix variables ─
 function toReplyHtml(text: string): string {
   if (!text) return text;
 
   let result = text.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_match, key: string) => {
     const normalized = key.trim().toLowerCase().replace(/\s+/g, "");
-    return REPLY_VAR_MAP[normalized] ?? `{{ ${key.trim()} }}`;
+    // Standard Reply.io vars (e.g. {{FirstName}}) stay as-is
+    if (REPLY_VAR_MAP[normalized]) return REPLY_VAR_MAP[normalized];
+    // Custom vars: normalize to camelCase so Reply.io can match them to contact custom variables
+    return `{{${toCamelCaseVar(key)}}}`;
   });
 
+  // Bracket-style placeholders → Reply.io standard variables.
+  // Must match exactly the values in REPLY_VAR_MAP so they are never misclassified
+  // as custom variables and accidentally registered as custom fields.
   result = result
-    .replace(/\[First Name\]/gi,    "{{FirstName}}")
-    .replace(/\[Last Name\]/gi,     "{{LastName}}")
-    .replace(/\[Full Name\]/gi,     "{{FullName}}")
-    .replace(/\[Company\]/gi,       "{{CompanyName}}")
-    .replace(/\[Job Title\]/gi,     "{{JobTitle}}")
-    .replace(/\[Industry\]/gi,      "{{Industry}}")
-    .replace(/\[Country\]/gi,       "{{Country}}")
-    .replace(/\[City\]/gi,          "{{City}}");
+    .replace(/\[First Name\]/gi,  "{{FirstName}}")
+    .replace(/\[Last Name\]/gi,   "{{LastName}}")
+    .replace(/\[Full Name\]/gi,   "{{FullName}}")
+    .replace(/\[Company\]/gi,     "{{Company}}")   // Reply.io standard is {{Company}}
+    .replace(/\[Job Title\]/gi,   "{{Title}}")     // Reply.io standard is {{Title}}
+    .replace(/\[Industry\]/gi,    "{{Industry}}")
+    .replace(/\[Country\]/gi,     "{{Country}}")
+    .replace(/\[City\]/gi,        "{{City}}")
+    .replace(/\[Phone\]/gi,       "{{Phone}}")
+    .replace(/\[Website\]/gi,     "{{Website}}")
+    .replace(/\[LinkedIn\]/gi,    "{{LinkedIn}}");
 
   const paragraphs = result.split(/\n\n+/);
   const html = paragraphs
@@ -204,52 +237,191 @@ function cleanEmailBody(raw: string): string {
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
-// Updated REPLY_VAR_MAP
+// Reply.io built-in variable names (verified from Reply.io docs).
+// These are the ONLY variable names Reply.io recognises without pre-registration.
+// Anything else must be created as a custom field via POST /v3/custom-fields first.
 const REPLY_VAR_MAP: Record<string, string> = {
   "firstname":   "{{FirstName}}",
   "lastname":    "{{LastName}}",
   "fullname":    "{{FullName}}",
-  "companyname": "{{CompanyName}}",
-  "company":     "{{CompanyName}}",
-  "title":       "{{JobTitle}}",
-  "jobtitle":    "{{JobTitle}}",
+  "companyname": "{{Company}}",   // Reply.io standard is {{Company}}, NOT {{CompanyName}}
+  "company":     "{{Company}}",
+  "title":       "{{Title}}",     // Reply.io standard is {{Title}}, NOT {{JobTitle}}
+  "jobtitle":    "{{Title}}",
   "email":       "{{Email}}",
+  "phone":       "{{Phone}}",
   "industry":    "{{Industry}}",
   "country":     "{{Country}}",
   "city":        "{{City}}",
+  "website":     "{{Website}}",
+  "linkedin":    "{{LinkedIn}}",
 };
+
+// Lowercase set of the standard var names emitted by REPLY_VAR_MAP (for filtering)
+const REPLY_STANDARD_VAR_NAMES = new Set(
+  Object.values(REPLY_VAR_MAP).map((v) => v.replace(/\{\{|\}\}/g, "").toLowerCase())
+);
+
+/**
+ * Extract custom variable names from already-processed Reply.io HTML
+ * (i.e. vars are already in {{camelCase}} form).
+ * Excludes built-in Reply.io standard variables.
+ */
+function extractCustomVarNamesFromHtml(html: string): string[] {
+  const found = new Set<string>();
+  const re = /\{\{([a-zA-Z][a-zA-Z0-9]*)\}\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const name = m[1];
+    if (!REPLY_STANDARD_VAR_NAMES.has(name.toLowerCase())) {
+      found.add(name);
+    }
+  }
+  return [...found];
+}
+
+/**
+ * Ensure every custom variable name in `varNames` exists as a registered
+ * custom field in the Reply.io account. Creates missing fields as fieldType "text".
+ * Must be called BEFORE creating sequence steps that use these variables,
+ * otherwise Reply.io rejects the step with "Unrecognized variables found".
+ *
+ * IMPORTANT: this must hit the v3 endpoint (POST/GET /v3/custom-fields, using
+ * `title`/`fieldType`). The v1 endpoint (`/v1/custom-fields`, `name`/`type`)
+ * writes to a completely separate field registry that the v3 sequence editor
+ * (and v3 contact import) never reads from — fields created there will always
+ * show up as "Unrecognized variables" in the Reply.io UI even though the
+ * v1 API call itself "succeeds".
+ */
+async function ensureCustomFieldsExist(varNames: string[], apiKey: string): Promise<void> {
+  if (varNames.length === 0) return;
+  try {
+    const existing = await replyFetch<Array<{ id: number; title: string; fieldType: string }>>(
+      "GET", "/custom-fields", undefined, apiKey
+    );
+    const existingTitles = new Set((Array.isArray(existing) ? existing : []).map((f) => f.title.toLowerCase()));
+    for (const name of varNames) {
+      if (!existingTitles.has(name.toLowerCase())) {
+        try {
+          await replyFetch("POST", "/custom-fields", { title: name, fieldType: "text", orgWide: false }, apiKey);
+          logger.info(`Reply.io custom field created: "${name}"`);
+        } catch (err) {
+          // Log but don't fail the whole request — field may already exist under a slightly
+          // different casing (409 duplicateName), or the account may have hit its field limit
+          // (409 limitExceeded).
+          logger.warn(`Reply.io custom field creation skipped for "${name}": ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn(`Reply.io ensureCustomFieldsExist: could not list custom fields — ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
 
 // ─────────────────────────────────────────────────────────────
 // CORE ENROLL HELPER
 // ─────────────────────────────────────────────────────────────
+
+// Map standard frontend field keys → DB column names, so var_map values like
+// "companyName" can resolve to the correct lead field.
+const STANDARD_FIELD_TO_DB: Record<string, string> = {
+  firstName:     "first_name",
+  lastName:      "last_name",
+  email:         "email",
+  companyName:   "company_name",
+  title:         "job_title",
+  industry:      "industry",
+  hqCountry:     "hq_country",
+  hqCity:        "hq_city",
+  linkedInUrl:   "linkedin_url",
+  researchBlurb: "research_blurb",
+};
+
+/** Build the customFields array to pass to Reply.io on contact import.
+ *  - All custom_fields keys become custom fields automatically.
+ *  - varMap entries (rawTemplateVar → fieldKey) override/supplement them:
+ *      "" or missing  → auto-resolved from custom_fields by normalized key match
+ *      "__csv__<key>" → pull from custom_fields[key]
+ *      standard key   → pull from the corresponding DB field on the lead
+ */
+function buildCustomVariables(
+  lead: Record<string, unknown>,
+  varMap: Record<string, string>
+): Array<{ name: string; value: string }> {
+  const vars: Record<string, string> = {};
+
+  // 1. Seed with all custom_fields (keys already camelCase from upload)
+  // 1. Seed with all custom_fields (keys already camelCase from upload)
+const cf = (lead.custom_fields ?? {}) as Record<string, string>;
+for (const [k, v] of Object.entries(cf)) {
+  if (!k || v == null || !String(v).trim()) continue;
+  const canonical = toCamelCaseVar(k);
+  vars[canonical] = String(v);
+  if (!(k in vars)) vars[k] = String(v); // keep raw key too, in case a field was registered unnormalized
+}
+
+  // 2. Apply explicit varMap entries
+  for (const [rawVar, fieldKey] of Object.entries(varMap)) {
+    if (!fieldKey) continue; // "" means auto-resolve from custom_fields — already done above
+    const replyVarName = toCamelCaseVar(rawVar); // normalised name used in template
+    let value: string | undefined;
+    if (fieldKey.startsWith("__csv__")) {
+      const csvKey = fieldKey.slice("__csv__".length);
+      value = cf[csvKey];
+    } else {
+      // Standard field: map through DB column name
+      const dbKey = STANDARD_FIELD_TO_DB[fieldKey] ?? fieldKey;
+      const raw = lead[dbKey];
+      value = raw != null ? String(raw) : undefined;
+    }
+    if (value != null && value.trim()) vars[replyVarName] = value;
+  }
+
+  return Object.entries(vars).map(([name, value]) => ({ name, value }));
+}
+
+interface EnrollLead {
+  email: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  company_name?: string | null;
+  job_title?: string | null;
+  linkedin_url?: string | null;
+  custom_fields?: Record<string, string> | null;
+  [key: string]: unknown;
+}
+
 async function importAndEnrollLeads(
-  leads: Array<{
-    email: string;
-    first_name?: string | null;
-    last_name?: string | null;
-    company_name?: string | null;
-    job_title?: string | null;
-    linkedin_url?: string | null;
-  }>,
+  leads: EnrollLead[],
   seqId: string,
-  apiKey: string
+  apiKey: string,
+  varMap: Record<string, string> = {}
 ): Promise<{ enrolled: number; total: number }> {
   const total = leads.length;
   if (total === 0) return { enrolled: 0, total: 0 };
 
   const importPayload = {
-    items: leads.map((l) => ({
-      email: l.email,
-      ...(l.first_name ? { firstName: l.first_name.split(" ")[0] } : {}),
-      ...(l.last_name
-        ? { lastName: l.last_name }
-        : l.first_name && l.first_name.includes(" ")
-          ? { lastName: l.first_name.split(" ").slice(1).join(" ") }
-          : {}),
-      ...(l.company_name ? { company: l.company_name }     : {}),
-      ...(l.job_title    ? { title: l.job_title }          : {}),
-      ...(l.linkedin_url ? { linkedInUrl: l.linkedin_url } : {}),
-    })),
+    items: leads.map((l) => {
+      const customFields = buildCustomVariables(l, varMap);
+      return {
+        email: l.email,
+        ...(l.first_name ? { firstName: l.first_name.split(" ")[0] } : {}),
+        ...(l.last_name
+          ? { lastName: l.last_name }
+          : l.first_name && l.first_name.includes(" ")
+            ? { lastName: l.first_name.split(" ").slice(1).join(" ") }
+            : {}),
+        ...(l.company_name ? { company: l.company_name }     : {}),
+        ...(l.job_title    ? { title: l.job_title }          : {}),
+        ...(l.linkedin_url ? { linkedInUrl: l.linkedin_url } : {}),
+        // NOTE: Reply.io's v3 /v3/contacts/import contact-patch model calls this
+        // array `customFields` (items shaped { id?, name?, value }) — NOT
+        // `customVariables`. Sending it under the wrong key means Reply.io
+        // silently ignores it and the contact is created with no custom data,
+        // even though the import call itself returns 200/created.
+        ...(customFields.length > 0 ? { customFields } : {}),
+      };
+    }),
     options: {
       overwriteExisting: true,
       skipExisting: false,
@@ -630,22 +802,46 @@ router.post("/replyio/sequences", requireAuth, async (req: AuthenticatedRequest,
 
     const stepErrors: string[] = [];
     if (steps?.length) {
-      for (const step of steps) {
+      // Pre-process all variants so we can inspect the final variable names
+      const processedSteps = steps.map((step) => {
         const stepType = step.type ?? "email";
-        const variant: Record<string, string> = { message: toReplyHtml(step.body) };
+        const message = toReplyHtml(step.body);
+        let subject = "";
         if (stepType === "email" && step.subject) {
-          variant.subject = step.subject.replace(
+          subject = step.subject.replace(
             /\{\{\s*([^}]+?)\s*\}\}/g,
             (_match: string, key: string) => {
               const normalized = key.trim().toLowerCase().replace(/\s+/g, "");
-              return REPLY_VAR_MAP[normalized] ?? `{{ ${key.trim()} }}`;
+              if (REPLY_VAR_MAP[normalized]) return REPLY_VAR_MAP[normalized];
+              return `{{${toCamelCaseVar(key)}}}`;
             }
           );
         }
+        return { stepType, message, subject, delay_days: step.delay_days };
+      });
+
+      // Collect all custom variable names used across all steps and register them
+      // in Reply.io BEFORE creating the steps. Reply.io rejects steps that reference
+      // variables that don't exist yet as registered custom fields.
+      const allCustomVars = new Set<string>();
+      for (const s of processedSteps) {
+        for (const v of extractCustomVarNamesFromHtml(s.message)) allCustomVars.add(v);
+        if (s.subject) {
+          for (const v of extractCustomVarNamesFromHtml(s.subject)) allCustomVars.add(v);
+        }
+      }
+      if (allCustomVars.size > 0) {
+        logger.info(`Reply.io seq ${sequence.id}: ensuring custom fields exist: ${[...allCustomVars].join(", ")}`);
+        await ensureCustomFieldsExist([...allCustomVars], apiKey);
+      }
+
+      for (const s of processedSteps) {
+        const variant: Record<string, string> = { message: s.message };
+        if (s.subject) variant.subject = s.subject;
         try {
           await replyFetch("POST", `/sequences/${sequence.id}/steps`, {
-            type: stepType,
-            delayInMinutes: (step.delay_days ?? 0) * 1440,
+            type: s.stepType,
+            delayInMinutes: (s.delay_days ?? 0) * 1440,
             variants: [variant],
           }, apiKey);
         } catch (stepErr: unknown) {
@@ -674,9 +870,10 @@ router.post("/replyio/sequences/:id/activate", requireAuth, async (req: Authenti
   if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
 
   const seqId = String(req.params.id);
-  const { emailAccountId, lead_list_id } = req.body as {
+  const { emailAccountId, lead_list_id, var_map } = req.body as {
     emailAccountId?: number;
     lead_list_id?: string;
+    var_map?: Record<string, string>;
   };
 
   try {
@@ -712,7 +909,7 @@ router.post("/replyio/sequences/:id/activate", requireAuth, async (req: Authenti
     if (lead_list_id) {
       const { data: leads, error: dbErr } = await supabase
         .from("leads")
-        .select("email, first_name, last_name, company_name, job_title, linkedin_url")
+        .select("email, first_name, last_name, company_name, job_title, linkedin_url, custom_fields")
         .eq("lead_list_id", lead_list_id)
         .not("email", "is", null);
 
@@ -723,9 +920,6 @@ router.post("/replyio/sequences/:id/activate", requireAuth, async (req: Authenti
         return;
       }
 
-      // Reply.io's /contacts/import requires a syntactically valid email for
-      // every item — !!l.email only checks presence, not format. One bad
-      // email (e.g. "john@company" with no TLD) fails the WHOLE batch.
       const validLeads = leads.filter((l) => isValidEmail(l.email));
       const skippedInvalidEmail = leads.length - validLeads.length;
 
@@ -737,18 +931,7 @@ router.post("/replyio/sequences/:id/activate", requireAuth, async (req: Authenti
         return;
       }
 
-      enrollResult = await importAndEnrollLeads(
-        validLeads as Array<{
-          email: string;
-          first_name?: string | null;
-          last_name?: string | null;
-          company_name?: string | null;
-          job_title?: string | null;
-          linkedin_url?: string | null;
-        }>,
-        seqId,
-        apiKey
-      );
+      enrollResult = await importAndEnrollLeads(validLeads as EnrollLead[], seqId, apiKey, var_map ?? {});
 
       if (enrollResult.enrolled === 0) {
         res.status(400).json({
@@ -791,14 +974,14 @@ router.post("/replyio/sequences/:id/enroll-list", requireAuth, async (req: Authe
   const apiKey = await getUserReplyApiKey(req.userId!);
   if (!apiKey) { res.status(401).json({ error: "No Reply.io API key configured" }); return; }
   try {
-    const { lead_list_id } = req.body as { lead_list_id: string };
+    const { lead_list_id, var_map } = req.body as { lead_list_id: string; var_map?: Record<string, string> };
     if (!lead_list_id) { res.status(400).json({ error: "lead_list_id is required" }); return; }
 
     const seqId = String(req.params.id);
 
     const { data: leads, error: dbErr } = await supabase
       .from("leads")
-      .select("email, first_name, last_name, company_name, job_title, linkedin_url")
+      .select("email, first_name, last_name, company_name, job_title, linkedin_url, custom_fields")
       .eq("lead_list_id", lead_list_id)
       .not("email", "is", null);
 
@@ -808,9 +991,6 @@ router.post("/replyio/sequences/:id/enroll-list", requireAuth, async (req: Authe
       return;
     }
 
-    // Same fix as activate — drop leads with malformed emails before
-    // sending to Reply.io's /contacts/import, which rejects the whole
-    // batch if even one item fails validation.
     const validLeads = leads.filter((l) => isValidEmail(l.email));
     const skippedInvalidEmail = leads.length - validLeads.length;
 
@@ -819,18 +999,7 @@ router.post("/replyio/sequences/:id/enroll-list", requireAuth, async (req: Authe
       return;
     }
 
-    const result = await importAndEnrollLeads(
-      validLeads as Array<{
-        email: string;
-        first_name?: string | null;
-        last_name?: string | null;
-        company_name?: string | null;
-        job_title?: string | null;
-        linkedin_url?: string | null;
-      }>,
-      seqId,
-      apiKey
-    );
+    const result = await importAndEnrollLeads(validLeads as EnrollLead[], seqId, apiKey, var_map ?? {});
 
     if (skippedInvalidEmail > 0) {
       logger.warn(`Reply.io enroll-list seq ${seqId}: skipped ${skippedInvalidEmail} lead(s) with invalid email format`);

@@ -23,7 +23,10 @@ import InboxKitPage from "@/pages/dashboard/InboxKitPage";
 import CRM from "@/pages/dashboard/CRM";
 import HubSpot from "@/pages/dashboard/HubSpot";
 import RecommendedTools from "@/pages/dashboard/RecommendedTools";
+import GetIcpPage from "@/pages/dashboard/GetIcpPage";
+import ColdCalling from "@/pages/dashboard/ColdCalling";
 import NotFound from "@/pages/not-found";
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -57,6 +60,9 @@ function Router() {
       <Route path="/dashboard/inboxkit">
         <ProtectedRoute component={InboxKitPage} />
       </Route>
+      <Route path="/dashboard/get-icp">
+        <ProtectedRoute component={GetIcpPage} />
+      </Route>
 
       <Route path="/dashboard/settings">
         <ProtectedRoute component={Settings} />
@@ -84,6 +90,9 @@ function Router() {
       </Route>
       <Route path="/dashboard/tools">
         <ProtectedRoute component={RecommendedTools} />
+      </Route>
+       <Route path="/dashboard/cold-calling">
+        <ProtectedRoute component={ColdCalling} />
       </Route>
       <Route component={NotFound} />
     </Switch>

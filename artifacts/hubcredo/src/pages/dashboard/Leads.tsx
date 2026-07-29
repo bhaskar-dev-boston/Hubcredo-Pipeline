@@ -882,6 +882,21 @@ export default function Leads() {
                       <p className="text-sm text-[#6B7280] leading-relaxed bg-[#F8F7FF] border border-[rgba(107,78,255,0.12)] rounded-lg p-3">{lead.research_blurb}</p>
                     </div>
                   )}
+
+                  {/* Custom fields */}
+                  {lead.custom_fields && typeof lead.custom_fields === "object" && Object.keys(lead.custom_fields as Record<string, string>).length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-[#1E1B4B] uppercase tracking-widest mb-2">Custom Fields</p>
+                      <div className="space-y-2">
+                        {Object.entries(lead.custom_fields as Record<string, string>).map(([key, value]) => (
+                          <div key={key} className="flex items-start gap-2 bg-[#F8F7FF] border border-[rgba(107,78,255,0.1)] rounded-lg px-3 py-2">
+                            <span className="text-[10px] font-mono text-[#6B4EFF] bg-[#EDE9FF] px-1.5 py-0.5 rounded shrink-0 mt-0.5">{`{{${key}}}`}</span>
+                            <span className="text-sm text-[#1E1B4B] break-words min-w-0">{value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

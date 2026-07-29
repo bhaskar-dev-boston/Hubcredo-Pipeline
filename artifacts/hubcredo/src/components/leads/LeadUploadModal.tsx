@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { Upload, X, FileSpreadsheet, ChevronDown, Loader2, CheckCircle2, AlertCircle, Eye, Trash2 } from "lucide-react";
+import { Upload, X, FileSpreadsheet, ChevronDown, Loader2, CheckCircle2, AlertCircle, Eye, Trash2, Plus, Minus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getToken } from "@/lib/auth";
 
@@ -17,7 +17,8 @@ interface ParsedLead {
   hq_city?: string;
   seniority?: string;
   department?: string;
-  [key: string]: string | undefined;
+  custom_fields?: Record<string, string>;
+  [key: string]: string | Record<string, string> | undefined;
 }
 
 interface LeadUploadModalProps {
@@ -25,37 +26,56 @@ interface LeadUploadModalProps {
   onSuccess: (listId: string, listLabel: string, count: number) => void;
 }
 
+// Standard field aliases for auto-mapping
 const FIELD_MAP: Record<string, string[]> = {
-  first_name: ["first_name", "firstname", "first name", "given name", "fname"],
-  last_name: ["last_name", "lastname", "last name", "surname", "family name", "lname"],
-  email: ["email", "email address", "e-mail", "emailaddress", "work email"],
-  linkedin_url: ["linkedin_url", "linkedin", "linkedin url", "linkedin profile", "profile url"],
-  job_title: ["job_title", "title", "job title", "position", "role", "jobtitle"],
-  company_name: ["company_name", "company", "company name", "organization", "employer"],
-  company_domain: ["company_domain", "domain", "website", "company website", "company domain"],
-  company_size: ["company_size", "company size", "employees", "headcount", "employee count"],
-  industry: ["industry", "sector", "vertical"],
-  hq_country: ["hq_country", "country", "location country", "headquarters country"],
-  hq_city: ["hq_city", "city", "location city", "headquarters city"],
-  seniority: ["seniority", "seniority level", "level"],
-  department: ["department", "function", "team"],
+  first_name:     ["first_name", "firstname", "first name", "given name", "fname", "contact name", "name"],
+  last_name:      ["last_name", "lastname", "last name", "surname", "family name", "lname"],
+  email:          ["email", "email address", "e-mail", "emailaddress", "work email"],
+  linkedin_url:   ["linkedin_url", "linkedin", "linkedin url", "linkedin profile", "profile url"],
+  job_title:      ["job_title", "title", "job title", "position", "role", "jobtitle"],
+  company_name:   ["company_name", "company", "company name", "organization", "employer"],
+  company_domain: ["company_domain", "domain", "website", "company website", "company domain", "website/company url"],
+  company_size:   ["company_size", "company size", "employees", "headcount", "employee count"],
+  industry:       ["industry", "sector", "vertical"],
+  hq_country:     ["hq_country", "country", "location country", "headquarters country"],
+  hq_city:        ["hq_city", "city", "location city", "headquarters city"],
+  seniority:      ["seniority", "seniority level", "level"],
+  department:     ["department", "function", "team"],
 };
 
 const FIELD_LABELS: Record<string, string> = {
-  first_name: "First Name",
-  last_name: "Last Name",
-  email: "Email",
-  linkedin_url: "LinkedIn URL",
-  job_title: "Job Title",
-  company_name: "Company",
+  first_name:     "First Name",
+  last_name:      "Last Name",
+  email:          "Email",
+  linkedin_url:   "LinkedIn URL",
+  job_title:      "Job Title",
+  company_name:   "Company",
   company_domain: "Company Domain",
-  company_size: "Company Size",
-  industry: "Industry",
-  hq_country: "Country",
-  hq_city: "City",
-  seniority: "Seniority",
-  department: "Department",
+  company_size:   "Company Size",
+  industry:       "Industry",
+  hq_country:     "Country",
+  hq_city:        "City",
+  seniority:      "Seniority",
+  department:     "Department",
 };
+
+/** Convert any string to camelCase for use as a template variable */
+function toCamelCase(str: string): string {
+  return str
+    .trim()
+    .toLowerCase() // normalise first so ALL-CAPS words become lowercase before camelCasing
+    .replace(/[^a-z0-9]+(.)?/g, (_, ch) => (ch ? ch.toUpperCase() : ""))
+    .replace(/^[^a-zA-Z]/, "_"); // ensure starts with letter or _
+}
+
+/**
+ * Sanitize a variable key to only contain word characters (\w+).
+ * Matches the server-side validation in the upload route.
+ */
+function sanitizeVarKey(raw: string): string {
+  // Strip any character that isn't a word char; collapse runs of _ or digits at start
+  return raw.trim().replace(/[^\w]/g, "").replace(/^[0-9_]+/, "") || "";
+}
 
 function parseCSV(text: string): { headers: string[]; rows: Record<string, string>[] } {
   const lines: string[] = [];
@@ -137,17 +157,44 @@ export function LeadUploadModal({ onClose, onSuccess }: LeadUploadModalProps) {
   const [result, setResult] = useState<{ inserted: number; list_label: string; list_id: string } | null>(null);
   const [previewPage, setPreviewPage] = useState(0);
 
+  // Custom field state: csvHeader → variable name used in {{varName}} templates
+  const [customFieldKeys, setCustomFieldKeys] = useState<Record<string, string>>({});
+  // csvHeaders to exclude from custom fields
+  const [excludedCustomFields, setExcludedCustomFields] = useState<Set<string>>(new Set());
+
+  // Derive which headers are currently mapped to standard fields
+  const mappedHeaderSet = new Set(Object.values(columnMap).filter(Boolean));
+  const unmappedHeaders = headers.filter((h) => !mappedHeaderSet.has(h));
+
+  const toggleExclude = (header: string) => {
+    setExcludedCustomFields((prev) => {
+      const next = new Set(prev);
+      if (next.has(header)) next.delete(header);
+      else next.add(header);
+      return next;
+    });
+  };
+
   const parseFile = useCallback(async (file: File) => {
     setFileName(file.name);
+
+    const initCustomFields = (h: string[]) => {
+      const cfKeys: Record<string, string> = {};
+      h.forEach((hdr) => { cfKeys[hdr] = toCamelCase(hdr); });
+      setCustomFieldKeys(cfKeys);
+      setExcludedCustomFields(new Set()); // reset exclusions
+    };
 
     if (file.name.endsWith(".csv") || file.type === "text/csv") {
       const text = await file.text();
       const { headers: h, rows } = parseCSV(text);
       if (h.length === 0) { toast({ title: "Empty file", description: "No data found in the CSV.", variant: "destructive" }); return; }
+      const mapped = autoMapColumns(h);
       setHeaders(h);
       setRawRows(rows);
-      setColumnMap(autoMapColumns(h));
+      setColumnMap(mapped);
       setListName(file.name.replace(/\.[^.]+$/, ""));
+      initCustomFields(h);
       setStep("map");
     } else if (file.name.match(/\.xlsx?$/) || file.type.includes("spreadsheet") || file.type.includes("excel")) {
       try {
@@ -158,14 +205,17 @@ export function LeadUploadModal({ onClose, onSuccess }: LeadUploadModalProps) {
         const jsonData = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: "" });
         if (jsonData.length === 0) { toast({ title: "Empty file", description: "No data found in the Excel file.", variant: "destructive" }); return; }
         const h = Object.keys(jsonData[0]);
-        setHeaders(h);
-        setRawRows(jsonData.map((row) => {
+        const rows = jsonData.map((row) => {
           const r: Record<string, string> = {};
           h.forEach((k) => { r[k] = String(row[k] ?? ""); });
           return r;
-        }));
-        setColumnMap(autoMapColumns(h));
+        });
+        const mapped = autoMapColumns(h);
+        setHeaders(h);
+        setRawRows(rows);
+        setColumnMap(mapped);
         setListName(file.name.replace(/\.[^.]+$/, ""));
+        initCustomFields(h);
         setStep("map");
       } catch {
         toast({ title: "Excel parse error", description: "Could not read the Excel file. Try saving as CSV.", variant: "destructive" });
@@ -187,12 +237,37 @@ export function LeadUploadModal({ onClose, onSuccess }: LeadUploadModalProps) {
     if (file) parseFile(file);
   }
 
+  /** Returns duplicate variable keys among included custom fields (for validation UI) */
+  const duplicateCustomKeys = (() => {
+    const seen = new Map<string, number>();
+    for (const header of unmappedHeaders) {
+      if (excludedCustomFields.has(header)) continue;
+      const varKey = sanitizeVarKey(customFieldKeys[header] || toCamelCase(header));
+      if (!varKey) continue;
+      seen.set(varKey, (seen.get(varKey) ?? 0) + 1);
+    }
+    return new Set([...seen.entries()].filter(([, c]) => c > 1).map(([k]) => k));
+  })();
+
   function getMappedLeads(): ParsedLead[] {
     return rawRows.map((row) => {
       const lead: ParsedLead = {};
+      // Standard fields
       for (const [field, col] of Object.entries(columnMap)) {
         if (col && row[col] !== undefined) lead[field] = row[col] || undefined;
       }
+      // Custom fields — skip duplicates (last writer wins would silently drop data)
+      const cf: Record<string, string> = {};
+      const usedKeys = new Set<string>();
+      for (const header of unmappedHeaders) {
+        if (excludedCustomFields.has(header)) continue;
+        const varKey = sanitizeVarKey(customFieldKeys[header] || toCamelCase(header));
+        if (!varKey || usedKeys.has(varKey)) continue; // skip blank/duplicate keys
+        usedKeys.add(varKey);
+        const val = row[header];
+        if (val && val.trim()) cf[varKey] = val.trim();
+      }
+      if (Object.keys(cf).length > 0) lead.custom_fields = cf;
       return lead;
     }).filter((l) => l.email || l.linkedin_url || l.first_name);
   }
@@ -229,6 +304,8 @@ export function LeadUploadModal({ onClose, onSuccess }: LeadUploadModalProps) {
   const PAGE_SIZE = 5;
   const pageLeads = previewLeads.slice(previewPage * PAGE_SIZE, (previewPage + 1) * PAGE_SIZE);
   const totalPages = Math.ceil(previewLeads.length / PAGE_SIZE);
+
+  const includedCustomCount = unmappedHeaders.filter((h) => !excludedCustomFields.has(h)).length;
 
   const inputClass = "w-full px-3 py-2 bg-white border border-[rgba(107,78,255,.15)] rounded-lg text-sm text-[#1E1B4B] focus:outline-none focus:border-[#6B4EFF] transition-colors";
 
@@ -291,13 +368,16 @@ export function LeadUploadModal({ onClose, onSuccess }: LeadUploadModalProps) {
                 </div>
 
                 <div className="bg-[#F8F7FF] border border-[rgba(107,78,255,0.12)] rounded-xl p-4">
-                  <p className="text-xs font-semibold text-[#1E1B4B] mb-2">Expected column names (any format)</p>
-                  <div className="flex flex-wrap gap-1.5">
+                  <p className="text-xs font-semibold text-[#1E1B4B] mb-2">Standard fields (auto-detected)</p>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
                     {["First Name", "Last Name", "Email", "LinkedIn URL", "Job Title", "Company", "Industry", "Country"].map((col) => (
                       <span key={col} className="text-xs px-2 py-0.5 bg-white border border-[rgba(107,78,255,0.15)] rounded-md text-[#6B7280] font-mono">{col}</span>
                     ))}
                   </div>
-                  <p className="text-xs text-[#9CA3AF] mt-2">Column names are auto-detected. You can remap them in the next step.</p>
+                  <p className="text-xs text-[#9CA3AF]">
+                    Any other columns become <span className="font-semibold text-[#6B4EFF]">custom fields</span> — usable as{" "}
+                    <code className="font-mono bg-[#EDE9FF] px-1 rounded">{"{{varName}}"}</code> in email templates.
+                  </p>
                 </div>
               </div>
             )}
@@ -321,8 +401,9 @@ export function LeadUploadModal({ onClose, onSuccess }: LeadUploadModalProps) {
                   <input value={listName} onChange={(e) => setListName(e.target.value)} placeholder="My Lead List" className={inputClass} />
                 </div>
 
+                {/* Standard fields */}
                 <div>
-                  <p className="text-sm font-medium text-[#1E1B4B] mb-3">Map your columns</p>
+                  <p className="text-sm font-medium text-[#1E1B4B] mb-3">Standard fields</p>
                   <div className="space-y-2">
                     {Object.entries(FIELD_LABELS).map(([field, label]) => (
                       <div key={field} className="flex items-center gap-3">
@@ -350,6 +431,89 @@ export function LeadUploadModal({ onClose, onSuccess }: LeadUploadModalProps) {
                     ))}
                   </div>
                 </div>
+
+                {/* Custom fields section */}
+                {unmappedHeaders.length > 0 && (
+                  <div className="pt-4 border-t border-[rgba(107,78,255,0.1)]">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-sm font-medium text-[#1E1B4B]">Custom fields</p>
+                      {includedCustomCount > 0 && (
+                        <span className="text-xs bg-[#EDE9FF] text-[#6B4EFF] px-2 py-0.5 rounded-full font-medium">
+                          {includedCustomCount} included
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-[#9CA3AF] mb-3">
+                      Columns not mapped above. Use{" "}
+                      <code className="font-mono bg-[#EDE9FF] text-[#6B4EFF] px-1 rounded">{"{{varName}}"}</code>{" "}
+                      in email templates to personalise with these values.
+                    </p>
+                    <div className="space-y-2">
+                      {unmappedHeaders.map((header) => {
+                        const excluded = excludedCustomFields.has(header);
+                        const varKey = (customFieldKeys[header] ?? toCamelCase(header));
+                        const sampleVal = rawRows[0]?.[header] || "—";
+                        return (
+                          <div key={header} className={`flex items-center gap-2 rounded-lg p-2 transition-colors ${excluded ? "opacity-40" : "bg-[#F8F7FF] border border-[rgba(107,78,255,0.08)]"}`}>
+                            {/* Toggle button */}
+                            <button
+                              onClick={() => toggleExclude(header)}
+                              title={excluded ? "Include this column" : "Exclude this column"}
+                              className={`w-6 h-6 rounded flex items-center justify-center shrink-0 transition-colors ${
+                                excluded
+                                  ? "bg-[#F3F4F6] text-[#9CA3AF] hover:bg-[#E5E7EB]"
+                                  : "bg-[#6B4EFF] text-white hover:bg-[#5B3FE0]"
+                              }`}
+                            >
+                              {excluded ? <Plus className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+                            </button>
+
+                            {/* CSV column name */}
+                            <div className="w-32 shrink-0">
+                              <span className="text-xs text-[#6B7280] truncate block" title={header}>{header}</span>
+                            </div>
+
+                            {/* Editable variable key */}
+                            <div className="flex-1">
+                              <input
+                                disabled={excluded}
+                                value={varKey}
+                                onChange={(e) => {
+                                  // Allow typing freely; sanitization shown as preview
+                                  setCustomFieldKeys((prev) => ({ ...prev, [header]: e.target.value }));
+                                }}
+                                onBlur={(e) => {
+                                  // On blur, snap to valid key
+                                  const clean = sanitizeVarKey(e.target.value) || toCamelCase(header);
+                                  setCustomFieldKeys((prev) => ({ ...prev, [header]: clean }));
+                                }}
+                                placeholder="variableName"
+                                className={`w-full px-2 py-1 bg-white border rounded-md text-xs text-[#1E1B4B] font-mono focus:outline-none disabled:opacity-40 ${
+                                  !excluded && duplicateCustomKeys.has(sanitizeVarKey(varKey))
+                                    ? "border-amber-400 focus:border-amber-500"
+                                    : "border-[rgba(107,78,255,.15)] focus:border-[#6B4EFF]"
+                                }`}
+                              />
+                              {!excluded && duplicateCustomKeys.has(sanitizeVarKey(varKey)) && (
+                                <p className="text-[10px] text-amber-600 mt-0.5">Duplicate key — rename to avoid data loss</p>
+                              )}
+                            </div>
+
+                            {/* Template var preview */}
+                            {!excluded && (
+                              <code className="text-[10px] text-[#6B4EFF] bg-[#EDE9FF] px-1.5 py-0.5 rounded font-mono shrink-0 whitespace-nowrap">
+                                {`{{${sanitizeVarKey(varKey) || "…"}}}`}
+                              </code>
+                            )}
+
+                            {/* Sample value */}
+                            <span className="text-[10px] text-[#9CA3AF] w-20 truncate shrink-0" title={sampleVal}>{sampleVal}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -377,10 +541,24 @@ export function LeadUploadModal({ onClose, onSuccess }: LeadUploadModalProps) {
                         {lead.email && <span className="text-xs text-[#6B7280]">{lead.email}</span>}
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-0.5 pl-9">
-                        {lead.job_title && <span className="text-xs text-[#6B7280]">{lead.job_title}</span>}
-                        {lead.company_name && <span className="text-xs text-[#6B7280]">· {lead.company_name}</span>}
-                        {lead.hq_country && <span className="text-xs text-[#9CA3AF]">· {lead.hq_country}</span>}
+                        {lead.job_title && <span className="text-xs text-[#6B7280]">{lead.job_title as string}</span>}
+                        {lead.company_name && <span className="text-xs text-[#6B7280]">· {lead.company_name as string}</span>}
+                        {lead.hq_country && <span className="text-xs text-[#9CA3AF]">· {lead.hq_country as string}</span>}
                       </div>
+                      {/* Custom fields preview */}
+                      {lead.custom_fields && Object.keys(lead.custom_fields).length > 0 && (
+                        <div className="pl-9 mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                          {Object.entries(lead.custom_fields).slice(0, 4).map(([k, v]) => (
+                            <span key={k} className="text-[10px] text-[#6B4EFF]">
+                              <span className="font-mono opacity-60">{`{{${k}}}`}</span>{" "}
+                              <span className="text-[#6B7280]">{v}</span>
+                            </span>
+                          ))}
+                          {Object.keys(lead.custom_fields).length > 4 && (
+                            <span className="text-[10px] text-[#9CA3AF]">+{Object.keys(lead.custom_fields).length - 4} more</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -432,7 +610,8 @@ export function LeadUploadModal({ onClose, onSuccess }: LeadUploadModalProps) {
                     if (step === "map") { setPreviewPage(0); setStep("preview"); }
                     else if (step === "preview") handleUpload();
                   }}
-                  disabled={(step === "preview" && previewLeads.length === 0) || uploading}
+                  disabled={(step === "preview" && previewLeads.length === 0) || uploading || (step === "map" && duplicateCustomKeys.size > 0)}
+                  title={step === "map" && duplicateCustomKeys.size > 0 ? "Resolve duplicate custom field keys first" : undefined}
                   className="flex items-center gap-2 px-5 py-2 bg-[#6B4EFF] text-white text-sm font-semibold rounded-lg hover:bg-[#5B3FE0] transition-colors disabled:opacity-50"
                 >
                   {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}

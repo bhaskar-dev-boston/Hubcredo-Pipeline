@@ -276,6 +276,9 @@ export interface Lead {
   reviewed_at?: string | null;
   /** @nullable */
   rejection_reason?: string | null;
+  /** User-defined key-value pairs imported from CSV columns not mapped to standard fields
+   * @nullable */
+  custom_fields?: Record<string, string> | null;
   /** @nullable */
   crm_contact_id?: string | null;
   /** @nullable */

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, Settings, LogOut, Zap, X, Globe, CreditCard, Mail, Inbox, Linkedin, Building2, Sparkles, ShoppingCart } from "lucide-react";
+import { LayoutDashboard, Users, Settings, LogOut, Zap, X, Globe, CreditCard, Mail, Inbox, Linkedin, Building2, Sparkles, ShoppingCart, Phone, Target } from "lucide-react";
 import { removeToken } from "@/lib/auth";
 import { useGetMe } from "@workspace/api-client-react";
 import { useCreditStore } from "@/store/creditStore";
@@ -8,7 +8,9 @@ import { useEffect } from "react";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/leads", label: "My Leads", icon: Users },
+  { href: "/dashboard/get-icp", label: "ICP Finder", icon: Target },
   { href: "/dashboard/linkedin", label: "LinkedIn Outreach", icon: Linkedin },
+  { href: "/dashboard/cold-calling", label: "Cold Calling", icon: Phone },
   { href: "/dashboard/campaigns", label: "Campaigns", icon: Mail },
   { href: "/dashboard/inbox", label: "Inbox", icon: Inbox },
   { href: "/dashboard/tools", label: "Recommended Tools", icon: Sparkles },

@@ -263,7 +263,7 @@ router.patch("/leads/:id/review", requireAuth, async (req: AuthenticatedRequest,
 router.post("/leads/upload-manual", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { list_name, leads: rawLeads } = req.body as {
     list_name?: string;
-    leads: Array<Record<string, string>>;
+    leads: Array<Record<string, unknown>>;
   };
 
   if (!Array.isArray(rawLeads) || rawLeads.length === 0) {
@@ -314,6 +314,22 @@ router.post("/leads/upload-manual", requireAuth, async (req: AuthenticatedReques
       continue;
     }
 
+    // custom_fields is passed as a nested object by the frontend mapper.
+    // Sanitise: accept only plain-object with string keys (\w+) and string values.
+    let customFields: Record<string, string> | null = null;
+    if (row.custom_fields && typeof row.custom_fields === "object" && !Array.isArray(row.custom_fields)) {
+      const raw = row.custom_fields as Record<string, unknown>;
+      const safe: Record<string, string> = {};
+      for (const [k, v] of Object.entries(raw)) {
+        // Key must be a valid identifier-like string; value must coerce to a non-empty string
+        if (/^\w+$/.test(k) && v !== null && v !== undefined) {
+          const strVal = String(v).trim();
+          if (strVal) safe[k] = strVal;
+        }
+      }
+      if (Object.keys(safe).length > 0) customFields = safe;
+    }
+
     leadsToInsert.push({
       user_id: req.userId!,
       lead_list_id: list.id,
@@ -330,6 +346,7 @@ router.post("/leads/upload-manual", requireAuth, async (req: AuthenticatedReques
       hq_city: row.hq_city || row.city || row["City"] || null,
       seniority: row.seniority || row["Seniority"] || null,
       department: row.department || row["Department"] || null,
+      custom_fields: customFields,
       review_status: "pending",
     });
   }

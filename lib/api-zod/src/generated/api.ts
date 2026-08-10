@@ -30,7 +30,9 @@ export const GetMeResponse = zod.object({
   "subscription_status": zod.string().optional(),
   "credit_balance": zod.number().optional(),
   "created_at": zod.string().nullish(),
-  "updated_at": zod.string().nullish()
+  "updated_at": zod.string().nullish(),
+  // recruit-mode addition (manual)
+  "workspace_type": zod.enum(["sales","recruit"]).nullish()
 })
 
 
@@ -41,7 +43,9 @@ export const UpdateProfileBody = zod.object({
   "full_name": zod.string().optional(),
   "avatar_url": zod.string().optional(),
   "onboarding_step": zod.string().optional(),
-  "onboarding_complete": zod.boolean().optional()
+  "onboarding_complete": zod.boolean().optional(),
+  // recruit-mode addition (manual)
+  "workspace_type": zod.enum(["sales","recruit"]).optional()
 })
 
 export const UpdateProfileResponse = zod.object({
@@ -55,7 +59,9 @@ export const UpdateProfileResponse = zod.object({
   "subscription_status": zod.string().optional(),
   "credit_balance": zod.number().optional(),
   "created_at": zod.string().nullish(),
-  "updated_at": zod.string().nullish()
+  "updated_at": zod.string().nullish(),
+  // recruit-mode addition (manual)
+  "workspace_type": zod.enum(["sales","recruit"]).nullish()
 })
 
 

@@ -1,5 +1,5 @@
-
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { TagInput } from "@/components/ui/TagInput";
 import {
@@ -23,7 +23,7 @@ const ATTIO_API_KEY_URL = "https://app.attio.com/hubcredoworkspace/settings/deve
 const INBOXKIT_API_URL = "https://app.inboxkit.com/settings/api";
 const REPLY_IO_API_URL = "https://app.reply.io/settings/api";
 
-type TabId = "profile" | "icp" | "outreach" | "crm" | "integrations";
+type TabId = "profile" | "icp" | "outreach" | "crm" | "integrations" | "workspace";
 
 const CRM_FIELDS = [
   { key: "first_name",   label: "First Name",   description: "Maps to Attio name.first_name" },
@@ -626,14 +626,19 @@ function LinkedInCard() {
 // ── Main Settings page ─────────────────────────────────────────────────────────
 export default function Settings() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const [switchingToRecruit, setSwitchingToRecruit] = useState(false);
 
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab") as TabId | null;
-    return tab && ["profile","icp","outreach","crm","integrations"].includes(tab) ? tab : "profile";
+    return tab && ["profile","icp","outreach","crm","integrations","workspace"].includes(tab) ? tab : "profile";
   });
 
-  const { data: profile } = useGetMe();
+  // FIX: destructure `refetch` (aliased to refetchProfile to avoid colliding
+  // with refetchIcps / refetchCrm / refetchMapping below) so the workspace
+  // switch handler can force this query to update before navigating.
+  const { data: profile, refetch: refetchProfile } = useGetMe();
   const { data: icps = [], refetch: refetchIcps } = useListIcps();
   const { data: outreachRaw } = useGetOutreachSettings();
   const outreachSettings = outreachRaw as OutreachSettings | undefined;
@@ -762,6 +767,7 @@ export default function Settings() {
     { id: "outreach",     label: "Outreach" },
     { id: "crm",          label: "CRM" },
     { id: "integrations", label: "Integrations" },
+    { id: "workspace",    label: "Workspace" },
   ];
 
   const chipBase     = "px-3 py-2 rounded-lg text-sm transition-colors border cursor-pointer";
@@ -1042,6 +1048,56 @@ export default function Settings() {
                 </button>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── Workspace tab ── */}
+        {activeTab === "workspace" && (
+          <div className="bg-white border border-[rgba(107,78,255,.12)] rounded-xl p-6 space-y-5 shadow-sm">
+            <h2 className="text-[#1E1B4B] font-semibold">Workspace mode</h2>
+            <p className="text-[#6B7280] text-sm">Switch between Sales and Recruit workspaces. One mode per account in v1 — your data in both modes is preserved when you switch.</p>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* Sales — active */}
+              <div className="p-4 rounded-xl border-2 border-[#6B4EFF] bg-[#F5F3FF]">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-[#6B4EFF] font-bold text-sm">⚡ Sales</span>
+                  <span className="ml-auto text-[0.65rem] font-bold text-[#6B4EFF] flex items-center gap-1">✓ Active</span>
+                </div>
+                <p className="text-xs text-[#7C6FCF]">Leads, ICP Finder, LinkedIn Outreach, Campaigns, Cold Calling, Domain Finder</p>
+              </div>
+              {/* Recruit — inactive */}
+              <div className="p-4 rounded-xl border border-[rgba(107,78,255,.12)] bg-[#F8FAFC]">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-[#374151] font-bold text-sm">🎯 Recruit</span>
+                </div>
+                <p className="text-xs text-[#94A3B8]">Clients, Roles, Candidates, Pipeline, Resume review, Job signals</p>
+              </div>
+            </div>
+
+            <button
+              disabled={switchingToRecruit}
+              onClick={async () => {
+                setSwitchingToRecruit(true);
+                try {
+                  await updateProfile.mutateAsync({ data: { workspace_type: "recruit" } });
+                  // FIX: force the cached useGetMe() result to refresh before
+                  // navigating, so the Sidebar (which also reads useGetMe())
+                  // sees workspace_type === "recruit" on the very next render
+                  // instead of a stale "sales" value from before the switch.
+                  await refetchProfile();
+                  toast({ title: "Switched to Recruit mode" });
+                  setLocation("/dashboard/recruit");
+                } catch {
+                  toast({ title: "Error switching workspace", variant: "destructive" });
+                } finally { setSwitchingToRecruit(false); }
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#2563EB] text-white text-sm font-semibold rounded-lg hover:bg-[#1D4ED8] transition-colors disabled:opacity-50"
+            >
+              {switchingToRecruit && <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
+              Switch to Recruit mode →
+            </button>
+            <p className="text-xs text-[#9CA3AF]">Your sales data stays intact. You can switch back at any time from Recruit → Settings → Workspace.</p>
           </div>
         )}
 

@@ -11,7 +11,6 @@ import Onboarding from "@/pages/Onboarding";
 import Dashboard from "@/pages/dashboard/Dashboard";
 import Leads from "@/pages/dashboard/Leads";
 
-
 import Settings from "@/pages/dashboard/Settings";
 import DomainFinder from "@/pages/dashboard/DomainFinder";
 import Billing from "@/pages/dashboard/Billing";
@@ -27,6 +26,16 @@ import GetIcpPage from "@/pages/dashboard/GetIcpPage";
 import ColdCalling from "@/pages/dashboard/ColdCalling";
 import NotFound from "@/pages/not-found";
 
+// Recruit mode pages
+import RecruitDashboard from "@/pages/recruit/RecruitDashboard";
+import Clients from "@/pages/recruit/Clients";
+import Roles from "@/pages/recruit/Roles";
+import RoleWorkspace from "@/pages/recruit/RoleWorkspace";
+import Candidates from "@/pages/recruit/Candidates";
+import RecruitOutreach from "@/pages/recruit/RecruitOutreach";
+import RecruitInbox from "@/pages/recruit/RecruitInbox";
+import RecruitSettings from "@/pages/recruit/RecruitSettings";
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,6 +47,7 @@ function ProtectedRoute({ component: Component }: { component: ComponentType }) 
   if (!getToken()) return <Redirect to="/login" />;
   return <Component />;
 }
+
 
 function Router() {
   return (
@@ -67,6 +77,7 @@ function Router() {
       <Route path="/dashboard/settings">
         <ProtectedRoute component={Settings} />
       </Route>
+      
       <Route path="/dashboard/domains">
         <ProtectedRoute component={DomainFinder} />
       </Route>
@@ -94,6 +105,32 @@ function Router() {
        <Route path="/dashboard/cold-calling">
         <ProtectedRoute component={ColdCalling} />
       </Route>
+      {/* ── Recruit mode routes ── */}
+      <Route path="/dashboard/recruit">
+        <ProtectedRoute component={RecruitDashboard} />
+      </Route>
+      <Route path="/dashboard/recruit/clients">
+        <ProtectedRoute component={Clients} />
+      </Route>
+      <Route path="/dashboard/recruit/roles/:id">
+        <ProtectedRoute component={RoleWorkspace} />
+      </Route>
+      <Route path="/dashboard/recruit/roles">
+        <ProtectedRoute component={Roles} />
+      </Route>
+      <Route path="/dashboard/recruit/candidates">
+        <ProtectedRoute component={Candidates} />
+      </Route>
+      <Route path="/dashboard/recruit/outreach">
+        <ProtectedRoute component={RecruitOutreach} />
+      </Route>
+      <Route path="/dashboard/recruit/inbox">
+        <ProtectedRoute component={RecruitInbox} />
+      </Route>
+      <Route path="/dashboard/recruit/settings">
+        <ProtectedRoute component={RecruitSettings} />
+      </Route>
+
       <Route component={NotFound} />
     </Switch>
   );

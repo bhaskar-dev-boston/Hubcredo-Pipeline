@@ -23,4 +23,6 @@ export interface Profile {
   created_at?: string | null;
   /** @nullable */
   updated_at?: string | null;
+  /** recruit-mode addition (manual) @nullable */
+  workspace_type?: 'sales' | 'recruit' | null;
 }

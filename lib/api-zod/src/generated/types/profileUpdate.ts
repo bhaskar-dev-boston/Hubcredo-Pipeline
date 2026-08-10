@@ -11,4 +11,5 @@ export interface ProfileUpdate {
   avatar_url?: string;
   onboarding_step?: string;
   onboarding_complete?: boolean;
+  
 }

@@ -26,6 +26,8 @@ export interface Profile {
   created_at?: string | null;
   /** @nullable */
   updated_at?: string | null;
+  /** recruit-mode addition (manual) @nullable */
+  workspace_type?: 'sales' | 'recruit' | null;
 }
 
 export interface ProfileUpdate {
@@ -33,6 +35,8 @@ export interface ProfileUpdate {
   avatar_url?: string;
   onboarding_step?: string;
   onboarding_complete?: boolean;
+  /** recruit-mode addition (manual) */
+  workspace_type?: 'sales' | 'recruit';
 }
 
 export interface CompanyAnalysis {

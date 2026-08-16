@@ -36,6 +36,8 @@ import RecruitOutreach from "@/pages/recruit/RecruitOutreach";
 import RecruitInbox from "@/pages/recruit/RecruitInbox";
 import RecruitSettings from "@/pages/recruit/RecruitSettings";
 
+import ApplyJobPage from "@/pages/ApplyJobPage";
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -52,6 +54,8 @@ function ProtectedRoute({ component: Component }: { component: ComponentType }) 
 function Router() {
   return (
     <Switch>
+
+      <Route path="/apply/job" component={ApplyJobPage} />
       <Route path="/" component={Landing} />
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />

@@ -48,12 +48,6 @@ const features = [
   { icon: Layers, eyebrow: "GTM stack", title: "Personalised tool stack", desc: "Get the exact tools, not a generic list. Configured for your stage and motion.", color: "#7c3aed", bg: "rgba(124,58,237,.1)" },
 ];
 
-const testimonials = [
-  { q: "We went from zero outbound to 40 qualified meetings in 6 weeks. HubCredo did what our agency couldn't do in 6 months.", name: "Zara Whitfield", role: "Founder, Loopcore", initials: "ZW", grad: "linear-gradient(135deg,#6366f1,#8b5cf6)", featured: false },
-  { q: "The ICP extraction alone saved me 3 weeks of workshopping. It just… works. We closed our first enterprise deal using HubCredo leads.", name: "Gabriel Park", role: "CEO, Stackrly", initials: "GP", grad: "linear-gradient(135deg,#ec4899,#f43f5e)", featured: true },
-  { q: "I've tried 6 different GTM agencies. HubCredo is the first thing that actually helped me build consistent pipeline as a solo founder.", name: "Felix Nguyen", role: "Founder, DataLoom", initials: "FN", grad: "linear-gradient(135deg,#0ea5e9,#06b6d4)", featured: false },
-];
-
 const stats = [
   { num: "30 min", label: "To a live sales stack" },
   { num: "5×",     label: "Faster than DIY setup" },
@@ -103,7 +97,6 @@ export default function Landing() {
             <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
               <a href="#steps" style={{ fontSize: ".86rem", fontWeight: 500, color: "rgba(255,255,255,.65)", textDecoration: "none" }}>How it works</a>
               <a href="#features" style={{ fontSize: ".86rem", fontWeight: 500, color: "rgba(255,255,255,.65)", textDecoration: "none" }}>Features</a>
-              <a href="#testimonials" style={{ fontSize: ".86rem", fontWeight: 500, color: "rgba(255,255,255,.65)", textDecoration: "none" }}>Customers</a>
             </div>
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -237,7 +230,11 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── HOW IT WORKS ── */}
+      {/* ── HOW IT WORKS ──
+          Each step is one grid row: [left card | center node | right card].
+          Only the cell matching the step's side renders a card — the other stays empty.
+          This keeps every card level with its own numbered node, regardless of
+          content height, instead of relying on hand-tuned margin offsets. */}
       <section id="steps" style={{ background: "#fff", padding: "100px 0" }}>
         <div style={{ textAlign: "center", maxWidth: 600, margin: "0 auto 72px", padding: "0 5%" }}>
           <p style={S.eyebrow}>How it works</p>
@@ -271,60 +268,65 @@ export default function Landing() {
             ))}
           </div>
         ) : (
-          <div style={{ maxWidth: 1140, margin: "0 auto", padding: "0 5%", display: "grid", gridTemplateColumns: "1fr 60px 1fr", gap: "0 32px" }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-              {howItWorks.map((s, i) => (
-                s.side === "left" ? (
-                  <div key={s.n} style={{ ...S.card, textAlign: "right", marginBottom: 40, width: "100%", marginTop: i > 0 ? 140 : 0 }}
-                    onMouseOver={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 40px rgba(79,70,229,.08)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(79,70,229,.2)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
-                    onMouseOut={e => { (e.currentTarget as HTMLElement).style.boxShadow = "none"; (e.currentTarget as HTMLElement).style.borderColor = "#e3e8ef"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
-                  >
-                    <p style={{ ...S.eyebrow, textAlign: "right" }}>{s.eyebrow}</p>
-                    <h3 style={{ fontSize: "1.05rem", fontWeight: 700, color: "#0a2540", marginBottom: 10, lineHeight: 1.4 }}>{s.title}</h3>
-                    <p style={{ fontSize: ".87rem", lineHeight: 1.65, color: "rgba(10,37,64,.6)" }}>{s.desc}</p>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
-                      {s.badges.map(b => (
-                        <span key={b.name} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#f6f9fc", border: "1px solid #e3e8ef", borderRadius: 100, padding: "5px 12px", fontSize: ".73rem", fontWeight: 600, color: "rgba(10,37,64,.6)" }}>
-                          <span style={{ width: 8, height: 8, borderRadius: "50%", background: b.color, flexShrink: 0 }} />{b.name}
-                        </span>
-                      ))}
+          <div style={{ maxWidth: 1140, margin: "0 auto", padding: "0 5%", display: "flex", flexDirection: "column" }}>
+            {howItWorks.map((s, i) => (
+              <div key={s.n} style={{ display: "grid", gridTemplateColumns: "1fr 60px 1fr", alignItems: "center", gap: 32 }}>
+
+                {/* left cell */}
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  {s.side === "left" && (
+                    <div
+                      style={{ ...S.card, textAlign: "right", width: "100%" }}
+                      onMouseOver={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 40px rgba(79,70,229,.08)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(79,70,229,.2)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
+                      onMouseOut={e => { (e.currentTarget as HTMLElement).style.boxShadow = "none"; (e.currentTarget as HTMLElement).style.borderColor = "#e3e8ef"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
+                    >
+                      <p style={{ ...S.eyebrow, textAlign: "right" }}>{s.eyebrow}</p>
+                      <h3 style={{ fontSize: "1.05rem", fontWeight: 700, color: "#0a2540", marginBottom: 10, lineHeight: 1.4 }}>{s.title}</h3>
+                      <p style={{ fontSize: ".87rem", lineHeight: 1.65, color: "rgba(10,37,64,.6)" }}>{s.desc}</p>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
+                        {s.badges.map(b => (
+                          <span key={b.name} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#f6f9fc", border: "1px solid #e3e8ef", borderRadius: 100, padding: "5px 12px", fontSize: ".73rem", fontWeight: 600, color: "rgba(10,37,64,.6)" }}>
+                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: b.color, flexShrink: 0 }} />{b.name}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ) : <div key={s.n} style={{ marginBottom: 40, width: "100%", marginTop: i > 0 ? 140 : 0 }} />
-              ))}
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              {howItWorks.map((s, i) => (
-                <div key={s.n} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
-                  {i > 0 && <div style={{ width: 2, flex: 1, minHeight: 60, background: "linear-gradient(180deg,#4f46e5,#06b6d4)", borderRadius: 2 }} />}
-                  <div style={{ width: 44, height: 44, borderRadius: "50%", background: "linear-gradient(135deg,#4f46e5,#7c3aed)", border: "3px solid #091626", display: "flex", alignItems: "center", justifyContent: "center", fontSize: ".78rem", fontWeight: 800, color: "#fff", flexShrink: 0, boxShadow: "0 0 0 6px rgba(79,70,229,.14),0 4px 16px rgba(79,70,229,.4)", zIndex: 1, marginTop: i === 0 ? 130 : 0 }}>
+                  )}
+                </div>
+
+                {/* center: node + connecting line */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", height: "100%" }}>
+                  {i > 0 && <div style={{ width: 2, flex: 1, minHeight: 40, background: "linear-gradient(180deg,#4f46e5,#06b6d4)", borderRadius: 2 }} />}
+                  <div style={{ width: 44, height: 44, borderRadius: "50%", background: "linear-gradient(135deg,#4f46e5,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: ".78rem", fontWeight: 800, color: "#fff", flexShrink: 0, boxShadow: "0 0 0 6px rgba(79,70,229,.14),0 4px 16px rgba(79,70,229,.4)", margin: "24px 0" }}>
                     {s.n}
                   </div>
-                  <div style={{ width: 2, flex: 1, minHeight: 80, background: "linear-gradient(180deg,#7c3aed,#4f46e5)", borderRadius: 2 }} />
+                  {i < howItWorks.length - 1 && <div style={{ width: 2, flex: 1, minHeight: 40, background: "linear-gradient(180deg,#7c3aed,#4f46e5)", borderRadius: 2 }} />}
                 </div>
-              ))}
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-              {howItWorks.map((s, i) => (
-                s.side === "right" ? (
-                  <div key={s.n} style={{ ...S.card, marginBottom: 40, width: "100%", marginTop: i === 1 ? 140 : i > 1 ? 140 : 0 }}
-                    onMouseOver={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 40px rgba(79,70,229,.08)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(79,70,229,.2)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
-                    onMouseOut={e => { (e.currentTarget as HTMLElement).style.boxShadow = "none"; (e.currentTarget as HTMLElement).style.borderColor = "#e3e8ef"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
-                  >
-                    <p style={S.eyebrow}>{s.eyebrow}</p>
-                    <h3 style={{ fontSize: "1.05rem", fontWeight: 700, color: "#0a2540", marginBottom: 10, lineHeight: 1.4 }}>{s.title}</h3>
-                    <p style={{ fontSize: ".87rem", lineHeight: 1.65, color: "rgba(10,37,64,.6)" }}>{s.desc}</p>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16 }}>
-                      {s.badges.map(b => (
-                        <span key={b.name} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#f6f9fc", border: "1px solid #e3e8ef", borderRadius: 100, padding: "5px 12px", fontSize: ".73rem", fontWeight: 600, color: "rgba(10,37,64,.6)" }}>
-                          <span style={{ width: 8, height: 8, borderRadius: "50%", background: b.color, flexShrink: 0 }} />{b.name}
-                        </span>
-                      ))}
+
+                {/* right cell */}
+                <div>
+                  {s.side === "right" && (
+                    <div
+                      style={{ ...S.card, width: "100%" }}
+                      onMouseOver={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 40px rgba(79,70,229,.08)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(79,70,229,.2)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
+                      onMouseOut={e => { (e.currentTarget as HTMLElement).style.boxShadow = "none"; (e.currentTarget as HTMLElement).style.borderColor = "#e3e8ef"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
+                    >
+                      <p style={S.eyebrow}>{s.eyebrow}</p>
+                      <h3 style={{ fontSize: "1.05rem", fontWeight: 700, color: "#0a2540", marginBottom: 10, lineHeight: 1.4 }}>{s.title}</h3>
+                      <p style={{ fontSize: ".87rem", lineHeight: 1.65, color: "rgba(10,37,64,.6)" }}>{s.desc}</p>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16 }}>
+                        {s.badges.map(b => (
+                          <span key={b.name} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#f6f9fc", border: "1px solid #e3e8ef", borderRadius: 100, padding: "5px 12px", fontSize: ".73rem", fontWeight: 600, color: "rgba(10,37,64,.6)" }}>
+                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: b.color, flexShrink: 0 }} />{b.name}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ) : <div key={s.n} style={{ marginBottom: 40, width: "100%", marginTop: i === 0 ? 0 : 60 }} />
-              ))}
-            </div>
+                  )}
+                </div>
+
+              </div>
+            ))}
           </div>
         )}
       </section>
@@ -362,50 +364,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── STATS ── */}
-      <section style={{ background: "#05101f", position: "relative", overflow: "hidden", padding: isMobile ? "64px 5%" : "100px 5%" }}>
-        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 70% 80% at 50% 0%,rgba(79,70,229,.25) 0%,transparent 60%)" }} />
-        <div style={{ position: "relative", zIndex: 1, textAlign: "center", maxWidth: 1140, margin: "0 auto" }}>
-          <p style={{ ...S.eyebrow, color: "#818cf8" }}>By the numbers</p>
-          <h2 style={{ ...S.h2dark, marginTop: 14, marginBottom: 56 }}>Built for founders who move fast</h2>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", background: "rgba(255,255,255,.05)", borderRadius: 28, overflow: "hidden", border: "1px solid rgba(255,255,255,.06)" }}>
-            {stats.map((s, i) => (
-              <div key={s.label} style={{ padding: isMobile ? "32px 16px" : "44px 28px", textAlign: "center", borderRight: isMobile ? (i % 2 === 0 ? "1px solid rgba(255,255,255,.06)" : "none") : (i < 3 ? "1px solid rgba(255,255,255,.06)" : "none"), borderBottom: isMobile && i < 2 ? "1px solid rgba(255,255,255,.06)" : "none" }}>
-                <div style={{ fontSize: "clamp(1.8rem,4vw,3.2rem)", fontWeight: 900, letterSpacing: "-0.05em", lineHeight: 1, background: "linear-gradient(135deg,#e0e7ff,#c7d2fe 40%,#a5f3fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 10 }}>{s.num}</div>
-                <div style={{ fontSize: ".85rem", color: "rgba(255,255,255,.4)", lineHeight: 1.5 }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── TESTIMONIALS ── */}
-      <section id="testimonials" style={{ background: "#fff", padding: isMobile ? "64px 5%" : "100px 5%" }}>
-        <div style={{ maxWidth: 1140, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", maxWidth: 520, margin: "0 auto 56px" }}>
-            <p style={S.eyebrow}>Customer stories</p>
-            <h2 style={S.h2}>Founders building pipeline<br />with HubCredo</h2>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 18 }}>
-            {testimonials.map((t) => (
-              <div key={t.name} style={{ background: t.featured ? "linear-gradient(135deg,#0f172a,#1e1b4b)" : "#f6f9fc", border: t.featured ? "1px solid rgba(99,102,241,.2)" : "1px solid #e3e8ef", borderRadius: 18, padding: 28, transition: ".2s ease" }}
-                onMouseOver={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-3px)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 32px rgba(0,0,0,.07)"; }}
-                onMouseOut={e => { (e.currentTarget as HTMLElement).style.transform = "none"; (e.currentTarget as HTMLElement).style.boxShadow = "none"; }}
-              >
-                <div style={{ display: "flex", gap: 2, marginBottom: 16 }}>{"★★★★★".split("").map((s, i) => <span key={i} style={{ color: "#f59e0b", fontSize: ".85rem" }}>{s}</span>)}</div>
-                <p style={{ fontSize: ".9rem", lineHeight: 1.7, color: t.featured ? "rgba(255,255,255,.7)" : "rgba(10,37,64,.6)", marginBottom: 20 }}>"{t.q}"</p>
-                <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: t.grad, display: "flex", alignItems: "center", justifyContent: "center", fontSize: ".75rem", fontWeight: 700, color: "#fff", flexShrink: 0 }}>{t.initials}</div>
-                  <div>
-                    <p style={{ fontSize: ".85rem", fontWeight: 700, color: t.featured ? "#fff" : "#0a2540" }}>{t.name}</p>
-                    <p style={{ fontSize: ".75rem", color: t.featured ? "rgba(255,255,255,.35)" : "rgba(10,37,64,.3)", marginTop: 2 }}>{t.role}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* ── CTA ── */}
       <section style={{ background: "#05101f", position: "relative", overflow: "hidden", padding: isMobile ? "80px 5%" : "120px 5%", textAlign: "center" }}>
@@ -440,8 +398,7 @@ The best pipeline always does.
             <div>
               <h4 style={{ fontSize: ".7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "rgba(255,255,255,.25)", marginBottom: 16 }}>Product</h4>
               <a href="#steps" style={{ display: "block", fontSize: ".84rem", marginBottom: 10, color: "rgba(255,255,255,.4)", textDecoration: "none" }}>How it works</a>
-              <a href="#features" style={{ display: "block", fontSize: ".84rem", marginBottom: 10, color: "rgba(255,255,255,.4)", textDecoration: "none" }}>Features</a>
-              <a href="#testimonials" style={{ display: "block", fontSize: ".84rem", color: "rgba(255,255,255,.4)", textDecoration: "none" }}>Customers</a>
+              <a href="#features" style={{ display: "block", fontSize: ".84rem", color: "rgba(255,255,255,.4)", textDecoration: "none" }}>Features</a>
             </div>
             <div>
               <h4 style={{ fontSize: ".7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "rgba(255,255,255,.25)", marginBottom: 16 }}>Account</h4>

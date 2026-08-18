@@ -3,7 +3,7 @@ import React, { useState } from "react";
 // Route this at /apply/job in your router (App.tsx)
 // e.g. <Route path="/apply/job" component={ApplyJobPage} />
 
-const WEBHOOK_URL = "https://shreyahubcredo.app.n8n.cloud/webhook-test/apply-job";
+const WEBHOOK_URL = "https://shreyahubcredo.app.n8n.cloud/webhook/apply-job";
 
 const COUNTRY_CODES = [
   { code: "+91", flag: "🇮🇳" },

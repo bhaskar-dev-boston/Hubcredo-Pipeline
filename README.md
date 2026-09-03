@@ -2,7 +2,7 @@
 
 **Live Website:** [https://pipeline.hubcredo.com/](https://pipeline.hubcredo.com/)
 
-![HubCredo Homepage](1-hero.png)
+![HubCredo Homepage](1-hero.png.png)
 
 ## What is HubCredo?
 
@@ -40,7 +40,7 @@ HubCredo doesn't just find leads, it helps you **contact them**:
 ### Step 5: Track Everything From One Dashboard
 Every lead, every email, every LinkedIn message, and every reply is tracked in one clean, easy-to-read dashboard — so you always know exactly where your sales pipeline stands.
 
-![Dashboard](dashboard.png)
+![Dashboard](dashbord.png)
 
 ---
 
